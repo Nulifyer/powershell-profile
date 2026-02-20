@@ -12,6 +12,11 @@
 .PARAMETER Command
     Optional command to run in the container. Defaults to interactive zsh.
 
+.PARAMETER Port
+    One or more port mappings to forward from host to container (e.g. 8080:80).
+    A bare number (e.g. 8080) maps that port to the same port inside the container.
+    Can be specified multiple times or as a comma-separated list.
+
 .EXAMPLE
     wsl-tempcli-alpine
     # Launches interactive zsh in container
@@ -23,6 +28,14 @@
 .EXAMPLE
     wsl-tempcli-alpine -Command "python3 --version"
     # Runs a specific command
+
+.EXAMPLE
+    wsl-tempcli-alpine -p 8080:80
+    # Forward host port 8080 to container port 80
+
+.EXAMPLE
+    wsl-tempcli-alpine -p 8080:80,8443:443 -p 3000:3000
+    # Multiple mappings via comma and repeated flag
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +44,7 @@ $ErrorActionPreference = 'Stop'
 $Update = $false
 $Command = $null
 $Distro = $null
+$Ports = @()                                       # list of port mappings (host:container)
 $preArgs = $args
 $containerArgs = @()
 $argsIndex = $args.IndexOf('--')
@@ -40,23 +54,33 @@ if ($argsIndex -ge 0) {
     $Command = $containerArgs -join ' '
 }
 
-# Parse parameters from $preArgs
+# Parse parameters from $preArgs using a unix-style switch loop
 for ($i = 0; $i -lt $preArgs.Count; $i++) {
     $arg = $preArgs[$i]
-    switch -Regex ($arg) {
-        '^(-u|--update)$' { $Update = $true }
-        '^(-d|--distro)$' {
-            if ($i + 1 -lt $preArgs.Count) {
-                $Distro = $preArgs[$i + 1]
-                $i++
+    if ($arg -eq '--') { break }
+    elseif ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
+        $flag = $Matches.flag
+        switch ($flag) {
+            { $_ -in 'u', 'update' } { $Update = $true }
+            { $_ -in 'd', 'distro' } {
+                if ($Matches.val) { $Distro = $Matches.val }
+                elseif ($i + 1 -lt $preArgs.Count) { $Distro = $preArgs[++$i] }
+            }
+            { $_ -in 'c', 'command' } {
+                if ($Matches.val) { $Command = $Matches.val }
+                elseif ($i + 1 -lt $preArgs.Count) { $Command = $preArgs[++$i] }
+            }
+            { $_ -in 'p', 'port' } {
+                if ($Matches.val) { $Ports += $Matches.val -split ',' }
+                elseif ($i + 1 -lt $preArgs.Count) { $Ports += ($preArgs[++$i] -split ',') }
+            }
+            default {
+                Write-Error "Unknown option: $arg"
+                exit 1
             }
         }
-        '^(-c|--command)$' {
-            if ($i + 1 -lt $preArgs.Count) {
-                $Command = $preArgs[$i + 1]
-                $i++
-            }
-        }
+    } else {
+        # no positional args currently handled
     }
 }
 
@@ -205,8 +229,29 @@ $dockerArgs = @(
     '--hostname', "wsl-tempcli-$Distro"
     '-w', $wslPath
     '-v', "${drivePath}:/mnt/${driveLetter}:rw"
-    $imageName
 )
+
+# add any port mappings provided by user
+foreach ($p in $Ports) {
+    # trim whitespace just in case
+    $mapping = $p.Trim()
+    if (-not $mapping) { continue }
+
+    # if user just gave a number, map host:container to same port
+    if ($mapping -match '^[0-9]+$') {
+        $mapping = "${mapping}:${mapping}"
+    }
+
+    # validate simple port spec (host:container or host)
+    if ($mapping -notmatch '^[0-9]+(:[0-9]+)?$') {
+        Write-Warning "Skipping invalid port mapping: $mapping"
+        continue
+    }
+
+    $dockerArgs += '-p', "127.0.0.1:${mapping}"
+}
+
+$dockerArgs += $imageName
 
 # The entrypoint handles dropping to the runtime user.
 # Pass the command directly -- if a command was given, run it via zsh -c so
