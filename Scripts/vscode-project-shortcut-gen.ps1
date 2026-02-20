@@ -7,8 +7,8 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     if ($arg -eq '--') { break }
     elseif ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
         switch ($Matches.flag) {
-            'h' | 'help' { $help = $true }
-            'p' | 'projects' {
+            { $_ -in 'h', 'help' } { $help = $true }
+            { $_ -in 'p', 'projects' } {
                 if ($Matches.val) { $projectsFolder = $Matches.val }
                 elseif ($i + 1 -lt $args.Count) { $projectsFolder = $args[++$i] }
             }
