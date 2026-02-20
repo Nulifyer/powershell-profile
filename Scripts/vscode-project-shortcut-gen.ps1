@@ -1,7 +1,35 @@
+# manual argument parsing for unix-style flags
+$projectsFolder = "$HOME"
+$help = $false
+
+for ($i = 0; $i -lt $args.Count; $i++) {
+    $arg = $args[$i]
+    if ($arg -eq '--') { break }
+    elseif ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
+        switch ($Matches.flag) {
+            'h' | 'help' { $help = $true }
+            'p' | 'projects' {
+                if ($Matches.val) { $projectsFolder = $Matches.val }
+                elseif ($i + 1 -lt $args.Count) { $projectsFolder = $args[++$i] }
+            }
+            default {
+                Write-Error "Unknown option: $arg"
+                exit 1
+            }
+        }
+    }
+}
+
+if ($help) {
+    Write-Host "Usage: $(Split-Path -Leaf $MyInvocation.MyCommand.Name) [-p|--projects <path>] [--help]"
+    Write-Host "  -p, --projects   Root folder to scan (defaults to HOME)"
+    Write-Host "  -h, --help       Show this help"
+    exit 0
+}
+
 $start = Get-Date
 
 # My project folder
-$projectsFolder = "$HOME"
 
 # Define the Start Menu folder for VS Code project shortcuts
 $startMenuFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\VSCode Projects"

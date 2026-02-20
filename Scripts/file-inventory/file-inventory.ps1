@@ -18,26 +18,38 @@
     file-inventory C:\Logs *.log
 #>
 
-param(
-    [Parameter(Position = 0)]
-    [string]$Path,
+# manual parsing for unix-style flags
+$Path = $null
+$Filter = '*.*'
+$Raw = $false
+$NoColor = $false
+$h = $false
 
-    [Parameter(Position = 1)]
-    [string]$Filter = '*.*',
+# iterate through arguments
+for ($i = 0; $i -lt $args.Count; $i++) {
+    $arg = $args[$i]
+    if ($arg -eq '--') { break }
+    elseif ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
+        $flag = $Matches.flag
+        switch ($flag) {
+            'r' | 'raw' { $Raw = $true }
+            'nc' | 'no-color' { $NoColor = $true }
+            'h' | 'help' { $h = $true }
+            default {
+                Write-Error "Unknown option: $arg"
+                exit 1
+            }
+        }
+    } else {
+        if (-not $Path) { $Path = $arg }
+        elseif ($Filter -eq '*.*') { $Filter = $arg }
+    }
+}
 
-    [Alias('r')]
-    [switch]$Raw,
-
-    [Alias('nc')]
-    [switch]$NoColor,
-
-    [Alias('help')]
-    [switch]$h
-)
 
 if ($h -or -not $Path) {
     $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-    Write-Host "Usage: $scriptName <Path> [Filter] [-r|-Raw] [-nc|-NoColor]" -ForegroundColor Cyan
+    Write-Host "Usage: $scriptName <Path> [Filter] [-r|--raw] [-nc|--no-color]" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Get file count and total size for a directory."
     Write-Host ""
@@ -46,9 +58,9 @@ if ($h -or -not $Path) {
     Write-Host "  Filter    File filter (default: *.*)"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -r, -Raw      Output plain object for piping"
-    Write-Host "  -nc, -NoColor Disable colored output"
-    Write-Host "  -h, -Help     Show this help"
+    Write-Host "  -r, --raw       Output plain object for piping"
+    Write-Host "  -nc, --no-color Disable colored output"
+    Write-Host "  -h, --help      Show this help"
     Write-Host ""
     Write-Host "Examples:"
     Write-Host "  $scriptName C:\Logs"
