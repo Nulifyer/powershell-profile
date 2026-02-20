@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Launches a temporary Debian Docker container with the current directory mounted.
+    Launches a temporary Alpine Docker container with the current directory mounted.
 
 .DESCRIPTION
-    Builds and runs a Debian-based development container using a local Dockerfile.
-    The current directory is mounted to /app in the container.
+    Builds and runs an Alpine-based development container using a local Dockerfile.
+    The current directory is mounted to /mnt/c/... in the container (WSL-style).
 
 .PARAMETER Update
     Forces a rebuild of the Docker image.
@@ -13,35 +13,44 @@
     Optional command to run in the container. Defaults to interactive zsh.
 
 .EXAMPLE
-    wsl-tempcli-debian
+    wsl-tempcli-alpine
     # Launches interactive zsh in container
 
 .EXAMPLE
-    wsl-tempcli-debian --update
+    wsl-tempcli-alpine --update
     # Rebuilds the image and launches container
 
 .EXAMPLE
-    wsl-tempcli-debian -Command "python3 --version"
+    wsl-tempcli-alpine -Command "python3 --version"
     # Runs a specific command
 #>
 
 param(
     [Alias('u')]
     [switch]$Update,
+    [Alias('d')]
+    [string]$Distro = 'alpine',
     [Alias('c')]
     [string]$Command
+    
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Explicit paths - script location and Dockerfile
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$dockerfilePath = Join-Path $scriptDir 'Dockerfile'
-$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$dockerfilePath = Join-Path $scriptDir "$Distro.Dockerfile"
+
+if (-not (Test-Path $dockerfilePath)) {
+    Write-Host "Dockerfile not found for distro '$Distro' at path: $dockerfilePath" -ForegroundColor Red
+    Write-Host "Available Dockerfiles in ${scriptDir}:" -ForegroundColor Yellow
+    Get-ChildItem -Path $scriptDir -Filter "*.Dockerfile" | ForEach-Object { Write-Host "  " $_.Name.split('.')[0] -ForegroundColor Cyan }
+    exit 1
+}
 
 # Image naming: username/script-name:latest
 $username = $env:USERNAME.ToLower()
-$imageName = "${username}/${scriptName}:latest"
+$imageName = "localhost/${username}/wsl-tempcli:$Distro"
 
 # Parse base image from Dockerfile
 $baseImage = (Select-String -Path $dockerfilePath -Pattern '^FROM\s+(.+)$' | Select-Object -First 1).Matches.Groups[1].Value
