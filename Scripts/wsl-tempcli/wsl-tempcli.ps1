@@ -25,17 +25,43 @@
     # Runs a specific command
 #>
 
-param(
-    [Alias('u')]
-    [switch]$Update,
-    [Alias('d')]
-    [string]$Distro = 'alpine',
-    [Alias('c')]
-    [string]$Command
-    
-)
-
 $ErrorActionPreference = 'Stop'
+
+# Manual argument parsing to support --
+$Update = $false
+$Command = $null
+$Distro = $null
+$preArgs = $args
+$containerArgs = @()
+$argsIndex = $args.IndexOf('--')
+if ($argsIndex -ge 0) {
+    $preArgs = $args[0..($argsIndex - 1)]
+    $containerArgs = $args[($argsIndex + 1)..($args.Count - 1)]
+    $Command = $containerArgs -join ' '
+}
+
+# Parse parameters from $preArgs
+for ($i = 0; $i -lt $preArgs.Count; $i++) {
+    $arg = $preArgs[$i]
+    switch -Regex ($arg) {
+        '^(-u|--update)$' { $Update = $true }
+        '^(-d|--distro)$' {
+            if ($i + 1 -lt $preArgs.Count) {
+                $Distro = $preArgs[$i + 1]
+                $i++
+            }
+        }
+        '^(-c|--command)$' {
+            if ($i + 1 -lt $preArgs.Count) {
+                $Command = $preArgs[$i + 1]
+                $i++
+            }
+        }
+    }
+}
+
+# Default distro to 'alpine' if not specified
+if (-not $Distro) { $Distro = 'alpine' }
 
 # Explicit paths - script location and Dockerfile
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -88,49 +114,49 @@ function Get-ImageCreationDate {
 
 function Test-BaseImageOutdated {
     param([string]$LocalImage, [string]$BaseImage)
-    
+
     # Pull latest base image metadata without downloading layers
     Write-Host "Checking for base image updates..." -ForegroundColor DarkGray
-    
+
     # Get local base image digest
     $localDigest = & docker images --digests --format "{{.Digest}}" $BaseImage 2>&1
-    
+
     # Pull to check for updates (will be fast if up to date)
     $pullOutput = & docker pull $BaseImage 2>&1
-    
+
     if ($pullOutput -match "Status: Downloaded newer image" -or $pullOutput -match "Pull complete") {
         return $true
     }
-    
+
     # Also check if local image is older than base
     $localCreated = Get-ImageCreationDate $LocalImage
     $baseCreated = Get-ImageCreationDate $BaseImage
-    
+
     if ($localCreated -and $baseCreated -and $baseCreated -gt $localCreated) {
         return $true
     }
-    
+
     return $false
 }
 
 function Test-DockerfileModified {
     param([string]$Image, [string]$Dockerfile)
-    
+
     $imageCreated = Get-ImageCreationDate $Image
     if (-not $imageCreated) { return $false }
-    
+
     $dockerfileModified = (Get-Item $Dockerfile).LastWriteTime
     return $dockerfileModified -gt $imageCreated
 }
 
 function Build-Image {
     param([switch]$NoCache)
-    
+
     Write-Host "Building image: $imageName" -ForegroundColor Cyan
     $buildArgs = @('build', '-t', $imageName, '-f', $dockerfilePath)
     if ($NoCache) { $buildArgs += '--no-cache' }
     $buildArgs += $scriptDir
-    
+
     & docker @buildArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to build Docker image"
@@ -177,17 +203,20 @@ $dockerArgs = @(
     'run'
     '--rm'
     '-it'
+    '--hostname', "wsl-tempcli-$Distro"
     '-w', $wslPath
-    '-v', "${drivePath}:/mnt/${driveLetter}"
+    '-v', "${drivePath}:/mnt/${driveLetter}:rw"
     $imageName
 )
 
-# Add command if specified, otherwise default to zsh
+# The entrypoint handles dropping to the runtime user.
+# Pass the command directly -- if a command was given, run it via zsh -c so
+# aliases, PATH, and .zshrc are available. Otherwise default to interactive zsh.
 if ($Command) {
+    # Run the command and exit, mirroring WSL -- behavior.
     $dockerArgs += 'zsh', '-c', $Command
-} else {
-    $dockerArgs += 'zsh'
 }
+# No else needed -- CMD ["/bin/zsh"] in the Dockerfile is the default
 
 Write-Verbose ("docker {0}" -f ($dockerArgs -join ' '))
 & docker @dockerArgs

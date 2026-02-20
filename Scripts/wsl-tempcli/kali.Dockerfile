@@ -1,5 +1,6 @@
 FROM docker.io/kalilinux/kali-rolling:latest
 
+# ── System packages ────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     # Archive & Compression
     bzip2 \
@@ -45,10 +46,11 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     iotop \
     jq \
     lsof \
-    procps \
-    && rm -rf /var/lib/apt/lists/*
+    procps
 
-# Install Go from official source
+# ── Language runtimes ──────────────────────────────────────────────────────────
+
+# go language runtime
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 ENV PATH="/usr/local/go/bin:$PATH"
 
@@ -62,18 +64,19 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&
 ENV DOTNET_ROOT="/usr/share/dotnet"
 ENV PATH="$DOTNET_ROOT:$PATH"
 
+# Deno runtime
 ENV DENO_INSTALL="/deno"
 ENV PATH="$DENO_INSTALL/bin:$PATH"
 RUN curl -fsSL https://deno.land/x/install/install.sh | sh
 
-# Install oh-my-posh
-RUN curl -fsSL https://ohmyposh.dev/install.sh | bash -s
+# ── Shell environment ──────────────────────────────────────────────────────────
+ENV RUNTIME_SHELL=/bin/zsh
+
+RUN curl -fsSL https://ohmyposh.dev/install.sh | sh -s
 ENV PATH="/root/.local/bin:$PATH"
 
-# Copy theme file
 COPY catppuccin_mocha.omp.json /etc/oh-my-posh/catppuccin_mocha.omp.json
 
-# Configure zsh with completions and oh-my-posh
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /root/.zshrc && \
     echo 'export USERNAME=$(whoami)' >> /root/.zshrc && \
     echo 'export HOSTNAME=$(hostname)' >> /root/.zshrc && \
@@ -90,13 +93,15 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /root/.zshrc && \
     echo 'alias bat="batcat"' >> /root/.zshrc && \
     echo 'alias cat="batcat --paging=never"' >> /root/.zshrc
 
-# Create kali user with passwordless sudo
-RUN useradd -m -s /bin/zsh kali && \
-    echo 'kali ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/kali && \
-    cp /root/.zshrc /home/kali/.zshrc && \
-    mkdir -p /home/kali/.local/bin && \
-    cp -r /root/.local/bin/* /home/kali/.local/bin/ && \
-    chown -R kali:kali /home/kali
+# ── Runtime user ───────────────────────────────────────────────────────────────
+ENV RUNTIME_USER=kali
+ENV RUNTIME_GROUP=kali
+RUN useradd -m -s /bin/zsh $RUNTIME_USER && \
+    echo "$RUNTIME_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$RUNTIME_USER && \
+    cp /root/.zshrc /home/$RUNTIME_USER/.zshrc && \
+    mkdir -p /home/$RUNTIME_USER/.local/bin && \
+    cp -r /root/.local/bin/* /home/$RUNTIME_USER/.local/bin/ && \
+    chown -R $RUNTIME_USER:$RUNTIME_GROUP /home/$RUNTIME_USER
 
-USER kali
+# ── Entrypoint ─────────────────────────────────────────────────────────────────
 CMD ["/bin/zsh"]

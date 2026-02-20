@@ -1,5 +1,6 @@
 FROM docker.io/library/alpine:3
 
+# ── System packages ────────────────────────────────────────────────────────────
 RUN apk update && apk upgrade && apk add --no-cache \
     # Archive & Compression
     bzip2 \
@@ -48,7 +49,9 @@ RUN apk update && apk upgrade && apk add --no-cache \
     lsof \
     procps
 
-# Install Go from official source
+# ── Language runtimes ──────────────────────────────────────────────────────────
+
+# go language runtime
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 ENV PATH="/usr/local/go/bin:$PATH"
 
@@ -62,18 +65,19 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&
 ENV DOTNET_ROOT="/usr/share/dotnet"
 ENV PATH="$DOTNET_ROOT:$PATH"
 
+# Deno runtime
 ENV DENO_INSTALL="/deno"
 ENV PATH="$DENO_INSTALL/bin:$PATH"
 RUN curl -fsSL https://deno.land/x/install/install.sh | sh
 
-# Install oh-my-posh
+# ── Shell environment ──────────────────────────────────────────────────────────
+ENV RUNTIME_SHELL=/bin/zsh
+
 RUN curl -fsSL https://ohmyposh.dev/install.sh | sh -s
 ENV PATH="/root/.local/bin:$PATH"
 
-# Copy theme file
 COPY catppuccin_mocha.omp.json /etc/oh-my-posh/catppuccin_mocha.omp.json
 
-# Configure zsh with completions and oh-my-posh
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /root/.zshrc && \
     echo 'export USERNAME=$(whoami)' >> /root/.zshrc && \
     echo 'export HOSTNAME=$(hostname)' >> /root/.zshrc && \
@@ -89,13 +93,5 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /root/.zshrc && \
     echo 'alias tree="eza --tree --icons"' >> /root/.zshrc && \
     echo 'alias cat="bat --paging=never"' >> /root/.zshrc
 
-# Create alpine user with passwordless sudo
-RUN adduser -D -s /bin/zsh alpine && \
-    echo 'alpine ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/alpine && \
-    cp /root/.zshrc /home/alpine/.zshrc && \
-    mkdir -p /home/alpine/.local/bin && \
-    cp -r /root/.local/bin/* /home/alpine/.local/bin/ && \
-    chown -R alpine:alpine /home/alpine
-
-USER alpine
+# ── Entrypoint ─────────────────────────────────────────────────────────────────
 CMD ["/bin/zsh"]
