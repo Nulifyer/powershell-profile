@@ -1,0 +1,181 @@
+#═══════════════════════════════════════════════════════════════════════════════
+# Alacritty Configuration
+# Location: %APPDATA%\alacritty\alacritty.toml
+#═══════════════════════════════════════════════════════════════════════════════
+
+#───────────────────────────────────────────────────────────────────────────────
+# SHELL
+#───────────────────────────────────────────────────────────────────────────────
+
+[terminal]
+osc52 = "CopyPaste"
+
+[terminal.shell]
+program = "pwsh"
+args = ["-NoLogo"]
+
+#───────────────────────────────────────────────────────────────────────────────
+# WINDOW
+#───────────────────────────────────────────────────────────────────────────────
+
+[window]
+opacity = 0.95
+blur = true
+decorations = "Full"
+startup_mode = "Windowed"
+title = "Alacritty"
+dynamic_title = true
+
+[window.dimensions]
+columns = 120
+lines = 30
+
+[window.padding]
+x = 10
+y = 10
+
+#───────────────────────────────────────────────────────────────────────────────
+# FONT
+#───────────────────────────────────────────────────────────────────────────────
+
+[font]
+size = 11.0
+
+[font.normal]
+family = "CaskaydiaCove Nerd Font"
+style = "Regular"
+
+[font.bold]
+family = "CaskaydiaCove Nerd Font"
+style = "Bold"
+
+[font.italic]
+family = "CaskaydiaCove Nerd Font"
+style = "Italic"
+
+[font.bold_italic]
+family = "CaskaydiaCove Nerd Font"
+style = "Bold Italic"
+
+# Alternative fonts:
+# family = "FiraCode Nerd Font"
+# family = "JetBrainsMono Nerd Font"
+# family = "Consolas"
+
+#───────────────────────────────────────────────────────────────────────────────
+# CURSOR
+#───────────────────────────────────────────────────────────────────────────────
+
+[cursor.style]
+shape = "Block"
+blinking = "Off"
+
+[cursor]
+unfocused_hollow = true
+
+#──────────────────────────────────────────────────────────────────���────────────
+# SCROLLING
+#───────────────────────────────────────────────────────────────────────────────
+
+[scrolling]
+history = 10000
+multiplier = 3
+
+#───────────────────────────────────────────────────────────────────────────────
+# COLORS - Tokyo Night
+#───────────────────────────────────────────────────────────────────────────────
+
+[colors.primary]
+background = "#1a1b26"
+foreground = "#c0caf5"
+
+[colors.cursor]
+text = "#1a1b26"
+cursor = "#c0caf5"
+
+[colors.selection]
+text = "#c0caf5"
+background = "#33467c"
+
+[colors.normal]
+black   = "#15161e"
+red     = "#f7768e"
+green   = "#9ece6a"
+yellow  = "#e0af68"
+blue    = "#7aa2f7"
+magenta = "#bb9af7"
+cyan    = "#7dcfff"
+white   = "#a9b1d6"
+
+[colors.bright]
+black   = "#565f89"
+red     = "#f7768e"
+green   = "#9ece6a"
+yellow  = "#e0af68"
+blue    = "#7aa2f7"
+magenta = "#bb9af7"
+cyan    = "#7dcfff"
+white   = "#c0caf5"
+
+#───────────────────────────────────────────────────────────────────────────────
+# KEY BINDINGS
+#───────────────────────────────────────────────────────────────────────────────
+
+# Clipboard operations with Ctrl+Shift+C/V
+[[keyboard.bindings]]
+key = "C"
+mods = "Control|Shift"
+action = "Copy"
+
+[[keyboard.bindings]]
+key = "V"
+mods = "Control|Shift"
+action = "ReceiveChar"
+
+[[keyboard.bindings]]
+key = "V"
+mods = "Control"
+action = "ReceiveChar"
+
+# font size adjustments with Ctrl + Plus/Minus/0
+[[keyboard.bindings]]
+key = "Plus"
+mods = "Control"
+action = "IncreaseFontSize"
+
+[[keyboard.bindings]]
+key = "Minus"
+mods = "Control"
+action = "DecreaseFontSize"
+
+[[keyboard.bindings]]
+key = "Key0"
+mods = "Control"
+action = "ResetFontSize"
+
+# Word-by-word navigation with Ctrl+Left/Right
+[[keyboard.bindings]]
+key = "Left"
+mods = "Control"
+action = "ReceiveChar"
+
+[[keyboard.bindings]]
+key = "Right"
+mods = "Control"
+action = "ReceiveChar"
+
+[[keyboard.bindings]]
+key = "Backspace"
+mods = "Control"
+chars = "\u0008"
+
+[[keyboard.bindings]]
+key = "Delete"
+mods = "Control"
+action = "ReceiveChar"
+
+# other custom bindings can be added here
+[[keyboard.bindings]]
+key = "N"
+mods = "Control|Shift"
+action = "SpawnNewInstance"
