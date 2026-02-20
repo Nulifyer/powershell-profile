@@ -112,31 +112,30 @@ function Get-ImageCreationDate {
     return $null
 }
 
-function Test-BaseImageOutdated {
-    param([string]$LocalImage, [string]$BaseImage)
+function Pull-NewerImage {
+    param(
+        [string]$Image
+    )
 
-    # Pull latest base image metadata without downloading layers
-    Write-Host "Checking for base image updates..." -ForegroundColor DarkGray
+    Write-Host "Checking for image updates: $Image..." -ForegroundColor DarkGray -NoNewline
 
-    # Get local base image digest
-    $localDigest = & docker images --digests --format "{{.Digest}}" $BaseImage 2>&1
+    $pullOutput = & docker pull --policy "newer" $Image 2>&1
 
-    # Pull to check for updates (will be fast if up to date)
-    $pullOutput = & docker pull $BaseImage 2>&1
-
-    if ($pullOutput -match "Status: Downloaded newer image" -or $pullOutput -match "Pull complete") {
-        return $true
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "`r❌ Failed to pull image '$Image'.$((' ' * 20))" -ForegroundColor Red
+        return $false
     }
 
-    # Also check if local image is older than base
-    $localCreated = Get-ImageCreationDate $LocalImage
-    $baseCreated = Get-ImageCreationDate $BaseImage
+    $wasUpdated = $pullOutput | Select-String -Pattern "Downloaded newer image|Copying blob" -Quiet
 
-    if ($localCreated -and $baseCreated -and $baseCreated -gt $localCreated) {
+    if ($wasUpdated) {
+        Write-Host "`r🔄 Image '$Image' was updated.$((' ' * 20))" -ForegroundColor Yellow
         return $true
     }
-
-    return $false
+    else {
+        Write-Host "`r✅ Image '$Image' is already up to date.$((' ' * 20))" -ForegroundColor Green
+        return $false
+    }
 }
 
 function Test-DockerfileModified {
@@ -191,7 +190,7 @@ if ($Update) {
         Write-Warning "Dockerfile has been modified since image was built. Run with --update to rebuild."
     }
     # Check if base image is outdated
-    elseif (Test-BaseImageOutdated -LocalImage $imageName -BaseImage $baseImage) {
+    elseif (Pull-NewerImage -Image $baseImage) {
         Write-Warning "Base image ($baseImage) has been updated. Run with --update to rebuild."
     }
 }
