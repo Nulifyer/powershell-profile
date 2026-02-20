@@ -32,9 +32,9 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     elseif ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
         $flag = $Matches.flag
         switch ($flag) {
-            'r' | 'raw' { $Raw = $true }
-            'nc' | 'no-color' { $NoColor = $true }
-            'h' | 'help' { $h = $true }
+            { $_ -in 'r', 'raw' } { $Raw = $true }
+            { $_ -in 'nc', 'no-color' } { $NoColor = $true }
+            { $_ -in 'h', 'help' } { $h = $true }
             default {
                 Write-Error "Unknown option: $arg"
                 exit 1
