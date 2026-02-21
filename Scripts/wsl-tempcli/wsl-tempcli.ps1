@@ -40,40 +40,35 @@
 
 $ErrorActionPreference = 'Stop'
 
-# Manual argument parsing to support --
 $Update = $false
+$UpdateAll = $false
 $Command = $null
 $Distro = $null
-$Ports = @()                                       # list of port mappings (host:container)
-$preArgs = $args
-$containerArgs = @()
-$argsIndex = $args.IndexOf('--')
-if ($argsIndex -ge 0) {
-    $preArgs = $args[0..($argsIndex - 1)]
-    $containerArgs = $args[($argsIndex + 1)..($args.Count - 1)]
-    $Command = $containerArgs -join ' '
-}
+$Ports = @()
+$Help = $false
+$cliArgs = $args
 
-# Parse parameters from $preArgs using a unix-style switch loop
-for ($i = 0; $i -lt $preArgs.Count; $i++) {
-    $arg = $preArgs[$i]
-    if ($arg -eq '--') { break }
-    elseif ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
+# Parse parameters from $cliArgs using a unix-style switch loop
+for ($i = 0; $i -lt $cliArgs.Count; $i++) {
+    $arg = $cliArgs[$i]
+    if ($arg -match '^--?(?<flag>[^=]+)(=(?<val>.*))?$') {
         $flag = $Matches.flag
         switch ($flag) {
             { $_ -in 'u', 'update' } { $Update = $true }
+            { $_ -in 'ua', 'update-all' } { $UpdateAll = $true }
             { $_ -in 'd', 'distro' } {
                 if ($Matches.val) { $Distro = $Matches.val }
-                elseif ($i + 1 -lt $preArgs.Count) { $Distro = $preArgs[++$i] }
+                elseif ($i + 1 -lt $cliArgs.Count) { $Distro = $cliArgs[++$i] }
             }
             { $_ -in 'c', 'command' } {
                 if ($Matches.val) { $Command = $Matches.val }
-                elseif ($i + 1 -lt $preArgs.Count) { $Command = $preArgs[++$i] }
+                elseif ($i + 1 -lt $cliArgs.Count) { $Command = $cliArgs[++$i] }
             }
             { $_ -in 'p', 'port' } {
                 if ($Matches.val) { $Ports += $Matches.val -split ',' }
-                elseif ($i + 1 -lt $preArgs.Count) { $Ports += ($preArgs[++$i] -split ',') }
+                elseif ($i + 1 -lt $cliArgs.Count) { $Ports += ($cliArgs[++$i] -split ',') }
             }
+            { $_ -in 'h', 'help' } { $Help = $true }
             default {
                 Write-Error "Unknown option: $arg"
                 exit 1
@@ -87,23 +82,41 @@ for ($i = 0; $i -lt $preArgs.Count; $i++) {
 # Default distro to 'alpine' if not specified
 if (-not $Distro) { $Distro = 'alpine' }
 
+# Show help/usage if requested
+if ($Help) {
+    Write-Host "Usage: wsl-tempcli-alpine [options]" -ForegroundColor Cyan
+    Write-Host "Options:" -ForegroundColor Cyan
+    Write-Host "  -u, --update            Rebuild image for selected distro" -ForegroundColor Yellow
+    Write-Host "  -ua, --update-all       Rebuild images for all distros (all *.Dockerfile)" -ForegroundColor Yellow
+    Write-Host "  -d, --distro <name>     Choose distro (default: alpine)" -ForegroundColor Yellow
+    Write-Host "  -c, --command <cmd>     Command to run inside container (default: interactive zsh)" -ForegroundColor Yellow
+    Write-Host "  -p, --port <p[,p...]>   Port mappings (host:container or host)" -ForegroundColor Yellow
+    Write-Host "  -h, --help              Show this help and exit" -ForegroundColor Yellow
+    exit 0
+}
+
 # Explicit paths - script location and Dockerfile
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+# Prepare dockerfile path for single-distro operations (skipped for update-all)
 $dockerfilePath = Join-Path $scriptDir "$Distro.Dockerfile"
 
-if (-not (Test-Path $dockerfilePath)) {
-    Write-Host "Dockerfile not found for distro '$Distro' at path: $dockerfilePath" -ForegroundColor Red
-    Write-Host "Available Dockerfiles in ${scriptDir}:" -ForegroundColor Yellow
-    Get-ChildItem -Path $scriptDir -Filter "*.Dockerfile" | ForEach-Object { Write-Host "  " $_.Name.split('.')[0] -ForegroundColor Cyan }
-    exit 1
+if (-not $UpdateAll) {
+    if (-not (Test-Path $dockerfilePath)) {
+        Write-Host "Dockerfile not found for distro '$Distro' at path: $dockerfilePath" -ForegroundColor Red
+        Write-Host "Available Dockerfiles in ${scriptDir}:" -ForegroundColor Yellow
+        Get-ChildItem -Path $scriptDir -Filter "*.Dockerfile" | ForEach-Object { Write-Host "  " $_.Name.split('.')[0] -ForegroundColor Cyan }
+        exit 1
+    }
 }
 
 # Image naming: username/script-name:latest
 $username = $env:USERNAME.ToLower()
 $imageName = "localhost/${username}/wsl-tempcli:$Distro"
 
-# Parse base image from Dockerfile
-$baseImage = (Select-String -Path $dockerfilePath -Pattern '^FROM\s+(.+)$' | Select-Object -First 1).Matches.Groups[1].Value
+# Parse base image from Dockerfile for single-distro flows
+if (-not $UpdateAll) {
+    $baseImage = (Select-String -Path $dockerfilePath -Pattern '^FROM\s+(.+)$' | Select-Object -First 1).Matches.Groups[1].Value
+}
 
 # Convert Windows path to WSL-style path (C:\Users\foo -> /mnt/c/Users/foo)
 $currentPath = (Get-Location).Path
@@ -138,26 +151,35 @@ function Get-ImageCreationDate {
 
 function Pull-NewerImage {
     param(
-        [string]$Image
+        [string]$Image,
+        [switch]$Quiet = $false
     )
 
-    Write-Host "Checking for image updates: $Image..." -ForegroundColor DarkGray -NoNewline
+    if (-not $Quiet) {
+        Write-Host "Checking for updates to base image '$Image'..." -ForegroundColor Cyan
+    }
 
     $pullOutput = & docker pull --policy "newer" $Image 2>&1
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "`r❌ Failed to pull image '$Image'.$((' ' * 20))" -ForegroundColor Red
+        if (-not $Quiet) {
+            Write-Host "`r❌ Failed to pull image '$Image'.$((' ' * 20))" -ForegroundColor Red
+        }
         return $false
     }
 
     $wasUpdated = $pullOutput | Select-String -Pattern "Downloaded newer image|Copying blob" -Quiet
 
     if ($wasUpdated) {
-        Write-Host "`r🔄 Image '$Image' was updated.$((' ' * 20))" -ForegroundColor Yellow
+        if (-not $Quiet) {
+            Write-Host "`r🔄 Image '$Image' was updated.$((' ' * 20))" -ForegroundColor Yellow
+        }
         return $true
     }
     else {
-        Write-Host "`r✅ Image '$Image' is already up to date.$((' ' * 20))" -ForegroundColor Green
+        if (-not $Quiet) {
+            Write-Host "`r✅ Image '$Image' is already up to date.$((' ' * 20))" -ForegroundColor Green
+        }
         return $false
     }
 }
@@ -173,16 +195,21 @@ function Test-DockerfileModified {
 }
 
 function Build-Image {
-    param([switch]$NoCache)
+    param(
+        [Parameter(Mandatory=$true)][string]$Image,
+        [Parameter(Mandatory=$true)][string]$Dockerfile,
+        [Parameter(Mandatory=$true)][string]$BuildContext,
+        [switch]$NoCache
+    )
 
-    Write-Host "Building image: $imageName" -ForegroundColor Cyan
-    $buildArgs = @('build', '-t', $imageName, '-f', $dockerfilePath)
+    Write-Host "Building image: $Image" -ForegroundColor Cyan
+    $buildArgs = @('build', '-t', $Image, '-f', $Dockerfile)
     if ($NoCache) { $buildArgs += '--no-cache' }
-    $buildArgs += $scriptDir
+    $buildArgs += $BuildContext
 
     & docker @buildArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to build Docker image"
+        throw "Failed to build Docker image: $Image"
     }
 }
 
@@ -190,6 +217,28 @@ function Build-Image {
 if (-not (Test-DockerAvailable)) {
     Write-Error "Docker is not available. Please ensure Docker or Podman is running."
     exit 1
+}
+
+# Handle update-all: iterate all Dockerfiles and rebuild images
+if ($UpdateAll) {
+    Write-Host "Updating all distros in $scriptDir..." -ForegroundColor Yellow
+    $username_local = $env:USERNAME.ToLower()
+    $dockerfiles = Get-ChildItem -Path $scriptDir -Filter "*.Dockerfile"
+    foreach ($df in $dockerfiles) {
+        $distroName = $df.BaseName
+        $dfPath = $df.FullName
+        $img = "localhost/${username_local}/wsl-tempcli:$distroName"
+        $base = (Select-String -Path $dfPath -Pattern '^FROM\s+(.+)$' | Select-Object -First 1).Matches.Groups[1].Value
+        Write-Host "\n---\nUpdating distro: $distroName (base: $base)" -ForegroundColor Cyan
+        try {
+            & docker pull $base
+        } catch {
+            Write-Warning "Failed to pull base image: $base"
+        }
+        Build-Image -Image $img -Dockerfile $dfPath -BuildContext $scriptDir -NoCache
+    }
+    Write-Host "Update-all complete." -ForegroundColor Green
+    exit 0
 }
 
 # Verify Dockerfile exists
@@ -204,17 +253,19 @@ $imageExists = Test-ImageExists $imageName
 if ($Update) {
     Write-Host "Updating base image and rebuilding..." -ForegroundColor Yellow
     & docker pull $baseImage
-    Build-Image -NoCache
+    Build-Image -Image $imageName -Dockerfile $dockerfilePath -BuildContext $scriptDir -NoCache
 } elseif (-not $imageExists) {
     Write-Host "Image not found. Building for first time..." -ForegroundColor Yellow
-    Build-Image -NoCache
+    Build-Image -Image $imageName -Dockerfile $dockerfilePath -BuildContext $scriptDir -NoCache
 } else {
-    # Check if Dockerfile was modified
+    $quiet = $false
+    if ($Command) { $quiet = $true }
+
     if (Test-DockerfileModified -Image $imageName -Dockerfile $dockerfilePath) {
         Write-Warning "Dockerfile has been modified since image was built. Run with --update to rebuild."
     }
     # Check if base image is outdated
-    elseif (Pull-NewerImage -Image $baseImage) {
+    elseif (Pull-NewerImage -Image $baseImage -Quiet $quiet) {
         Write-Warning "Base image ($baseImage) has been updated. Run with --update to rebuild."
     }
 }
@@ -222,14 +273,12 @@ if ($Update) {
 # Build docker run arguments
 # Mount full drive using Windows path format (C:\)
 $drivePath = "${driveLetter}:\"
-$dockerArgs = @(
-    'run'
-    '--rm'
-    '-it'
-    '--hostname', "wsl-tempcli-$Distro"
-    '-w', $wslPath
-    '-v', "${drivePath}:/mnt/${driveLetter}:rw"
-)
+$dockerArgs = @('run', '--rm')
+
+# Only allocate a TTY and keep STDIN open when no explicit command was supplied
+if (-not $Command) { $dockerArgs += '-it' }
+
+$dockerArgs += '--hostname', "wsl-tempcli-$Distro", '-w', $wslPath, '-v', "${drivePath}:/mnt/${driveLetter}:rw"
 
 # add any port mappings provided by user
 foreach ($p in $Ports) {
@@ -254,13 +303,12 @@ foreach ($p in $Ports) {
 $dockerArgs += $imageName
 
 # The entrypoint handles dropping to the runtime user.
-# Pass the command directly -- if a command was given, run it via zsh -c so
+# Pass the command directly -c if a command was given
 # aliases, PATH, and .zshrc are available. Otherwise default to interactive zsh.
 if ($Command) {
     # Run the command and exit, mirroring WSL -- behavior.
     $dockerArgs += 'zsh', '-c', $Command
 }
-# No else needed -- CMD ["/bin/zsh"] in the Dockerfile is the default
 
 Write-Verbose ("docker {0}" -f ($dockerArgs -join ' '))
 & docker @dockerArgs
