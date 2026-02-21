@@ -53,7 +53,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
 
 # go language runtime
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -
-ENV PATH="/usr/local/go/bin:$PATH"
+ENV PATH="/usr/local/go/bin:/root/go/bin:$PATH"
 
 # Install .NET SDKs (8, 9, 10)
 RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && \
