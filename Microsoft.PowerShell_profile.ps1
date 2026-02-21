@@ -146,6 +146,39 @@ Set-Alias -Name clear       -Value Clear-Host
 Set-Alias -Name docker      -Value podman
 
 #───────────────────────────────────────────────────────────────────────────────
+# PODMAN/DOCKER TAB COMPLETION
+#───────────────────────────────────────────────────────────────────────────────
+
+if (Get-Command podman -ErrorAction SilentlyContinue) {
+    $podmanCompletion = "$HOME\Documents\PowerShell\Completions\podman-completion.ps1"
+    $parentDir = Split-Path $podmanCompletion
+    if (-not (Test-Path $parentDir)) {
+        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
+    if (-not (Test-Path $podmanCompletion)) {
+        podman completion powershell > $podmanCompletion | Out-Null
+    }
+    if (Test-Path $podmanCompletion) {
+        . $podmanCompletion
+    }
+}
+
+$dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+if ($dockerCmd -and $dockerCmd.CommandType -ne 'Alias') {
+    $dockerCompletion = "$HOME\Documents\PowerShell\Completions\docker-completion.ps1"
+    $parentDir = Split-Path $dockerCompletion
+    if (-not (Test-Path $parentDir)) {
+        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
+    if (-not (Test-Path $dockerCompletion)) {
+        docker completion powershell > $dockerCompletion | Out-Null
+    }
+    if (Test-Path $dockerCompletion) {
+        . $dockerCompletion
+    }
+}
+
+#───────────────────────────────────────────────────────────────────────────────
 # ENHANCED TOOLS (eza, bat)
 #───────────────────────────────────────────────────────────────────────────────
 
