@@ -3,11 +3,34 @@
 #═══════════════════════════════════════════════════════════════════════════════
 
 $profileLoadStart = Get-Date
+$profileCache = "$env:TEMP\pwsh-profile"
+if (-not (Test-Path $profileCache)) { New-Item -ItemType Directory -Path $profileCache -Force | Out-Null }
 
 #───────────────────────────────────────────────────────────────────────────────
 # ENVIRONMENT & PATHS
 #───────────────────────────────────────────────────────────────────────────────
 
+# make sure to load user path
+try {
+    $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+
+    if (-not $systemPath) {
+        Write-Warning "PROFILE: Could not load system PATH from registry"
+    }
+    if (-not $userPath) {
+        Write-Warning "PROFILE: Could not load user PATH from registry"
+    }
+
+    # Merge, deduplicate, and filter empty entries
+    $mergedPath = ($systemPath + ";" + $userPath) -split ";" |
+        Where-Object { $_ -ne "" } |
+        Select-Object -Unique
+
+    $env:PATH = $mergedPath -join ";"
+} catch {
+    Write-Warning "PROFILE: Failed to load PATH from registry - $_"
+}
 # Default to Home if launched in System32
 $sys32 = Join-Path $env:windir 'System32'
 if ($PWD.ProviderPath -ieq $sys32) {
@@ -15,18 +38,21 @@ if ($PWD.ProviderPath -ieq $sys32) {
 }
 
 # Git binaries path (for Unix utilities)
-$GitUsrBin = Join-Path (Split-Path (Split-Path (Get-Command git).Source -Parent) -Parent) "usr\bin"
+$GitUsrBin = "$env:ProgramFiles\Git\usr\bin"
+if (Test-Path $GitUsrBin) { $env:PATH += ";$GitUsrBin" }
 
-# Auto-detect WinGet installed tools (fd, ripgrep)
+# Auto-detect WinGet installed tools (fd, ripgrep) — cached to avoid slow recursive scan
 $WinGetPackages = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages"
+$wingetCache = "$profileCache\winget-tool-paths.txt"
 if (Test-Path $WinGetPackages) {
-    $fdExe = Get-ChildItem -Path $WinGetPackages -Recurse -Filter "fd.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($fdExe) { $env:PATH += ";" + $fdExe.DirectoryName }
-    
-    $rgExe = Get-ChildItem -Path $WinGetPackages -Recurse -Filter "rg.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($rgExe) { $env:PATH += ";" + $rgExe.DirectoryName }
+    if (-not (Test-Path $wingetCache)) {
+        $paths = Get-ChildItem -Path $WinGetPackages -Recurse -Include "fd.exe","rg.exe" -ErrorAction SilentlyContinue |
+            Select-Object -Unique DirectoryName |
+            ForEach-Object { $_.DirectoryName }
+        Set-Content $wingetCache -Value $paths  # always creates the file, even if empty
+    }
+    Get-Content $wingetCache | Where-Object { $_ } | ForEach-Object { $env:PATH += ";$_" }
 }
-
 #───────────────────────────────────────────────────────────────────────────────
 # LOAD SCRIPTS AS ALIASES
 #───────────────────────────────────────────────────────────────────────────────
@@ -38,13 +64,20 @@ if (Test-Path $scriptsFolder) {
         Set-Alias -Name $aliasName -Value $_.FullName
     }
 }
-
 #───────────────────────────────────────────────────────────────────────────────
 # PROMPT
 #───────────────────────────────────────────────────────────────────────────────
 
-oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\catppuccin_mocha.omp.json" | Invoke-Expression
-
+$ompCmd = Get-Command oh-my-posh -ErrorAction SilentlyContinue
+if ($ompCmd) {
+    $ompTheme = "catppuccin_mocha"
+    $ompMtime = (Get-Item $ompCmd.Source).LastWriteTime.ToString("yyyyMMddHHmmss")
+    $ompCache = "$profileCache\omp-${ompTheme}-${ompMtime}.ps1"
+    if (-not (Test-Path $ompCache)) {
+        oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\${ompTheme}.omp.json" | Set-Content $ompCache -Encoding UTF8
+    }
+    . $ompCache
+}
 #───────────────────────────────────────────────────────────────────────────────
 # PSREADLINE CONFIGURATION
 #───────────────────────────────────────────────────────────────────────────────
@@ -162,7 +195,6 @@ if (Get-Command podman -ErrorAction SilentlyContinue) {
         . $podmanCompletion
     }
 }
-
 $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
 if ($dockerCmd -and $dockerCmd.CommandType -ne 'Alias') {
     $dockerCompletion = "$HOME\Documents\PowerShell\Completions\docker-completion.ps1"
@@ -177,7 +209,6 @@ if ($dockerCmd -and $dockerCmd.CommandType -ne 'Alias') {
         . $dockerCompletion
     }
 }
-
 #───────────────────────────────────────────────────────────────────────────────
 # ENHANCED TOOLS (eza, bat)
 #───────────────────────────────────────────────────────────────────────────────
@@ -204,8 +235,8 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 # FUNCTIONS - File Operations
 #───────────────────────────────────────────────────────────────────────────────
 
-function pwd { 
-    (Get-Location).Path 
+function pwd {
+    (Get-Location).Path
 }
 
 function touch {
@@ -240,7 +271,7 @@ function find {
         [Parameter(Position=0)][string]$Path = ".",
         [Alias("name")][string]$Filter = "*"
     )
-    Get-ChildItem -Path $Path -Recurse -Filter $Filter -ErrorAction SilentlyContinue | 
+    Get-ChildItem -Path $Path -Recurse -Filter $Filter -ErrorAction SilentlyContinue |
         Select-Object -ExpandProperty FullName
 }
 
@@ -265,8 +296,8 @@ function whoami  { $env:USERNAME }
 function hostname { $env:COMPUTERNAME }
 
 function df {
-    Get-PSDrive -PSProvider FileSystem | 
-        Select-Object Name, 
+    Get-PSDrive -PSProvider FileSystem |
+        Select-Object Name,
             @{N='Used(GB)';E={[math]::Round($_.Used/1GB,2)}},
             @{N='Free(GB)';E={[math]::Round($_.Free/1GB,2)}},
             @{N='Total(GB)';E={[math]::Round(($_.Used+$_.Free)/1GB,2)}},
@@ -275,8 +306,8 @@ function df {
 
 function du {
     param([string]$Path = ".")
-    Get-ChildItem $Path -Recurse -ErrorAction SilentlyContinue | 
-        Measure-Object -Property Length -Sum | 
+    Get-ChildItem $Path -Recurse -ErrorAction SilentlyContinue |
+        Measure-Object -Property Length -Sum |
         Select-Object @{N='Size(MB)';E={[math]::Round($_.Sum/1MB,2)}}, Count
 }
 
@@ -285,8 +316,8 @@ function du {
 #───────────────────────────────────────────────────────────────────────────────
 
 function psl {
-    Get-Process | Select-Object Id, ProcessName, CPU, 
-        @{N='Mem(MB)';E={[math]::Round($_.WorkingSet64/1MB,2)}} | 
+    Get-Process | Select-Object Id, ProcessName, CPU,
+        @{N='Mem(MB)';E={[math]::Round($_.WorkingSet64/1MB,2)}} |
         Sort-Object -Property 'Mem(MB)' -Descending
 }
 

@@ -42,25 +42,20 @@ y = 10
 size = 11.0
 
 [font.normal]
-family = "CaskaydiaCove Nerd Font"
+family = "CaskaydiaMono NF"
 style = "Regular"
 
 [font.bold]
-family = "CaskaydiaCove Nerd Font"
+family = "CaskaydiaMono NF"
 style = "Bold"
 
 [font.italic]
-family = "CaskaydiaCove Nerd Font"
+family = "CaskaydiaMono NF"
 style = "Italic"
 
 [font.bold_italic]
-family = "CaskaydiaCove Nerd Font"
+family = "CaskaydiaMono NF"
 style = "Bold Italic"
-
-# Alternative fonts:
-# family = "FiraCode Nerd Font"
-# family = "JetBrainsMono Nerd Font"
-# family = "Consolas"
 
 #───────────────────────────────────────────────────────────────────────────────
 # CURSOR
