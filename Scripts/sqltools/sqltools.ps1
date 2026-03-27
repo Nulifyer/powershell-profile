@@ -2,12 +2,12 @@
 #.ALIAS sql
 <#
 .SYNOPSIS
-    Interactive SQL TUI — terminal-native SQL Server client.
+    Interactive SQL TUI — terminal-native database client.
 
 .DESCRIPTION
     Browse databases, tables, columns. Run queries with scrollable results.
     Build SELECTs visually with fzf column picker. Export to CSV.
-    Supports Windows auth and SQL auth with encrypted password storage.
+    Supports SQL Server (Windows/SQL auth), SQLite, and ODBC connections.
 #>
 
 . "$PSScriptRoot\..\ScriptUtils.ps1"
@@ -121,8 +121,8 @@ Resolve-Connection
 if ($parsed.File) {
     if (-not (Test-Path $parsed.File)) { Write-Error "File not found: $($parsed.File)"; exit 1 }
     $sql = Get-Content $parsed.File -Raw
-    # Split on GO batch separator
-    $batches = $sql -split '(?mi)^\s*GO\s*$' | Where-Object { $_.Trim() }
+    # Split on GO batch separator (SQL Server only)
+    $batches = if ($script:activeDriver -eq 'sqlite') { @($sql) } else { $sql -split '(?mi)^\s*GO\s*$' | Where-Object { $_.Trim() } }
     foreach ($batch in $batches) {
         $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $batch -User $User -Password $Password
         if ($parsed.Raw) {
@@ -166,20 +166,14 @@ try {
         Clear-Host
         Write-Host ""
         $drvLabel = if ($script:activeDriver -ne 'mssql') { "[$($script:activeDriver)] " } else { "" }
-        $authLabel = if ($User) { $User } else { 'Windows Auth' }
-        Write-StatusBar "  SQL: ${drvLabel}$Server / $Database" "$authLabel  "
+        $authLabel = if ($script:activeDriver -eq 'sqlite') { 'local' } elseif ($User) { $User } else { 'Windows Auth' }
+        $serverLabel = if ($script:activeDriver -eq 'sqlite') { [System.IO.Path]::GetFileName($Database) } else { "$Server / $Database" }
+        Write-StatusBar "  SQL: ${drvLabel}$serverLabel" "$authLabel  "
         Write-Host ""
 
-        $actions = @(
-            "  Run Query",
-            "  SELECT Builder",
-            "  Query History",
-            "  Browse Tables",
-            "  Browse Objects",
-            "  Switch Database",
-            "  Switch Connection",
-            "  Exit"
-        )
+        $actions = @("  Run Query", "  SELECT Builder", "  Query History", "  Browse Tables", "  Browse Objects")
+        if ($script:activeDriver -ne 'sqlite') { $actions += "  Switch Database" }
+        $actions += @("  Switch Connection", "  Exit")
 
         $action = Invoke-Fzf -Items $actions -Header "$Server / $Database" -Prompt "Action > " -HeightPercent 50
         if (-not $action) { Exit-AltScreen; exit 0 }
@@ -246,11 +240,12 @@ try {
                         $type = if ($_.TABLE_TYPE -eq 'VIEW') { "[VIEW]" } else { "[TABLE]" }
                         "$($type.PadRight(8)) $($_.TableName)"
                     }
-                    $sel = Invoke-Fzf -Items $tableLines -Header "Tables in $Database (select to preview TOP 100)" -Prompt "Table > " -HeightPercent 80
+                    $sel = Invoke-Fzf -Items $tableLines -Header "Tables in $Database (select to preview 100 rows)" -Prompt "Table > " -HeightPercent 80
                     if ($sel) {
                         $tableName = ($sel -replace '^\[.*?\]\s+', '').Trim()
                         Write-Host "  $($c.dim)Loading $tableName...$($c.reset)"
-                        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT TOP 100 * FROM $tableName" -User $User -Password $Password
+                        $previewQuery = if ($script:activeDriver -eq 'sqlite') { "SELECT * FROM [$tableName] LIMIT 100" } else { "SELECT TOP 100 * FROM $tableName" }
+                        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $previewQuery -User $User -Password $Password
                         Show-ResultsInLess -Tables $tables
                         Show-PostResultActions -Tables $tables
                     }
@@ -261,7 +256,9 @@ try {
             }
             "*Browse Objects*" {
                 try {
-                    $objType = Invoke-Fzf -Items @("Tables", "Views", "Stored Procedures", "Functions") -Header "Object type" -Prompt "Browse > " -HeightPercent 30
+                    $objTypes = @("Tables", "Views")
+                    if ($script:activeDriver -ne 'sqlite') { $objTypes += @("Stored Procedures", "Functions") }
+                    $objType = Invoke-Fzf -Items $objTypes -Header "Object type" -Prompt "Browse > " -HeightPercent 30
                     if (-not $objType) { continue }
 
                     $objName = $null
@@ -306,7 +303,8 @@ try {
                                 $colLines | less -R
                             }
                             "Preview Data (TOP 100)" {
-                                $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT TOP 100 * FROM $objName" -User $User -Password $Password
+                                $previewQuery = if ($script:activeDriver -eq 'sqlite') { "SELECT * FROM [$objName] LIMIT 100" } else { "SELECT TOP 100 * FROM $objName" }
+                                $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $previewQuery -User $User -Password $Password
                                 Show-ResultsInLess -Tables $tables
                                 Show-PostResultActions -Tables $tables
                             }

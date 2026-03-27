@@ -58,12 +58,22 @@ function Show-SelectBuilder {
     }
 
     # Step 7: Build query
-    $colList = ($selectedNames | ForEach-Object { "[$_]" }) -join ", "
+    $quote = if ($script:activeDriver -eq 'sqlite') { '"' } else { '' }
+    $quoteL = if ($script:activeDriver -ne 'sqlite') { '[' } else { '"' }
+    $quoteR = if ($script:activeDriver -ne 'sqlite') { ']' } else { '"' }
+    $colList = ($selectedNames | ForEach-Object { "${quoteL}${_}${quoteR}" }) -join ", "
     $query = "SELECT"
-    if ($topN) { $query += " TOP $topN" }
-    $query += " $colList FROM $tableName"
-    if ($where) { $query += " WHERE $where" }
-    if ($orderBy) { $query += " ORDER BY $orderBy" }
+    if ($script:activeDriver -eq 'sqlite') {
+        $query += " $colList FROM $tableName"
+        if ($where) { $query += " WHERE $where" }
+        if ($orderBy) { $query += " ORDER BY $orderBy" }
+        if ($topN) { $query += " LIMIT $topN" }
+    } else {
+        if ($topN) { $query += " TOP $topN" }
+        $query += " $colList FROM $tableName"
+        if ($where) { $query += " WHERE $where" }
+        if ($orderBy) { $query += " ORDER BY $orderBy" }
+    }
 
     # Step 8: Preview and confirm
     Write-Host ""

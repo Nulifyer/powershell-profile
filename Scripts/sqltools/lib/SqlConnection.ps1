@@ -11,9 +11,35 @@ try {
 
 # Driver types
 $script:DriverTypes = @{
-    'mssql' = 'Microsoft SQL Server (SqlClient)'
-    'odbc'  = 'ODBC (FreeTDS, Sybase, etc.)'
-    'dsn'   = 'ODBC DSN (pre-configured)'
+    'mssql'  = 'Microsoft SQL Server (SqlClient)'
+    'odbc'   = 'ODBC (FreeTDS, Sybase, etc.)'
+    'dsn'    = 'ODBC DSN (pre-configured)'
+    'sqlite' = 'SQLite (file-based)'
+}
+
+# Load Microsoft.Data.Sqlite if available
+$script:SqliteAvailable = $false
+try {
+    Add-Type -Path (Join-Path ([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory()) 'Microsoft.Data.Sqlite.dll') -ErrorAction Stop
+    $script:SqliteAvailable = $true
+} catch {
+    try {
+        $null = [Microsoft.Data.Sqlite.SqliteConnection]
+        $script:SqliteAvailable = $true
+    } catch {}
+}
+if (-not $script:SqliteAvailable) {
+    # Try loading via the NuGet package if installed
+    $sqlitePkg = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.data.sqlite" -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+    if ($sqlitePkg) {
+        $sqliteDll = Get-ChildItem $sqlitePkg.FullName -Recurse -Filter 'Microsoft.Data.Sqlite.dll' | Select-Object -First 1
+        if ($sqliteDll) {
+            try {
+                Add-Type -Path $sqliteDll.FullName -ErrorAction Stop
+                $script:SqliteAvailable = $true
+            } catch {}
+        }
+    }
 }
 
 function Build-ConnString {
@@ -26,6 +52,9 @@ function Build-ConnString {
     )
 
     switch ($Driver) {
+        'sqlite' {
+            return "Data Source=$Database"
+        }
         'odbc' {
             $odbcDrv = if ($OdbcDriver) { $OdbcDriver } else { 'FreeTDS' }
             $p = if ($Port) { $Port } else { 5000 }
@@ -55,6 +84,9 @@ function Build-ConnString {
 function New-DbConnection {
     param([string]$ConnectionString, [string]$Driver = 'mssql')
 
+    if ($Driver -eq 'sqlite') {
+        return [Microsoft.Data.Sqlite.SqliteConnection]::new($ConnectionString)
+    }
     if ($Driver -in 'odbc', 'dsn') {
         return [System.Data.Odbc.OdbcConnection]::new($ConnectionString)
     }
@@ -67,6 +99,10 @@ function New-DbConnection {
 function New-DbDataAdapter {
     param($Command, [string]$Driver = 'mssql')
 
+    if ($Driver -eq 'sqlite') {
+        # Microsoft.Data.Sqlite has no DataAdapter — return $null and handle in Invoke-SqlQuery
+        return $null
+    }
     if ($Driver -in 'odbc', 'dsn') {
         return [System.Data.Odbc.OdbcDataAdapter]::new($Command)
     }
@@ -74,6 +110,31 @@ function New-DbDataAdapter {
         return [Microsoft.Data.SqlClient.SqlDataAdapter]::new($Command)
     }
     return [System.Data.SqlClient.SqlDataAdapter]::new($Command)
+}
+
+function Invoke-SqliteReaderToDataSet {
+    param($Command)
+    $ds = New-Object System.Data.DataSet
+    $reader = $Command.ExecuteReader()
+    try {
+        do {
+            $table = New-Object System.Data.DataTable
+            for ($i = 0; $i -lt $reader.FieldCount; $i++) {
+                $table.Columns.Add($reader.GetName($i), [object]) | Out-Null
+            }
+            while ($reader.Read()) {
+                $row = $table.NewRow()
+                for ($i = 0; $i -lt $reader.FieldCount; $i++) {
+                    $row[$i] = if ($reader.IsDBNull($i)) { [DBNull]::Value } else { $reader.GetValue($i) }
+                }
+                $table.Rows.Add($row)
+            }
+            $ds.Tables.Add($table)
+        } while ($reader.NextResult())
+    } finally {
+        $reader.Close()
+    }
+    return $ds
 }
 
 # Keep old names as wrappers for backward compat within the codebase

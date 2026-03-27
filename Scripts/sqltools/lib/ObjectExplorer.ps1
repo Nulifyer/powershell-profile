@@ -2,36 +2,65 @@
 
 function Get-Databases {
     param([string]$Server, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        # SQLite is single-database; return the filename
+        return @([System.IO.Path]::GetFileName($Server))
+    }
     $tables = Invoke-SqlQuery -Server $Server -Database "master" -Query "SELECT name FROM sys.databases WHERE state_desc = 'ONLINE' ORDER BY name" -User $User -Password $Password
     $tables[0] | ForEach-Object { $_.name }
 }
 
 function Get-Tables {
     param([string]$Server, [string]$Database, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT name AS TableName, 'BASE TABLE' AS TABLE_TYPE FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name" -User $User -Password $Password
+        return $tables[0] | ForEach-Object { $_ }
+    }
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS TableName, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES ORDER BY TABLE_SCHEMA, TABLE_NAME" -User $User -Password $Password
     $tables[0] | ForEach-Object { $_ }
 }
 
 function Get-Views {
     param([string]$Server, [string]$Database, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT name AS ViewName FROM sqlite_master WHERE type='view' ORDER BY name" -User $User -Password $Password
+        return $tables[0] | ForEach-Object { $_.ViewName }
+    }
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS ViewName FROM INFORMATION_SCHEMA.VIEWS ORDER BY TABLE_SCHEMA, TABLE_NAME" -User $User -Password $Password
     $tables[0] | ForEach-Object { $_.ViewName }
 }
 
 function Get-StoredProcedures {
     param([string]$Server, [string]$Database, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') { return @() }
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT ROUTINE_SCHEMA + '.' + ROUTINE_NAME AS ProcName FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE' ORDER BY ROUTINE_SCHEMA, ROUTINE_NAME" -User $User -Password $Password
     $tables[0] | ForEach-Object { $_.ProcName }
 }
 
 function Get-Functions {
     param([string]$Server, [string]$Database, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') { return @() }
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT ROUTINE_SCHEMA + '.' + ROUTINE_NAME AS FuncName FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'FUNCTION' ORDER BY ROUTINE_SCHEMA, ROUTINE_NAME" -User $User -Password $Password
     $tables[0] | ForEach-Object { $_.FuncName }
 }
 
 function Get-ColumnsDetailed {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        $tbl = ($Table -split '\.', 2)[-1]  # strip schema if present
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA table_info('$tbl')" -User $User -Password $Password
+        return $tables[0] | ForEach-Object {
+            @{
+                COLUMN_NAME              = $_.name
+                DATA_TYPE                = if ($_.type) { $_.type } else { 'any' }
+                CHARACTER_MAXIMUM_LENGTH = [DBNull]::Value
+                NUMERIC_PRECISION        = [DBNull]::Value
+                NUMERIC_SCALE            = [DBNull]::Value
+                IS_NULLABLE              = if ($_.notnull -eq 1) { 'NO' } else { 'YES' }
+                IsPK                     = if ($_.pk -ge 1) { 'PK' } else { '' }
+            }
+        }
+    }
     $schema, $tbl = $Table -split '\.', 2
     $q = @"
 SELECT c.COLUMN_NAME, c.DATA_TYPE,
@@ -56,6 +85,11 @@ ORDER BY c.ORDINAL_POSITION
 
 function Get-TableRowCount {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        $tbl = ($Table -split '\.', 2)[-1]
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT COUNT(*) AS RowCount FROM [$tbl]" -User $User -Password $Password
+        return $tables[0].Rows[0].RowCount
+    }
     $schema, $tbl = $Table -split '\.', 2
     $q = "SELECT SUM(p.rows) AS RowCount FROM sys.partitions p JOIN sys.tables t ON p.object_id = t.object_id JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = '$schema' AND t.name = '$tbl' AND p.index_id IN (0,1)"
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $q -User $User -Password $Password
@@ -64,6 +98,22 @@ function Get-TableRowCount {
 
 function Get-Indexes {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        $tbl = ($Table -split '\.', 2)[-1]
+        $idxList = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA index_list('$tbl')" -User $User -Password $Password
+        $results = @()
+        foreach ($idx in $idxList[0]) {
+            $idxInfo = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA index_info('$($idx.name)')" -User $User -Password $Password
+            $cols = ($idxInfo[0] | ForEach-Object { $_.name }) -join ', '
+            $results += @{
+                IndexName = $idx.name
+                Type      = if ($idx.unique -eq 1) { 'UQ' } else { 'IX' }
+                IndexType = if ($idx.origin -eq 'pk') { 'PRIMARY KEY' } else { 'NONCLUSTERED' }
+                Columns   = $cols
+            }
+        }
+        return $results
+    }
     $schema, $tbl = $Table -split '\.', 2
     $q = @"
 SELECT i.name AS IndexName,
@@ -87,6 +137,19 @@ ORDER BY i.is_primary_key DESC, i.name
 
 function Get-ForeignKeys {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
+    if ($script:activeDriver -eq 'sqlite') {
+        $tbl = ($Table -split '\.', 2)[-1]
+        $fkList = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA foreign_key_list('$tbl')" -User $User -Password $Password
+        return $fkList[0] | ForEach-Object {
+            @{
+                FK_Name    = "fk_$($_.id)"
+                FromTable  = $tbl
+                FromColumn = $_.from
+                ToTable    = $_.table
+                ToColumn   = $_.to
+            }
+        }
+    }
     $schema, $tbl = $Table -split '\.', 2
     $q = @"
 SELECT fk.name AS FK_Name,

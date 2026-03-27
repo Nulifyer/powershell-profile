@@ -52,7 +52,7 @@ function Save-Bookmark {
             OdbcDriver        = $OdbcDriver
             Port              = $Port
             Dsn               = $Dsn
-            Label             = "${driverTag}${authLabel}$Server/$Database"
+            Label             = if ($Driver -eq 'sqlite') { "[sqlite] $([System.IO.Path]::GetFileName($Database))" } else { "${driverTag}${authLabel}$Server/$Database" }
         }
         Save-Bookmarks $bookmarks
     }
@@ -113,11 +113,16 @@ function Show-ConnectionPicker {
         Write-Host ""
 
         # Pick driver type
-        $driverChoice = Invoke-Fzf -Items @(
+        $driverItems = @(
             "Microsoft SQL Server",
+            "SQLite (file-based)",
             "ODBC (FreeTDS / Sybase / Other)",
             "ODBC DSN (pre-configured)"
-        ) -Header "Connection type" -Prompt "Type > " -HeightPercent 30
+        )
+        if (-not $script:SqliteAvailable) {
+            $driverItems = $driverItems | Where-Object { $_ -notlike "*SQLite*" }
+        }
+        $driverChoice = Invoke-Fzf -Items $driverItems -Header "Connection type" -Prompt "Type > " -HeightPercent 30
 
         if (-not $driverChoice) { return $null }
 
@@ -125,6 +130,7 @@ function Show-ConnectionPicker {
 
         switch -Wildcard ($driverChoice) {
             "*SQL Server*" { $drv = 'mssql' }
+            "*SQLite*" { $drv = 'sqlite' }
             "*FreeTDS*" {
                 $drv = 'odbc'
                 $odbcDrv = Show-OdbcDriverPicker
@@ -149,15 +155,25 @@ function Show-ConnectionPicker {
             }
         }
 
-        $srv = $null
-        if ($drv -ne 'dsn') {
+        $srv = $null; $db = $null
+        if ($drv -eq 'sqlite') {
+            $dbPath = Read-Host "  Database file path"
+            if (-not $dbPath) { return $null }
+            $dbPath = [System.IO.Path]::GetFullPath($dbPath)
+            # For SQLite, Server is the full path (used in Build-ConnString via Database param)
+            # Database is also the full path so Build-ConnString gets it correctly
+            $srv = $dbPath
+            $db = $dbPath
+        } elseif ($drv -ne 'dsn') {
             $srv = Read-Host "  Server (host or host\instance)"
             if (-not $srv) { return $null }
         }
 
         # Auth
         $usr = $null; $pwd = $null
-        if ($drv -eq 'mssql') {
+        if ($drv -eq 'sqlite') {
+            # No auth for SQLite
+        } elseif ($drv -eq 'mssql') {
             $authChoice = Invoke-Fzf -Items @("Windows Authentication", "SQL Authentication") -Header "Auth method" -Prompt "Auth > " -HeightPercent 30
             if ($authChoice -eq "SQL Authentication") {
                 $usr = Read-Host "  Username"
@@ -174,17 +190,19 @@ function Show-ConnectionPicker {
         $script:activePort = $port
         $script:activeDsn = $dsn
 
-        # Try to list databases
-        $db = $null
-        Write-Host "  $($script:c.dim)Fetching databases...$($script:c.reset)"
-        try {
-            $dbs = Get-Databases -Server $srv -User $usr -Password $pwd
-            $db = Invoke-Fzf -Items $dbs -Header "Select database" -Prompt "Database > "
-        } catch {
-            Write-Host "  $($script:c.yellow)Could not list databases, enter manually.$($script:c.reset)"
-            $db = Read-Host "  Database"
+        if ($drv -ne 'sqlite') {
+            # Try to list databases
+            $db = $null
+            Write-Host "  $($script:c.dim)Fetching databases...$($script:c.reset)"
+            try {
+                $dbs = Get-Databases -Server $srv -User $usr -Password $pwd
+                $db = Invoke-Fzf -Items $dbs -Header "Select database" -Prompt "Database > "
+            } catch {
+                Write-Host "  $($script:c.yellow)Could not list databases, enter manually.$($script:c.reset)"
+                $db = Read-Host "  Database"
+            }
+            if (-not $db) { return $null }
         }
-        if (-not $db) { return $null }
 
         # Save password prompt
         $savePass = $false

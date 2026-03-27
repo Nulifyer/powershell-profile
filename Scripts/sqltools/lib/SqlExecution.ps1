@@ -14,9 +14,13 @@ function Invoke-SqlQuery {
     $adapter = $null
     try {
         $conn.Open()
-        $adapter = New-SqlDataAdapter -Command $cmd
-        $ds = New-Object System.Data.DataSet
-        $adapter.Fill($ds) | Out-Null
+        if ($script:activeDriver -eq 'sqlite') {
+            $ds = Invoke-SqliteReaderToDataSet -Command $cmd
+        } else {
+            $adapter = New-SqlDataAdapter -Command $cmd
+            $ds = New-Object System.Data.DataSet
+            $adapter.Fill($ds) | Out-Null
+        }
         return , @($ds.Tables)
     } finally {
         if ($adapter) { $adapter.Dispose() }
