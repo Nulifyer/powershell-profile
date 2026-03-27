@@ -17,8 +17,8 @@ $runUpdateCheck = $false
 if (-not (Test-Path $updateCheckFile)) {
     $runUpdateCheck = $true
 } else {
-    $lastCheck = $null
-    if ([datetime]::TryParseExact((Get-Content $updateCheckFile -Raw).Trim(), 'yyyy-MM-dd', $null, [System.Globalization.DateTimeStyles]::None, [ref]$lastCheck)) {
+    [datetime]$lastCheck = [datetime]::MinValue
+    if ([datetime]::TryParseExact((Get-Content $updateCheckFile -Raw).Trim(), 'yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$lastCheck)) {
         if (((Get-Date) - $lastCheck).TotalDays -gt $updateInterval) { $runUpdateCheck = $true }
     } else {
         $runUpdateCheck = $true
@@ -207,13 +207,28 @@ if (Test-Path $scriptsFolder) {
 
 $ompCmd = Get-Command oh-my-posh -ErrorAction SilentlyContinue
 if ($ompCmd) {
-    $ompTheme = "catppuccin_mocha"
     $ompMtime = (Get-Item $ompCmd.Source).LastWriteTime.ToString("yyyyMMddHHmmss")
-    $ompCache = "$profileCache\omp-${ompTheme}-${ompMtime}.ps1"
+    $ompThemeFile = "$PSScriptRoot\omp-theme.json"
+    $ompCache = "$profileCache\omp-custom-${ompMtime}.ps1"
+
+    # Generate theme if missing (default palette: gruvbox)
+    if (-not (Test-Path $ompThemeFile)) {
+        & "$HOME\Documents\PowerShell\Scripts\theme.ps1" gruvbox
+    }
+
     if (-not (Test-Path $ompCache)) {
-        oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\${ompTheme}.omp.json" | Set-Content $ompCache -Encoding UTF8
+        oh-my-posh init pwsh --config $ompThemeFile | Set-Content $ompCache -Encoding UTF8
     }
     . $ompCache
+
+    # Restore saved terminal background color via OSC 11
+    $configPath = Join-Path $env:USERPROFILE '.config\scriptutils\config.json'
+    if (Test-Path $configPath) {
+        try {
+            $savedBg = (Get-Content $configPath -Raw | ConvertFrom-Json -AsHashtable).theme.bg
+            if ($savedBg) { Write-Host "`e]11;$savedBg`e\" -NoNewline }
+        } catch {}
+    }
 }
 #───────────────────────────────────────────────────────────────────────────────
 # PSREADLINE CONFIGURATION

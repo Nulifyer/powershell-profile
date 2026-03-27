@@ -1,48 +1,46 @@
 {
-    "schemes":
-    [
-        {
-            "name": "Tokyo Night",
-            "background": "#1a1b26",
-            "foreground": "#c0caf5",
-            "cursorColor": "#c0caf5",
-            "selectionBackground": "#33467c",
-            "black": "#15161e",
-            "red": "#f7768e",
-            "green": "#9ece6a",
-            "yellow": "#e0af68",
-            "blue": "#7aa2f7",
-            "purple": "#bb9af7",
-            "cyan": "#7dcfff",
-            "white": "#a9b1d6",
-            "brightBlack": "#565f89",
-            "brightRed": "#f7768e",
-            "brightGreen": "#9ece6a",
-            "brightYellow": "#e0af68",
-            "brightBlue": "#7aa2f7",
-            "brightPurple": "#bb9af7",
-            "brightCyan": "#7dcfff",
-            "brightWhite": "#c0caf5"
-        }
-    ],
-    "profiles":
-    [
-        {
-            "guid": "{f1a2b3c4-d5e6-4f78-9a0b-1c2d3e4f5a6b}",
-            "name": "Nulifyer's Profile",
-            "commandline": "pwsh.exe -NoLogo",
-            "colorScheme": "Tokyo Night",
-            "cursorShape": "filledBox",
-            "font":
-            {
-                "face": "CaskaydiaMono NF",
-                "size": 11
-            },
-            "opacity": 100,
-            "useAcrylic": false,
-            "padding": "10",
-            "scrollbarState": "hidden",
-            "historySize": 10000
-        }
-    ]
+  "schemes": [
+    {
+      "name": "Tokyo Night",
+      "background": "#1a1b26",
+      "foreground": "#c0caf5",
+      "cursorColor": "#c0caf5",
+      "selectionBackground": "#33467c",
+      "black": "#15161e",
+      "red": "#f7768e",
+      "green": "#9ece6a",
+      "yellow": "#e0af68",
+      "blue": "#7aa2f7",
+      "purple": "#bb9af7",
+      "cyan": "#7dcfff",
+      "white": "#a9b1d6",
+      "brightBlack": "#565f89",
+      "brightRed": "#f7768e",
+      "brightGreen": "#9ece6a",
+      "brightYellow": "#e0af68",
+      "brightBlue": "#7aa2f7",
+      "brightPurple": "#bb9af7",
+      "brightCyan": "#7dcfff",
+      "brightWhite": "#c0caf5"
+    }
+  ],
+  "profiles": [
+    {
+      "guid": "{f1a2b3c4-d5e6-4f78-9a0b-1c2d3e4f5a6b}",
+      "name": "Nulifyer's Profile",
+      "commandline": "pwsh.exe -NoLogo",
+      "colorScheme": "Tokyo Night",
+      "cursorShape": "filledBox",
+      "font": {
+        "face": "CaskaydiaMono NF",
+        "size": 11
+      },
+      "opacity": 95,
+      "useAcrylic": true,
+      "padding": "10",
+      "scrollbarState": "hidden",
+      "historySize": 10000,
+      "background": "#1D2021"
+    }
+  ]
 }
