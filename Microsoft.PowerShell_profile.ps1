@@ -67,10 +67,10 @@ try {
         Write-Warning "PROFILE: Could not load user PATH from registry"
     }
 
-    # Merge, deduplicate, and filter empty entries
+    # Merge, deduplicate (case-insensitive), and filter empty entries
     $mergedPath = ($systemPath + ";" + $userPath) -split ";" |
         Where-Object { $_ -ne "" } |
-        Select-Object -Unique
+        Sort-Object -Unique -Property { $_.ToLower() }
 
     $env:PATH = $mergedPath -join ";"
 } catch {
@@ -82,9 +82,16 @@ if ($PWD.ProviderPath -ieq $sys32) {
     Set-Location $HOME
 }
 
+# Helper to avoid duplicate PATH entries on re-source
+function Add-PathEntry([string]$Dir) {
+    if ($Dir -and (Test-Path $Dir) -and ($env:PATH -split ';' | ForEach-Object { $_.TrimEnd('\') }) -notcontains $Dir.TrimEnd('\')) {
+        $env:PATH += ";$Dir"
+    }
+}
+
 # Git binaries path (for Unix utilities)
 $GitUsrBin = "$env:ProgramFiles\Git\usr\bin"
-if (Test-Path $GitUsrBin) { $env:PATH += ";$GitUsrBin" }
+Add-PathEntry $GitUsrBin
 
 # Auto-detect WinGet installed tools — targeted by package ID
 $WinGetPackages = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages"
@@ -108,7 +115,7 @@ if (Test-Path $WinGetPackages) {
         $pkgDir = Get-ChildItem $WinGetPackages -Directory -Filter "$($_.Key)_*" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($pkgDir) {
             $exe = Get-ChildItem $pkgDir.FullName -Depth 1 -Filter $_.Value -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($exe) { $env:PATH += ";$($exe.DirectoryName)" }
+            if ($exe) { Add-PathEntry $exe.DirectoryName }
         }
     }
 }
@@ -172,7 +179,7 @@ Set-PSReadLineKeyHandler -Key End -Function AcceptSuggestion
 Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 
 # Paste behavior - multiline without auto-execution
-Set-PSReadLineKeyHandler -Key Ctrl+v -ScriptBlock {
+$pasteBlock = {
     Add-Type -AssemblyName System.Windows.Forms
     $text = [System.Windows.Forms.Clipboard]::GetText()
     if ($text) {
@@ -181,15 +188,8 @@ Set-PSReadLineKeyHandler -Key Ctrl+v -ScriptBlock {
         [Microsoft.PowerShell.PSConsoleReadLine]::Insert($text)
     }
 }
-
-Set-PSReadLineKeyHandler -Key Ctrl+Shift+v -ScriptBlock {
-    Add-Type -AssemblyName System.Windows.Forms
-    $text = [System.Windows.Forms.Clipboard]::GetText()
-    if ($text) {
-        $text = $text -replace "`r`n", "`n" -replace "`r", "`n"
-        [Microsoft.PowerShell.PSConsoleReadLine]::Insert($text)
-    }
-}
+Set-PSReadLineKeyHandler -Key Ctrl+v -ScriptBlock $pasteBlock
+Set-PSReadLineKeyHandler -Key Ctrl+Shift+v -ScriptBlock $pasteBlock
 
 # Linux-style keybindings
 Set-PSReadLineKeyHandler -Key Ctrl+l -Function ClearScreen
@@ -243,8 +243,6 @@ Set-Alias -Name Ssh         -Value "$GitUsrBin\ssh.exe"
 #───────────────────────────────────────────────────────────────────────────────
 
 Set-Alias -Name which       -Value Get-Command
-Set-Alias -Name ll          -Value Get-ChildItem
-Set-Alias -Name la          -Value Get-ChildItem
 Set-Alias -Name clear       -Value Clear-Host
 Set-Alias -Name docker      -Value podman
 
@@ -283,16 +281,17 @@ if ($dockerCmd -and $dockerCmd.CommandType -ne 'Alias') {
 # ENHANCED TOOLS (eza, bat)
 #───────────────────────────────────────────────────────────────────────────────
 
-# ls with colors (using eza if installed)
+# ls with colors (using eza if installed, fallback to Get-ChildItem)
 if (Get-Command eza -ErrorAction SilentlyContinue) {
     Remove-Item Alias:ls   -ErrorAction SilentlyContinue
-    Remove-Item Alias:ll   -ErrorAction SilentlyContinue
-    Remove-Item Alias:la   -ErrorAction SilentlyContinue
     Remove-Item Alias:tree -ErrorAction SilentlyContinue
     function ls   { eza --icons --group-directories-first @args }
     function ll   { eza -l --icons --group-directories-first @args }
     function la   { eza -la --icons --group-directories-first @args }
     function tree { eza --tree --icons @args }
+} else {
+    Set-Alias -Name ll -Value Get-ChildItem
+    Set-Alias -Name la -Value Get-ChildItem
 }
 
 # cat with syntax highlighting (using bat if installed)
@@ -435,132 +434,7 @@ function watch {
     }
 }
 
-function file {
-    param([Parameter(Mandatory, Position=0)][string]$Path)
-    if (-not (Test-Path $Path)) { Write-Host "$Path`: cannot open (No such file or directory)"; return }
-    $item = Get-Item $Path -Force
-    if ($item.PSIsContainer) { Write-Host "$Path`: directory"; return }
-
-    $ext = $item.Extension.ToLower()
-    $size = $item.Length
-
-    # Read magic bytes
-    $magic = [byte[]]::new([Math]::Min(16, $size))
-    if ($size -gt 0) {
-        $stream = [System.IO.File]::OpenRead($item.FullName)
-        try { $stream.Read($magic, 0, $magic.Length) | Out-Null } finally { $stream.Close() }
-    }
-    $hex = ($magic | ForEach-Object { $_.ToString("X2") }) -join ''
-
-    # Identify by magic bytes
-    $type = switch -Wildcard ($hex) {
-        '89504E47*'       { "PNG image data" }
-        'FFD8FF*'         { "JPEG image data" }
-        '47494638*'       { "GIF image data" }
-        '52494646*'       {
-            $sub = [System.Text.Encoding]::ASCII.GetString($magic[8..11])
-            if ($sub -eq 'WEBP') { "WebP image data" }
-            elseif ($sub -eq 'AVI ') { "AVI video" }
-            elseif ($sub -eq 'WAVE') { "WAVE audio" }
-            else { "RIFF data" }
-        }
-        '504B0304*'       {
-            switch -Wildcard ($ext) {
-                '.docx'  { "Microsoft Word document (OOXML)" }
-                '.xlsx'  { "Microsoft Excel spreadsheet (OOXML)" }
-                '.pptx'  { "Microsoft PowerPoint presentation (OOXML)" }
-                '.jar'   { "Java archive (JAR)" }
-                '.apk'   { "Android application package" }
-                default  { "Zip archive data" }
-            }
-        }
-        '25504446*'       { "PDF document" }
-        '7F454C46*'       { "ELF executable" }
-        '4D5A*'           { "PE32 executable (Windows)" }
-        '1F8B*'           { "gzip compressed data" }
-        '425A68*'         { "bzip2 compressed data" }
-        'FD377A585A*'     { "XZ compressed data" }
-        '377ABCAF271C*'   { "7-zip archive data" }
-        '526172211A07*'   { "RAR archive data" }
-        '000001BA*'       { "MPEG video" }
-        '000001B3*'       { "MPEG video" }
-        '1A45DFA3*'       { "Matroska video (MKV/WebM)" }
-        '66747970*'       { "ISO Media (MP4/M4A/MOV)" }
-        '4F676753*'       { "Ogg data" }
-        '664C6143*'       { "FLAC audio" }
-        '494433*'         { "MP3 audio (ID3 tag)" }
-        'FFFB*'           { "MP3 audio" }
-        'FFF3*'           { "MP3 audio" }
-        '49492A00*'       { "TIFF image data (little-endian)" }
-        '4D4D002A*'       { "TIFF image data (big-endian)" }
-        '00000100*'       { "ICO image" }
-        '00000200*'       { "CUR cursor" }
-        '7B*'             { "JSON data" }
-        '3C3F786D6C*'     { "XML document" }
-        '3C21444F43*'     { "HTML document" }
-        '3C68746D6C*'     { "HTML document" }
-        'EFBBBF*'         { "UTF-8 text (with BOM)" }
-        'FFFE*'           { "UTF-16 text (little-endian BOM)" }
-        'FEFF*'           { "UTF-16 text (big-endian BOM)" }
-        'D0CF11E0A1B11AE1*' { "Microsoft Office document (OLE2)" }
-        '53514C697465*'   { "SQLite database" }
-        default           { $null }
-    }
-
-    # Fall back to extension-based or text detection
-    if (-not $type) {
-        if ($size -eq 0) {
-            $type = "empty"
-        } else {
-            # Check if it looks like text
-            $isText = $true
-            foreach ($b in $magic) {
-                if ($b -eq 0) { $isText = $false; break }
-            }
-            if ($isText) {
-                $type = switch -Wildcard ($ext) {
-                    '.ps1'    { "PowerShell script" }
-                    '.py'     { "Python script" }
-                    '.js'     { "JavaScript source" }
-                    '.ts'     { "TypeScript source" }
-                    '.cs'     { "C# source" }
-                    '.go'     { "Go source" }
-                    '.rs'     { "Rust source" }
-                    '.java'   { "Java source" }
-                    '.c'      { "C source" }
-                    '.cpp'    { "C++ source" }
-                    '.h'      { "C/C++ header" }
-                    '.sh'     { "shell script" }
-                    '.bat'    { "DOS batch file" }
-                    '.cmd'    { "Windows command script" }
-                    '.json'   { "JSON data" }
-                    '.xml'    { "XML document" }
-                    '.yaml'   { "YAML data" }
-                    '.yml'    { "YAML data" }
-                    '.toml'   { "TOML data" }
-                    '.ini'    { "INI configuration" }
-                    '.cfg'    { "configuration file" }
-                    '.conf'   { "configuration file" }
-                    '.md'     { "Markdown document" }
-                    '.txt'    { "ASCII text" }
-                    '.csv'    { "CSV text" }
-                    '.tsv'    { "TSV text" }
-                    '.log'    { "log file" }
-                    '.html'   { "HTML document" }
-                    '.htm'    { "HTML document" }
-                    '.css'    { "CSS stylesheet" }
-                    '.sql'    { "SQL script" }
-                    '.dockerfile' { "Dockerfile" }
-                    default   { "ASCII text" }
-                }
-            } else {
-                $type = "data"
-            }
-        }
-    }
-
-    Write-Host "$Path`: $type, $size bytes"
-}
+Set-Alias -Name file -Value "$GitUsrBin\file.exe"
 
 function source {
     param([Parameter(Mandatory)]$Path)
