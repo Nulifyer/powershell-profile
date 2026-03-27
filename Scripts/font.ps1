@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Lists installed Nerd Fonts, lets you pick one with fzf, then updates
-    the Windows Terminal fragment and Alacritty config.
+    all detected terminal configs (WT, Alacritty, Kitty, Ghostty, WezTerm).
 
 .EXAMPLE
     font                   # pick a font with fzf
@@ -59,16 +59,6 @@ if ($fonts.Count -eq 0) {
 # ── Current font ─────────────────────────────────────────────────────────────
 
 $currentFont = Get-ScriptConfig "font" "face"
-if (-not $currentFont) {
-    # Read from WT fragment as default
-    $fragmentPath = "$PSScriptRoot\..\windows-terminal-fragment.json"
-    if (Test-Path $fragmentPath) {
-        try {
-            $fragment = Get-Content $fragmentPath -Raw | ConvertFrom-Json
-            $currentFont = $fragment.profiles[0].font.face
-        } catch {}
-    }
-}
 if (-not $currentFont) { $currentFont = "CaskaydiaMono NF" }
 
 # ── Select font ──────────────────────────────────────────────────────────────

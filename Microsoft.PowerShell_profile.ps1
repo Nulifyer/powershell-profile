@@ -65,50 +65,7 @@ if ($runUpdateCheck) {
     }
 }
 
-#───────────────────────────────────────────────────────────────────────────────
-# CONFIG SYMLINKS (Alacritty, Windows Terminal)
-#───────────────────────────────────────────────────────────────────────────────
 
-$configLinks = @(
-    @{
-        Source = "$PSScriptRoot\alacritty.toml"
-        Target = "$env:APPDATA\alacritty\alacritty.toml"
-    },
-    @{
-        Source = "$PSScriptRoot\windows-terminal-fragment.json"
-        Target = "$env:LOCALAPPDATA\Microsoft\Windows Terminal\Fragments\powershell-profile\fragment.json"
-    }
-)
-foreach ($link in $configLinks) {
-    if (-not (Test-Path $link.Source)) { continue }
-    $needsCopy = $false
-    if (-not (Test-Path $link.Target)) {
-        $needsCopy = $true
-    } else {
-        # Copy again only if source has changed
-        $srcHash = (Get-FileHash $link.Source).Hash
-        $tgtHash = (Get-FileHash $link.Target).Hash
-        if ($srcHash -ne $tgtHash) { $needsCopy = $true }
-    }
-    if ($needsCopy) {
-        $targetDir = Split-Path $link.Target
-        if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
-        Copy-Item -Path $link.Source -Destination $link.Target -Force
-        Write-Host "Updated: $($link.Target)" -ForegroundColor Green
-    }
-}
-
-# Set Nulifyer's Profile as default in Windows Terminal
-$wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-$nulifyrGuid = "{f1a2b3c4-d5e6-4f78-9a0b-1c2d3e4f5a6b}"
-if (Test-Path $wtSettingsPath) {
-    $wtSettings = Get-Content $wtSettingsPath -Raw | ConvertFrom-Json
-    if ($wtSettings.defaultProfile -ne $nulifyrGuid) {
-        $wtSettings.defaultProfile = $nulifyrGuid
-        $wtSettings | ConvertTo-Json -Depth 10 | Set-Content $wtSettingsPath -Encoding UTF8
-        Write-Host "Windows Terminal default profile set to Nulifyer's Profile" -ForegroundColor Green
-    }
-}
 
 #───────────────────────────────────────────────────────────────────────────────
 # ENVIRONMENT & PATHS

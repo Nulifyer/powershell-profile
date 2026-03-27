@@ -2,8 +2,37 @@
 # Supports: Windows Terminal, Alacritty, Kitty, Ghostty, WezTerm
 
 $script:WT_SETTINGS = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-$script:WT_FRAGMENT = (Resolve-Path "$PSScriptRoot\..\windows-terminal-fragment.json" -ErrorAction SilentlyContinue).Path
 $script:NULIFYR_GUID = "{f1a2b3c4-d5e6-4f78-9a0b-1c2d3e4f5a6b}"
+
+# Ensure our WT profile exists in settings.json, create if missing, set as default
+function _Ensure-WTProfile {
+    if (-not (Test-Path $script:WT_SETTINGS)) { return $null }
+    $wt = Get-Content $script:WT_SETTINGS -Raw | ConvertFrom-Json
+
+    $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
+    if (-not $profile) {
+        $profile = [PSCustomObject]@{
+            guid = $script:NULIFYR_GUID
+            name = "Nulifyer's Profile"
+            commandline = "pwsh.exe -NoLogo"
+            cursorShape = "filledBox"
+            font = [PSCustomObject]@{ face = "CaskaydiaMono NF"; size = 11 }
+            opacity = 95
+            useAcrylic = $false
+            padding = "10"
+            scrollbarState = "hidden"
+            historySize = 10000
+        }
+        $wt.profiles.list = @($wt.profiles.list) + $profile
+    }
+
+    # Set as default
+    if ($wt.defaultProfile -ne $script:NULIFYR_GUID) {
+        $wt.defaultProfile = $script:NULIFYR_GUID
+    }
+
+    return $wt
+}
 
 # WezTerm built-in color scheme name mappings
 $script:WEZTERM_SCHEMES = @{
@@ -63,12 +92,12 @@ function Update-TerminalFont([string]$FontName) {
     $configs = _Get-TerminalConfigs
     $updated = @()
 
-    # Windows Terminal — settings.json
+    # Windows Terminal — settings.json (creates profile + sets default if needed)
     if ($configs.wt) {
         try {
-            $wt = Get-Content $configs.wt -Raw | ConvertFrom-Json
-            $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
-            if ($profile) {
+            $wt = _Ensure-WTProfile
+            if ($wt) {
+                $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
                 if (-not $profile.font) {
                     $profile | Add-Member -NotePropertyName "font" -NotePropertyValue ([PSCustomObject]@{ face = $FontName; size = 11 }) -Force
                 } else {
@@ -77,15 +106,6 @@ function Update-TerminalFont([string]$FontName) {
                 $wt | ConvertTo-Json -Depth 10 | Set-Content $configs.wt -Encoding UTF8
                 $updated += "Windows Terminal"
             }
-        } catch {}
-    }
-
-    # Windows Terminal — fragment
-    if ($script:WT_FRAGMENT -and (Test-Path $script:WT_FRAGMENT)) {
-        try {
-            $content = Get-Content $script:WT_FRAGMENT -Raw
-            $content = $content -replace '"face":\s*"[^"]*"', "`"face`": `"$FontName`""
-            $content | Set-Content $script:WT_FRAGMENT -Encoding UTF8
         } catch {}
     }
 
@@ -157,35 +177,30 @@ function Update-TerminalColors([hashtable]$scheme) {
     $updated = @()
     $schemeName = $scheme.name
 
-    # ── Windows Terminal — settings.json ──────────────────────────────────────
+    # ── Windows Terminal — settings.json (creates profile + sets default if needed)
 
     if ($configs.wt) {
         try {
-            $wt = Get-Content $configs.wt -Raw | ConvertFrom-Json
-            $existingScheme = $wt.schemes | Where-Object { $_.name -eq $schemeName }
-            if ($existingScheme) {
-                foreach ($key in $scheme.Keys) { $existingScheme | Add-Member -NotePropertyName $key -NotePropertyValue $scheme[$key] -Force }
-            } else {
-                $wt.schemes = @($wt.schemes) + [PSCustomObject]$scheme
-            }
-            $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
-            if ($profile) {
-                $profile | Add-Member -NotePropertyName "colorScheme" -NotePropertyValue $schemeName -Force
-                $profile.PSObject.Properties.Remove("background")
-            }
-            $wt | ConvertTo-Json -Depth 10 | Set-Content $configs.wt -Encoding UTF8
-            $updated += "Windows Terminal"
-        } catch {}
-    }
+            $wt = _Ensure-WTProfile
+            if ($wt) {
+                # Add or update the color scheme
+                $existingScheme = $wt.schemes | Where-Object { $_.name -eq $schemeName }
+                if ($existingScheme) {
+                    foreach ($key in $scheme.Keys) { $existingScheme | Add-Member -NotePropertyName $key -NotePropertyValue $scheme[$key] -Force }
+                } else {
+                    $wt.schemes = @($wt.schemes) + [PSCustomObject]$scheme
+                }
 
-    # Windows Terminal — fragment
-    if ($script:WT_FRAGMENT -and (Test-Path $script:WT_FRAGMENT)) {
-        try {
-            $fragment = Get-Content $script:WT_FRAGMENT -Raw | ConvertFrom-Json
-            $fragment.schemes = @([PSCustomObject]$scheme)
-            $fragment.profiles[0] | Add-Member -NotePropertyName "colorScheme" -NotePropertyValue $schemeName -Force
-            $fragment.profiles[0].PSObject.Properties.Remove("background")
-            $fragment | ConvertTo-Json -Depth 10 | Set-Content $script:WT_FRAGMENT -Encoding UTF8
+                # Set colorScheme, opacity, acrylic on the profile
+                $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
+                $profile | Add-Member -NotePropertyName "colorScheme" -NotePropertyValue $schemeName -Force
+                $profile | Add-Member -NotePropertyName "opacity" -NotePropertyValue 95 -Force
+                $profile | Add-Member -NotePropertyName "useAcrylic" -NotePropertyValue $true -Force
+                $profile.PSObject.Properties.Remove("background")
+
+                $wt | ConvertTo-Json -Depth 10 | Set-Content $configs.wt -Encoding UTF8
+                $updated += "Windows Terminal"
+            }
         } catch {}
     }
 

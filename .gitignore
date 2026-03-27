@@ -3,3 +3,5 @@ Modules/
 Completions/
 LastUpdateCheck.txt
 omp-theme.json
+alacritty.toml
+windows-terminal-fragment.json

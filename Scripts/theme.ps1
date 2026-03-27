@@ -40,7 +40,7 @@ $palettes = [ordered]@{
 }
 
 # ── Windows Terminal color schemes (full ANSI 16-color palettes) ──────────────
-# These persist in the WT fragment/settings so any program gets the right colors.
+# These persist in terminal configs so any program gets the right colors.
 
 $wtSchemes = @{
     catppuccin_mocha = @{
