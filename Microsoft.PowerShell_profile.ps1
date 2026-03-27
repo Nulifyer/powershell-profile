@@ -7,6 +7,51 @@ $profileCache = "$env:TEMP\pwsh-profile"
 if (-not (Test-Path $profileCache)) { New-Item -ItemType Directory -Path $profileCache -Force | Out-Null }
 
 #───────────────────────────────────────────────────────────────────────────────
+# CONFIG SYMLINKS (Alacritty, Windows Terminal)
+#───────────────────────────────────────────────────────────────────────────────
+
+$configLinks = @(
+    @{
+        Source = "$PSScriptRoot\alacritty.toml"
+        Target = "$env:APPDATA\alacritty\alacritty.toml"
+    },
+    @{
+        Source = "$PSScriptRoot\windows-terminal-fragment.json"
+        Target = "$env:LOCALAPPDATA\Microsoft\Windows Terminal\Fragments\powershell-profile\fragment.json"
+    }
+)
+foreach ($link in $configLinks) {
+    if (-not (Test-Path $link.Source)) { continue }
+    $needsCopy = $false
+    if (-not (Test-Path $link.Target)) {
+        $needsCopy = $true
+    } else {
+        # Copy again only if source has changed
+        $srcHash = (Get-FileHash $link.Source).Hash
+        $tgtHash = (Get-FileHash $link.Target).Hash
+        if ($srcHash -ne $tgtHash) { $needsCopy = $true }
+    }
+    if ($needsCopy) {
+        $targetDir = Split-Path $link.Target
+        if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
+        Copy-Item -Path $link.Source -Destination $link.Target -Force
+        Write-Host "Updated: $($link.Target)" -ForegroundColor Green
+    }
+}
+
+# Set Nulifyer's Profile as default in Windows Terminal
+$wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+$nulifyrGuid = "{f1a2b3c4-d5e6-4f78-9a0b-1c2d3e4f5a6b}"
+if (Test-Path $wtSettingsPath) {
+    $wtSettings = Get-Content $wtSettingsPath -Raw | ConvertFrom-Json
+    if ($wtSettings.defaultProfile -ne $nulifyrGuid) {
+        $wtSettings.defaultProfile = $nulifyrGuid
+        $wtSettings | ConvertTo-Json -Depth 10 | Set-Content $wtSettingsPath -Encoding UTF8
+        Write-Host "Windows Terminal default profile set to Nulifyer's Profile" -ForegroundColor Green
+    }
+}
+
+#───────────────────────────────────────────────────────────────────────────────
 # ENVIRONMENT & PATHS
 #───────────────────────────────────────────────────────────────────────────────
 
@@ -87,7 +132,7 @@ Set-PSReadLineOption -EditMode Emacs
 
 # Enable predictive IntelliSense (like zsh autosuggestions)
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-Set-PSReadLineOption -PredictionViewStyle InlineView
+Set-PSReadLineOption -PredictionViewStyle ListView
 
 # Colors for predictions (gray text like zsh)
 Set-PSReadLineOption -Colors @{
