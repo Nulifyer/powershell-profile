@@ -3,71 +3,20 @@ FROM docker.io/library/debian:13-slim
 # ── System packages ────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     # Archive & Compression
-    bzip2 \
-    gzip \
-    tar \
-    unzip \
-    xz-utils \
-    zip \
-    # Development
-    build-essential \
-    git \
-    python3 \
+    bzip2 gzip tar unzip xz-utils zip \
     # Editors
-    nano \
-    vim \
+    nano vim \
     # File Search & Text Processing
-    findutils \
-    fzf \
-    gawk \
-    grep \
-    ripgrep \
-    sed \
-    # Network
-    ca-certificates \
-    curl \
-    dnsutils \
-    iproute2 \
-    iputils-ping \
-    nmap \
-    openssh-client \
-    rsync \
-    wget \
+    findutils fzf gawk grep ripgrep sed \
+    # Network (essentials)
+    ca-certificates curl openssh-client rsync wget \
     # Shell
-    sudo \
-    zsh \
-    zsh-autosuggestions \
-    zsh-syntax-highlighting \
+    sudo zsh zsh-autosuggestions zsh-syntax-highlighting \
     # System Monitoring & Utilities
-    bat \
-    eza \
-    fastfetch \
-    htop \
-    iotop \
-    jq \
-    lsof \
-    procps
-
-# ── Language runtimes ──────────────────────────────────────────────────────────
-
-# go language runtime
-RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -
-ENV PATH="/usr/local/go/bin:/root/go/bin:$PATH"
-
-# Install .NET SDKs (8, 9, 10)
-RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && \
-    chmod +x /tmp/dotnet-install.sh && \
-    /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet && \
-    /tmp/dotnet-install.sh --channel 9.0 --install-dir /usr/share/dotnet && \
-    /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet && \
-    rm /tmp/dotnet-install.sh
-ENV DOTNET_ROOT="/usr/share/dotnet"
-ENV PATH="$DOTNET_ROOT:$PATH"
-
-# Deno runtime
-ENV DENO_INSTALL="/deno"
-ENV PATH="$DENO_INSTALL/bin:$PATH"
-RUN curl -fsSL https://deno.land/x/install/install.sh | sh
+    bat eza fastfetch htop jq lsof procps \
+    # Version Control
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # ── Shell environment ──────────────────────────────────────────────────────────
 ENV RUNTIME_SHELL=/bin/zsh
@@ -93,5 +42,4 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /root/.zshrc && \
     echo 'alias bat="batcat"' >> /root/.zshrc && \
     echo 'alias cat="batcat --paging=never"' >> /root/.zshrc
 
-# ── Entrypoint ─────────────────────────────────────────────────────────────────
 CMD ["/bin/zsh"]

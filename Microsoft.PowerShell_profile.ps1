@@ -86,17 +86,31 @@ if ($PWD.ProviderPath -ieq $sys32) {
 $GitUsrBin = "$env:ProgramFiles\Git\usr\bin"
 if (Test-Path $GitUsrBin) { $env:PATH += ";$GitUsrBin" }
 
-# Auto-detect WinGet installed tools (fd, ripgrep) — cached to avoid slow recursive scan
+# Auto-detect WinGet installed tools — targeted by package ID
 $WinGetPackages = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages"
-$wingetCache = "$profileCache\winget-tool-paths.txt"
 if (Test-Path $WinGetPackages) {
-    if (-not (Test-Path $wingetCache)) {
-        $paths = Get-ChildItem -Path $WinGetPackages -Recurse -Include "fd.exe","rg.exe" -ErrorAction SilentlyContinue |
-            Select-Object -Unique DirectoryName |
-            ForEach-Object { $_.DirectoryName }
-        Set-Content $wingetCache -Value $paths  # always creates the file, even if empty
+    @{
+        'sharkdp.fd'            = 'fd.exe'
+        'BurntSushi.ripgrep'    = 'rg.exe'
+        'junegunn.fzf'          = 'fzf.exe'
+        'ajeetdsouza.zoxide'    = 'zoxide.exe'
+        'eza-community.eza'     = 'eza.exe'
+        'sharkdp.bat'           = 'bat.exe'
+        'dandavison.delta'      = 'delta.exe'
+        'MikeFarah.yq'          = 'yq.exe'
+        'dalance.procs'         = 'procs.exe'
+        'sharkdp.hyperfine'     = 'hyperfine.exe'
+        'XAMPPRocky.tokei'      = 'tokei.exe'
+        'aristocratos.btop4win' = 'btop4win.exe'
+        'charmbracelet.glow'    = 'glow.exe'
+        'jqlang.jq'             = 'jq.exe'
+    }.GetEnumerator() | ForEach-Object {
+        $pkgDir = Get-ChildItem $WinGetPackages -Directory -Filter "$($_.Key)_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($pkgDir) {
+            $exe = Get-ChildItem $pkgDir.FullName -Depth 1 -Filter $_.Value -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($exe) { $env:PATH += ";$($exe.DirectoryName)" }
+        }
     }
-    Get-Content $wingetCache | Where-Object { $_ } | ForEach-Object { $env:PATH += ";$_" }
 }
 #───────────────────────────────────────────────────────────────────────────────
 # LOAD SCRIPTS AS ALIASES
@@ -104,9 +118,20 @@ if (Test-Path $WinGetPackages) {
 
 $scriptsFolder = "$HOME\Documents\PowerShell\Scripts"
 if (Test-Path $scriptsFolder) {
-    Get-ChildItem -Path $scriptsFolder -Filter "*.ps1" -Depth 1 | ForEach-Object {
-        $aliasName = $_.BaseName
-        Set-Alias -Name $aliasName -Value $_.FullName
+    Get-ChildItem -Path $scriptsFolder -Recurse -Filter "*.ps1" | ForEach-Object {
+        $script = $_.FullName
+        $aliases = @()
+        # Read #.ALIAS declarations from the script
+        Get-Content $script -TotalCount 20 | ForEach-Object {
+            if ($_ -match '^\s*#\.ALIAS\s+(.+)$') {
+                $aliases += $Matches[1].Trim()
+            }
+        }
+        # Fall back to filename if no #.ALIAS found
+        if ($aliases.Count -eq 0) { $aliases = @($_.BaseName) }
+        foreach ($a in $aliases) {
+            Set-Alias -Name $a -Value $script -Scope Global
+        }
     }
 }
 #───────────────────────────────────────────────────────────────────────────────
@@ -385,6 +410,156 @@ function export {
     param([Parameter(Mandatory)]$Assignment)
     $parts = $Assignment -split '=', 2
     [Environment]::SetEnvironmentVariable($parts[0], $parts[1], 'Process')
+}
+
+function watch {
+    param(
+        [Alias('n')][int]$Interval,
+        [Parameter(ValueFromRemainingArguments)]$Command
+    )
+    # Parse leading -n <seconds> from remaining args (like linux watch)
+    if (-not $Interval -and $Command.Count -ge 2 -and $Command[0] -eq '-n') {
+        $Interval = [int]$Command[1]
+        $Command = @($Command | Select-Object -Skip 2)
+    }
+    if (-not $Interval) { $Interval = 2 }
+    $cmdStr = $Command -join ' '
+    if (-not $cmdStr) { Write-Host "Usage: watch [-n secs] <command>"; return }
+    while ($true) {
+        Clear-Host
+        $now = Get-Date -Format "HH:mm:ss"
+        Write-Host "Every ${Interval}.0s: $cmdStr    $now" -ForegroundColor DarkGray
+        Write-Host ""
+        try { Invoke-Expression $cmdStr } catch { Write-Host $_.Exception.Message -ForegroundColor Red }
+        Start-Sleep -Seconds $Interval
+    }
+}
+
+function file {
+    param([Parameter(Mandatory, Position=0)][string]$Path)
+    if (-not (Test-Path $Path)) { Write-Host "$Path`: cannot open (No such file or directory)"; return }
+    $item = Get-Item $Path -Force
+    if ($item.PSIsContainer) { Write-Host "$Path`: directory"; return }
+
+    $ext = $item.Extension.ToLower()
+    $size = $item.Length
+
+    # Read magic bytes
+    $magic = [byte[]]::new([Math]::Min(16, $size))
+    if ($size -gt 0) {
+        $stream = [System.IO.File]::OpenRead($item.FullName)
+        try { $stream.Read($magic, 0, $magic.Length) | Out-Null } finally { $stream.Close() }
+    }
+    $hex = ($magic | ForEach-Object { $_.ToString("X2") }) -join ''
+
+    # Identify by magic bytes
+    $type = switch -Wildcard ($hex) {
+        '89504E47*'       { "PNG image data" }
+        'FFD8FF*'         { "JPEG image data" }
+        '47494638*'       { "GIF image data" }
+        '52494646*'       {
+            $sub = [System.Text.Encoding]::ASCII.GetString($magic[8..11])
+            if ($sub -eq 'WEBP') { "WebP image data" }
+            elseif ($sub -eq 'AVI ') { "AVI video" }
+            elseif ($sub -eq 'WAVE') { "WAVE audio" }
+            else { "RIFF data" }
+        }
+        '504B0304*'       {
+            switch -Wildcard ($ext) {
+                '.docx'  { "Microsoft Word document (OOXML)" }
+                '.xlsx'  { "Microsoft Excel spreadsheet (OOXML)" }
+                '.pptx'  { "Microsoft PowerPoint presentation (OOXML)" }
+                '.jar'   { "Java archive (JAR)" }
+                '.apk'   { "Android application package" }
+                default  { "Zip archive data" }
+            }
+        }
+        '25504446*'       { "PDF document" }
+        '7F454C46*'       { "ELF executable" }
+        '4D5A*'           { "PE32 executable (Windows)" }
+        '1F8B*'           { "gzip compressed data" }
+        '425A68*'         { "bzip2 compressed data" }
+        'FD377A585A*'     { "XZ compressed data" }
+        '377ABCAF271C*'   { "7-zip archive data" }
+        '526172211A07*'   { "RAR archive data" }
+        '000001BA*'       { "MPEG video" }
+        '000001B3*'       { "MPEG video" }
+        '1A45DFA3*'       { "Matroska video (MKV/WebM)" }
+        '66747970*'       { "ISO Media (MP4/M4A/MOV)" }
+        '4F676753*'       { "Ogg data" }
+        '664C6143*'       { "FLAC audio" }
+        '494433*'         { "MP3 audio (ID3 tag)" }
+        'FFFB*'           { "MP3 audio" }
+        'FFF3*'           { "MP3 audio" }
+        '49492A00*'       { "TIFF image data (little-endian)" }
+        '4D4D002A*'       { "TIFF image data (big-endian)" }
+        '00000100*'       { "ICO image" }
+        '00000200*'       { "CUR cursor" }
+        '7B*'             { "JSON data" }
+        '3C3F786D6C*'     { "XML document" }
+        '3C21444F43*'     { "HTML document" }
+        '3C68746D6C*'     { "HTML document" }
+        'EFBBBF*'         { "UTF-8 text (with BOM)" }
+        'FFFE*'           { "UTF-16 text (little-endian BOM)" }
+        'FEFF*'           { "UTF-16 text (big-endian BOM)" }
+        'D0CF11E0A1B11AE1*' { "Microsoft Office document (OLE2)" }
+        '53514C697465*'   { "SQLite database" }
+        default           { $null }
+    }
+
+    # Fall back to extension-based or text detection
+    if (-not $type) {
+        if ($size -eq 0) {
+            $type = "empty"
+        } else {
+            # Check if it looks like text
+            $isText = $true
+            foreach ($b in $magic) {
+                if ($b -eq 0) { $isText = $false; break }
+            }
+            if ($isText) {
+                $type = switch -Wildcard ($ext) {
+                    '.ps1'    { "PowerShell script" }
+                    '.py'     { "Python script" }
+                    '.js'     { "JavaScript source" }
+                    '.ts'     { "TypeScript source" }
+                    '.cs'     { "C# source" }
+                    '.go'     { "Go source" }
+                    '.rs'     { "Rust source" }
+                    '.java'   { "Java source" }
+                    '.c'      { "C source" }
+                    '.cpp'    { "C++ source" }
+                    '.h'      { "C/C++ header" }
+                    '.sh'     { "shell script" }
+                    '.bat'    { "DOS batch file" }
+                    '.cmd'    { "Windows command script" }
+                    '.json'   { "JSON data" }
+                    '.xml'    { "XML document" }
+                    '.yaml'   { "YAML data" }
+                    '.yml'    { "YAML data" }
+                    '.toml'   { "TOML data" }
+                    '.ini'    { "INI configuration" }
+                    '.cfg'    { "configuration file" }
+                    '.conf'   { "configuration file" }
+                    '.md'     { "Markdown document" }
+                    '.txt'    { "ASCII text" }
+                    '.csv'    { "CSV text" }
+                    '.tsv'    { "TSV text" }
+                    '.log'    { "log file" }
+                    '.html'   { "HTML document" }
+                    '.htm'    { "HTML document" }
+                    '.css'    { "CSS stylesheet" }
+                    '.sql'    { "SQL script" }
+                    '.dockerfile' { "Dockerfile" }
+                    default   { "ASCII text" }
+                }
+            } else {
+                $type = "data"
+            }
+        }
+    }
+
+    Write-Host "$Path`: $type, $size bytes"
 }
 
 function source {
