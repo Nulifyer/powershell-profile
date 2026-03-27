@@ -54,10 +54,9 @@ if ($parsed._help) {
 
 $ErrorActionPreference = 'Stop'
 $script:c = Get-Colors -Disabled:$parsed.NoColor
-$script:bookmarkFile = "$PSScriptRoot\connections.json"
 
-# Migrate any plaintext passwords to DPAPI on first run
-Migrate-PlaintextPasswords
+# Migrate data from old per-script JSON files into shared config
+Migrate-SqltoolsData
 
 # ─── Manage Bookmarks ─────────────────────────────────────────────────────────
 

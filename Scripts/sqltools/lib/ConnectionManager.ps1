@@ -1,9 +1,14 @@
 # Connection bookmarks with DPAPI encrypted passwords
+# Data stored via shared ScriptUtils config at ~/.config/scriptutils/config.json
 
 function Get-Bookmarks {
-    if (Test-Path $script:bookmarkFile) {
-        Get-Content $script:bookmarkFile -Raw | ConvertFrom-Json
-    } else { @() }
+    $data = Get-ScriptConfig "sqltools" "connections"
+    if ($data) { return @($data) }
+    return @()
+}
+
+function Save-Bookmarks([array]$Bookmarks) {
+    Set-ScriptConfig "sqltools" "connections" @($Bookmarks)
 }
 
 function Encrypt-Password {
@@ -38,7 +43,7 @@ function Save-Bookmark {
     if (-not $existing) {
         $authLabel = if ($User) { "$User@" } else { "" }
         $driverTag = if ($Driver -ne 'mssql') { "[$Driver] " } else { "" }
-        $bookmarks += [PSCustomObject]@{
+        $bookmarks += @{
             Server            = $Server
             Database          = $Database
             User              = $User
@@ -49,7 +54,7 @@ function Save-Bookmark {
             Dsn               = $Dsn
             Label             = "${driverTag}${authLabel}$Server/$Database"
         }
-        $bookmarks | ConvertTo-Json -AsArray | Set-Content $script:bookmarkFile -Encoding UTF8
+        Save-Bookmarks $bookmarks
     }
 }
 
@@ -59,26 +64,36 @@ function Remove-BookmarkAt {
     if ($Index -ge 0 -and $Index -lt $bookmarks.Count) {
         $list = [System.Collections.ArrayList]@($bookmarks)
         $list.RemoveAt($Index)
-        @($list) | ConvertTo-Json -AsArray | Set-Content $script:bookmarkFile -Encoding UTF8
+        Save-Bookmarks @($list)
     }
 }
 
-function Migrate-PlaintextPasswords {
-    $bookmarks = @(Get-Bookmarks)
-    $changed = $false
-    foreach ($bm in $bookmarks) {
-        if ($bm.PSObject.Properties.Name -contains 'Password' -and $bm.Password) {
-            $bm | Add-Member -NotePropertyName EncryptedPassword -NotePropertyValue (Encrypt-Password $bm.Password) -Force
-            $bm.PSObject.Properties.Remove('Password')
-            $changed = $true
+function Migrate-SqltoolsData {
+    $oldBookmarkFile = "$PSScriptRoot\..\connections.json"
+    # Migrate connections
+    if (Test-Path $oldBookmarkFile) {
+        $existing = Get-ScriptConfig "sqltools" "connections"
+        if (-not $existing) {
+            $bookmarks = @(Get-Content $oldBookmarkFile -Raw | ConvertFrom-Json -AsHashtable)
+            # Migrate plaintext passwords to DPAPI
+            foreach ($bm in $bookmarks) {
+                if ($bm.ContainsKey('Password') -and $bm.Password) {
+                    $bm['EncryptedPassword'] = Encrypt-Password $bm.Password
+                    $bm.Remove('Password')
+                }
+                if (-not $bm.ContainsKey('EncryptedPassword')) {
+                    $bm['EncryptedPassword'] = $null
+                }
+            }
+            Save-Bookmarks $bookmarks
         }
-        if ($bm.PSObject.Properties.Name -notcontains 'EncryptedPassword') {
-            $bm | Add-Member -NotePropertyName EncryptedPassword -NotePropertyValue $null -Force
-            $changed = $true
-        }
+        Remove-Item $oldBookmarkFile -Force
     }
-    if ($changed) {
-        $bookmarks | ConvertTo-Json -AsArray | Set-Content $script:bookmarkFile -Encoding UTF8
+
+    # Clean up old history file (now in-memory only)
+    $oldHistoryFile = "$PSScriptRoot\..\history.json"
+    if (Test-Path $oldHistoryFile) {
+        Remove-Item $oldHistoryFile -Force
     }
 }
 
@@ -214,5 +229,5 @@ function Show-ManageBookmarks {
     }
     $list = [System.Collections.ArrayList]@($bookmarks)
     foreach ($idx in $toRemove) { $list.RemoveAt($idx) }
-    @($list) | ConvertTo-Json -AsArray | Set-Content $script:bookmarkFile -Encoding UTF8
+    Save-Bookmarks @($list)
 }

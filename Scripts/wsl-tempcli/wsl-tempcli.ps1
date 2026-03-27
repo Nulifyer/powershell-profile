@@ -45,6 +45,7 @@
 #>
 
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot\..\ScriptUtils.ps1"
 
 $Update = $false
 $UpdateAll = $false
@@ -54,6 +55,7 @@ $Variant = $null
 $Ports = @()
 $Help = $false
 $BuildLocal = $false
+$SetConfig = $false
 $cliArgs = $args
 
 for ($i = 0; $i -lt $cliArgs.Count; $i++) {
@@ -80,6 +82,7 @@ for ($i = 0; $i -lt $cliArgs.Count; $i++) {
                 elseif ($i + 1 -lt $cliArgs.Count) { $Ports += ($cliArgs[++$i] -split ',') }
             }
             { $_ -in 'build-local', 'local' } { $BuildLocal = $true }
+            { $_ -in 'set' } { $SetConfig = $true }
             { $_ -in 'h', 'help' } { $Help = $true }
             default {
                 Write-Error "Unknown option: $arg"
@@ -89,12 +92,31 @@ for ($i = 0; $i -lt $cliArgs.Count; $i++) {
     }
 }
 
-if (-not $Distro)  { $Distro = 'alpine' }
-if (-not $Variant) { $Variant = 'slim' }
+# Apply saved defaults, then fall back to hardcoded defaults
+if (-not $Distro)  { $Distro  = (Get-ScriptConfig "wtc" "distro")  ?? 'alpine' }
+if (-not $Variant) { $Variant = (Get-ScriptConfig "wtc" "variant") ?? 'slim' }
 
 if ($Variant -notin 'slim', 'full') {
     Write-Error "Invalid variant '$Variant'. Must be 'slim' or 'full'."
     exit 1
+}
+
+if ($SetConfig) {
+    if (-not $Distro -and -not $Variant) {
+        # Show current config
+        $cfg = Get-ScriptConfig "wtc"
+        if ($cfg) {
+            Write-Host "Current wtc defaults:" -ForegroundColor Cyan
+            foreach ($key in $cfg.Keys) { Write-Host "  $key = $($cfg[$key])" }
+        } else {
+            Write-Host "No saved defaults. Using alpine-slim." -ForegroundColor DarkGray
+        }
+        exit 0
+    }
+    if ($Distro)  { Set-ScriptConfig "wtc" "distro" $Distro }
+    if ($Variant) { Set-ScriptConfig "wtc" "variant" $Variant }
+    Write-Host "Defaults saved: distro=$(Get-ScriptConfig 'wtc' 'distro'), variant=$(Get-ScriptConfig 'wtc' 'variant')" -ForegroundColor Green
+    exit 0
 }
 
 if ($Help) {
@@ -107,6 +129,7 @@ if ($Help) {
     Write-Host "  -c, --command <cmd>     Command to run (default: interactive zsh)" -ForegroundColor Yellow
     Write-Host "  -p, --port <p[,p...]>   Port mappings (host:container or host)" -ForegroundColor Yellow
     Write-Host "  --build-local           Force local build instead of pulling from GHCR" -ForegroundColor Yellow
+    Write-Host "  --set                   Save current -d/-v as defaults (or show saved defaults)" -ForegroundColor Yellow
     Write-Host "  -h, --help              Show this help" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Variants:" -ForegroundColor Cyan

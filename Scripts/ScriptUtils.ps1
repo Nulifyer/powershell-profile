@@ -232,3 +232,78 @@ function Show-ScriptHelp {
         Write-Host ""
     }
 }
+
+# ── Script Config ─────────────────────────────────────────────────────────────
+# Shared JSON config at ~/.config/scriptutils/config.json, keyed by script name.
+
+$script:ConfigPath = Join-Path $env:USERPROFILE '.config\scriptutils\config.json'
+
+function _Load-Config {
+    if (Test-Path $script:ConfigPath) {
+        return Get-Content $script:ConfigPath -Raw | ConvertFrom-Json -AsHashtable
+    }
+    return @{}
+}
+
+function _Save-Config([hashtable]$Config) {
+    $dir = Split-Path $script:ConfigPath
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $Config | ConvertTo-Json -Depth 10 | Set-Content $script:ConfigPath -Encoding utf8
+}
+
+<#
+.SYNOPSIS
+    Get a config value for a script.
+
+.PARAMETER ScriptName
+    The script key (e.g. "wtc", "sqltools").
+
+.PARAMETER Key
+    Optional. If provided, returns that single value. Otherwise returns the full hashtable for the script.
+
+.EXAMPLE
+    Get-ScriptConfig "wtc"              # @{ distro = "debian"; variant = "full" }
+    Get-ScriptConfig "wtc" "distro"     # "debian"
+#>
+function Get-ScriptConfig {
+    param(
+        [Parameter(Mandatory)][string]$ScriptName,
+        [string]$Key
+    )
+
+    $config = _Load-Config
+    $section = $config[$ScriptName]
+    if (-not $section) { return $null }
+    if ($Key) { return $section[$Key] }
+    return $section
+}
+
+<#
+.SYNOPSIS
+    Set a config value for a script.
+
+.PARAMETER ScriptName
+    The script key (e.g. "wtc", "sqltools").
+
+.PARAMETER Key
+    The setting name.
+
+.PARAMETER Value
+    The value to store.
+
+.EXAMPLE
+    Set-ScriptConfig "wtc" "distro" "debian"
+    Set-ScriptConfig "wtc" "variant" "full"
+#>
+function Set-ScriptConfig {
+    param(
+        [Parameter(Mandatory)][string]$ScriptName,
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)]$Value
+    )
+
+    $config = _Load-Config
+    if (-not $config[$ScriptName]) { $config[$ScriptName] = @{} }
+    $config[$ScriptName][$Key] = $Value
+    _Save-Config $config
+}

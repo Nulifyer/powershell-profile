@@ -1,14 +1,10 @@
-# Query history — auto-save, search, re-execute
+# Query history — in-memory, per-session only
 
-$script:historyFile = "$PSScriptRoot\..\history.json"
+$script:queryHistory = @()
 $script:maxHistoryEntries = 500
 
 function Get-QueryHistory {
-    if (Test-Path $script:historyFile) {
-        $data = Get-Content $script:historyFile -Raw | ConvertFrom-Json
-        if ($data.entries) { return @($data.entries) }
-    }
-    return @()
+    return @($script:queryHistory)
 }
 
 function Add-QueryHistory {
@@ -16,22 +12,18 @@ function Add-QueryHistory {
         [string]$Query, [string]$Server, [string]$Database,
         [int]$RowCount, [int]$DurationMs
     )
-    $entries = @(Get-QueryHistory)
-    $entries = @([PSCustomObject]@{
+    $script:queryHistory = @(@{
         query      = $Query
         server     = $Server
         database   = $Database
         timestamp  = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
         rowCount   = $RowCount
         durationMs = $DurationMs
-    }) + $entries
+    }) + $script:queryHistory
 
-    # Cap at max entries
-    if ($entries.Count -gt $script:maxHistoryEntries) {
-        $entries = $entries[0..($script:maxHistoryEntries - 1)]
+    if ($script:queryHistory.Count -gt $script:maxHistoryEntries) {
+        $script:queryHistory = $script:queryHistory[0..($script:maxHistoryEntries - 1)]
     }
-
-    @{ entries = $entries } | ConvertTo-Json -Depth 3 | Set-Content $script:historyFile -Encoding UTF8
 }
 
 function Show-QueryHistoryPicker {
