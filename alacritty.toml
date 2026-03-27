@@ -76,47 +76,6 @@ unfocused_hollow = true
 history = 10000
 multiplier = 3
 
-#───────────────────────────────────────────────────────────────────────────────
-# COLORS - Tokyo Night
-#───────────────────────────────────────────────────────────────────────────────
-
-[colors.primary]
-background = "#1a1b26"
-foreground = "#c0caf5"
-
-[colors.cursor]
-text = "#1a1b26"
-cursor = "#c0caf5"
-
-[colors.selection]
-text = "#c0caf5"
-background = "#33467c"
-
-[colors.normal]
-black   = "#15161e"
-red     = "#f7768e"
-green   = "#9ece6a"
-yellow  = "#e0af68"
-blue    = "#7aa2f7"
-magenta = "#bb9af7"
-cyan    = "#7dcfff"
-white   = "#a9b1d6"
-
-[colors.bright]
-black   = "#565f89"
-red     = "#f7768e"
-green   = "#9ece6a"
-yellow  = "#e0af68"
-blue    = "#7aa2f7"
-magenta = "#bb9af7"
-cyan    = "#7dcfff"
-white   = "#c0caf5"
-
-#───────────────────────────────────────────────────────────────────────────────
-# KEY BINDINGS
-#───────────────────────────────────────────────────────────────────────────────
-
-# Clipboard operations with Ctrl+Shift+C/V
 [[keyboard.bindings]]
 key = "C"
 mods = "Control|Shift"
@@ -174,3 +133,36 @@ action = "ReceiveChar"
 key = "N"
 mods = "Control|Shift"
 action = "SpawnNewInstance"
+
+[colors.primary]
+background = "#1D2021"
+foreground = "#DDC7A1"
+
+[colors.cursor]
+text = "CellBackground"
+cursor = "#DDC7A1"
+
+[colors.selection]
+text = "CellBackground"
+background = "#3C3836"
+
+[colors.normal]
+black   = "#141617"
+red     = "#EA6962"
+green   = "#A9B665"
+yellow  = "#D8A657"
+blue    = "#7DAEA3"
+magenta = "#D3869B"
+cyan    = "#89B482"
+white   = "#DDC7A1"
+
+[colors.bright]
+black   = "#928374"
+red     = "#E3746F"
+green   = "#ABB578"
+yellow  = "#D6AC67"
+blue    = "#8CB0A8"
+magenta = "#D699A9"
+cyan    = "#98B593"
+white   = "#DCCDB5"
+

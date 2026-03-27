@@ -220,15 +220,6 @@ if ($ompCmd) {
         oh-my-posh init pwsh --config $ompThemeFile | Set-Content $ompCache -Encoding UTF8
     }
     . $ompCache
-
-    # Restore saved terminal background color via OSC 11
-    $configPath = Join-Path $env:USERPROFILE '.config\scriptutils\config.json'
-    if (Test-Path $configPath) {
-        try {
-            $savedBg = (Get-Content $configPath -Raw | ConvertFrom-Json -AsHashtable).theme.bg
-            if ($savedBg) { Write-Host "`e]11;$savedBg`e\" -NoNewline }
-        } catch {}
-    }
 }
 #───────────────────────────────────────────────────────────────────────────────
 # PSREADLINE CONFIGURATION

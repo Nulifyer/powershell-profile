@@ -14,6 +14,7 @@
 #>
 
 . "$PSScriptRoot\ScriptUtils.ps1"
+. "$PSScriptRoot\lib\TerminalConfig.ps1"
 
 $parsed = Parse-Args $args @{
     Install = @{ Aliases = @('i', 'install') }
@@ -133,27 +134,14 @@ if ($choice -notin $allFonts) {
     exit 1
 }
 
-# ── Update Windows Terminal fragment ─────────────────────────────────────────
+# ── Update all terminal emulators ────────────────────────────────────────────
 
-$fragmentPath = "$PSScriptRoot\..\windows-terminal-fragment.json"
-if (Test-Path $fragmentPath) {
-    $content = Get-Content $fragmentPath -Raw
-    $content = $content -replace '"face":\s*"[^"]*"', "`"face`": `"$choice`""
-    $content | Set-Content $fragmentPath -Encoding UTF8
-    Write-Host "Updated Windows Terminal fragment" -ForegroundColor Green
+$updatedTerminals = Update-TerminalFont $choice
+if ($updatedTerminals.Count -gt 0) {
+    Write-Host "Updated: $($updatedTerminals -join ', ')" -ForegroundColor DarkGray
 }
 
-# ── Update Alacritty config ──────────────────────────────────────────────────
-
-$alacrittyPath = "$PSScriptRoot\..\alacritty.toml"
-if (Test-Path $alacrittyPath) {
-    $content = Get-Content $alacrittyPath -Raw
-    $content = $content -replace 'family\s*=\s*"[^"]*"', "family = `"$choice`""
-    $content | Set-Content $alacrittyPath -Encoding UTF8
-    Write-Host "Updated Alacritty config" -ForegroundColor Green
-}
-
-# ── Save and sync ────────────────────────────────────────────────────────────
+# ── Save ─────────────────────────────────────────────────────────────────────
 
 Set-ScriptConfig "font" "face" $choice
 Write-Host "Font set to: $choice" -ForegroundColor Green

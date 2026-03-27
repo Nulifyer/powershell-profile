@@ -16,7 +16,7 @@ $hasLigatures = $FontName -match 'Code|Cove' -and $FontName -notmatch 'Mono'
 
 Write-Host ""
 Write-Host "  $FontName" -ForegroundColor Cyan
-Write-Host "  $([char]0x2500 * 40)" -ForegroundColor DarkGray
+Write-Host "  $([string][char]0x2500 * 40)" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  Variant:    $variant" -ForegroundColor White
 Write-Host "  Ligatures:  $(if ($hasLigatures) { 'Yes' } else { 'No' })" -ForegroundColor White
