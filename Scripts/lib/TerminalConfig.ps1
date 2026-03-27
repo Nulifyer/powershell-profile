@@ -18,7 +18,6 @@ function _Ensure-WTProfile {
             cursorShape = "filledBox"
             font = [PSCustomObject]@{ face = "CaskaydiaMono NF"; size = 11 }
             opacity = 95
-            useAcrylic = $false
             padding = "10"
             scrollbarState = "hidden"
             historySize = 10000
@@ -191,11 +190,11 @@ function Update-TerminalColors([hashtable]$scheme) {
                     $wt.schemes = @($wt.schemes) + [PSCustomObject]$scheme
                 }
 
-                # Set colorScheme, opacity, acrylic on the profile
+                # Set colorScheme and opacity on the profile
                 $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
                 $profile | Add-Member -NotePropertyName "colorScheme" -NotePropertyValue $schemeName -Force
                 $profile | Add-Member -NotePropertyName "opacity" -NotePropertyValue 95 -Force
-                $profile | Add-Member -NotePropertyName "useAcrylic" -NotePropertyValue $true -Force
+                $profile | Add-Member -NotePropertyName "useAcrylic" -NotePropertyValue $false -Force
                 $profile.PSObject.Properties.Remove("background")
 
                 $wt | ConvertTo-Json -Depth 10 | Set-Content $configs.wt -Encoding UTF8
