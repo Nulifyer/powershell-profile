@@ -7,9 +7,6 @@
     Verifies that all expected CLI tools are installed. Shows status for each
     tool and optionally installs missing ones.
 
-.PARAMETER Install
-    Install any missing tools via WinGet.
-
 .EXAMPLE
     tools
     # Show status of all tools
@@ -19,15 +16,13 @@
     # Install any missing tools
 #>
 
-param(
-    [Alias('i')]
-    [switch]$Install,
+. "$PSScriptRoot\ScriptUtils.ps1"
 
-    [Alias('help')]
-    [switch]$h
-)
+$parsed = Parse-Args $args @{
+    Install = @{ Aliases = @('i', 'install') }
+}
 
-if ($h) {
+if ($parsed._help) {
     Write-Host "Usage: tools [--install]" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Check and install terminal tools via WinGet."
@@ -98,7 +93,7 @@ if ($missing.Count -eq 0) {
     exit 0
 }
 
-if (-not $Install) {
+if (-not $parsed.Install) {
     Write-Host "  Run 'tools --install' to install missing tools." -ForegroundColor Yellow
     Write-Host ""
     exit 0
