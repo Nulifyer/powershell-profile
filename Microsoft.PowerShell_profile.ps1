@@ -7,6 +7,65 @@ $profileCache = "$env:TEMP\pwsh-profile"
 if (-not (Test-Path $profileCache)) { New-Item -ItemType Directory -Path $profileCache -Force | Out-Null }
 
 #───────────────────────────────────────────────────────────────────────────────
+# UPDATE CHECKS (PowerShell version + profile repo, once per week)
+#───────────────────────────────────────────────────────────────────────────────
+
+$updateCheckFile = "$PSScriptRoot\LastUpdateCheck.txt"
+$updateInterval = 7 # days
+$runUpdateCheck = $false
+
+if (-not (Test-Path $updateCheckFile)) {
+    $runUpdateCheck = $true
+} else {
+    $lastCheck = $null
+    if ([datetime]::TryParseExact((Get-Content $updateCheckFile -Raw).Trim(), 'yyyy-MM-dd', $null, [System.Globalization.DateTimeStyles]::None, [ref]$lastCheck)) {
+        if (((Get-Date) - $lastCheck).TotalDays -gt $updateInterval) { $runUpdateCheck = $true }
+    } else {
+        $runUpdateCheck = $true
+    }
+}
+
+if ($runUpdateCheck) {
+    # Test GitHub connectivity (1s timeout)
+    $canConnect = try {
+        if ($PSVersionTable.PSEdition -eq "Core") {
+            Test-Connection github.com -Count 1 -Quiet -TimeoutSeconds 1
+        } else {
+            $ping = [System.Net.NetworkInformation.Ping]::new()
+            ($ping.Send("github.com", 1000)).Status -eq "Success"
+        }
+    } catch { $false }
+
+    if ($canConnect) {
+        # Check for PowerShell updates
+        try {
+            $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 5).tag_name.TrimStart('v')
+            $currentVersion = $PSVersionTable.PSVersion.ToString()
+            if ([version]$currentVersion -lt [version]$latestVersion) {
+                Write-Host "PowerShell update available: $currentVersion → $latestVersion" -ForegroundColor Yellow
+                Write-Host "  Run 'winget upgrade Microsoft.PowerShell' to update" -ForegroundColor DarkGray
+            }
+        } catch {}
+
+        # Check for profile updates (compare local vs remote)
+        try {
+            $profileUrl = "https://raw.githubusercontent.com/nulifyer/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
+            $tempProfile = "$env:TEMP\pwsh-profile-check.ps1"
+            Invoke-RestMethod $profileUrl -OutFile $tempProfile -TimeoutSec 5
+            $localHash = (Get-FileHash $PROFILE).Hash
+            $remoteHash = (Get-FileHash $tempProfile).Hash
+            if ($localHash -ne $remoteHash) {
+                Write-Host "Profile update available! Run 'git -C $PSScriptRoot pull' to update" -ForegroundColor Yellow
+            }
+            Remove-Item $tempProfile -ErrorAction SilentlyContinue
+        } catch {}
+
+        # Record check time
+        (Get-Date -Format 'yyyy-MM-dd') | Set-Content $updateCheckFile
+    }
+}
+
+#───────────────────────────────────────────────────────────────────────────────
 # CONFIG SYMLINKS (Alacritty, Windows Terminal)
 #───────────────────────────────────────────────────────────────────────────────
 
@@ -111,6 +170,7 @@ if (Test-Path $WinGetPackages) {
         'aristocratos.btop4win' = 'btop4win.exe'
         'charmbracelet.glow'    = 'glow.exe'
         'jqlang.jq'             = 'jq.exe'
+        'SQLite.SQLite'         = 'sqlite3.exe'
     }.GetEnumerator() | ForEach-Object {
         $pkgDir = Get-ChildItem $WinGetPackages -Directory -Filter "$($_.Key)_*" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($pkgDir) {
@@ -442,12 +502,65 @@ function source {
 }
 
 #───────────────────────────────────────────────────────────────────────────────
-# FUNCTIONS - Custom Scripts
+# FUNCTIONS - Profile Update
 #───────────────────────────────────────────────────────────────────────────────
 
-# function my-function {
-#     & "$HOME\.scripts\script.ps1" @args
-# }
+function profile-update {
+    $profileDir = $PSScriptRoot
+
+    # Check for PowerShell updates
+    Write-Host "Checking for PowerShell updates..." -ForegroundColor Cyan
+    try {
+        $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 5).tag_name.TrimStart('v')
+        $currentVersion = $PSVersionTable.PSVersion.ToString()
+        if ([version]$currentVersion -lt [version]$latestVersion) {
+            Write-Host "PowerShell update available: $currentVersion → $latestVersion" -ForegroundColor Yellow
+            Write-Host "Updating PowerShell via WinGet..." -ForegroundColor Yellow
+            winget upgrade Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "PowerShell updated. Restart your shell to use $latestVersion" -ForegroundColor Green
+            } else {
+                Write-Warning "Failed to update PowerShell"
+            }
+        } else {
+            Write-Host "PowerShell is up to date ($currentVersion)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Warning "Failed to check PowerShell version: $_"
+    }
+
+    # Check for profile updates
+    Write-Host ""
+    Write-Host "Checking for profile updates..." -ForegroundColor Cyan
+    try {
+        $status = git -C $profileDir status --porcelain
+        if ($status) {
+            Write-Host "You have local changes — stash or commit before updating." -ForegroundColor Yellow
+            git -C $profileDir status --short
+            return
+        }
+        git -C $profileDir fetch origin main --quiet
+        $local = git -C $profileDir rev-parse HEAD
+        $remote = git -C $profileDir rev-parse origin/main
+        if ($local -ne $remote) {
+            Write-Host "Profile update available. Pulling..." -ForegroundColor Yellow
+            git -C $profileDir pull --ff-only origin main
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Profile updated. Restart your shell to apply changes." -ForegroundColor Green
+            } else {
+                Write-Warning "Failed to pull updates. Try manually: git -C $profileDir pull"
+            }
+        } else {
+            Write-Host "Profile is up to date." -ForegroundColor Green
+        }
+    } catch {
+        Write-Warning "Failed to check profile updates: $_"
+    }
+
+    # Reset update check timer
+    (Get-Date -Format 'yyyy-MM-dd') | Set-Content "$profileDir\LastUpdateCheck.txt"
+}
+Set-Alias -Name pu -Value profile-update
 
 #───────────────────────────────────────────────────────────────────────────────
 # PROFILE LOAD TIME

@@ -49,6 +49,7 @@ $tools = @(
     @{ Name = "btop";       Exe = "btop.exe";       WinGet = "aristocratos.btop4win" }
     @{ Name = "glow";       Exe = "glow.exe";       WinGet = "charmbracelet.glow" }
     @{ Name = "jq";         Exe = "jq.exe";         WinGet = "jqlang.jq" }
+    @{ Name = "sqlite";     Exe = "sqlite3.exe";    WinGet = "SQLite.SQLite" }
 )
 
 $missing = @()
