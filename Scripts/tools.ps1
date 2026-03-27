@@ -35,22 +35,37 @@ if ($parsed._help) {
 
 # Tool definitions: display name, winget package ID, exe to check
 $tools = @(
-    @{ Name = "fd";         Exe = "fd.exe";         WinGet = "sharkdp.fd" }
-    @{ Name = "ripgrep";    Exe = "rg.exe";         WinGet = "BurntSushi.ripgrep.MSVC" }
-    @{ Name = "fzf";        Exe = "fzf.exe";        WinGet = "junegunn.fzf" }
-    @{ Name = "zoxide";     Exe = "zoxide.exe";     WinGet = "ajeetdsouza.zoxide" }
-    @{ Name = "eza";        Exe = "eza.exe";        WinGet = "eza-community.eza" }
-    @{ Name = "bat";        Exe = "bat.exe";        WinGet = "sharkdp.bat" }
-    @{ Name = "delta";      Exe = "delta.exe";      WinGet = "dandavison.delta" }
-    @{ Name = "yq";         Exe = "yq.exe";         WinGet = "MikeFarah.yq" }
-    @{ Name = "procs";      Exe = "procs.exe";      WinGet = "dalance.procs" }
-    @{ Name = "hyperfine";  Exe = "hyperfine.exe";  WinGet = "sharkdp.hyperfine" }
-    @{ Name = "tokei";      Exe = "tokei.exe";      WinGet = "XAMPPRocky.tokei" }
-    @{ Name = "btop";       Exe = "btop.exe";       WinGet = "aristocratos.btop4win" }
-    @{ Name = "glow";       Exe = "glow.exe";       WinGet = "charmbracelet.glow" }
-    @{ Name = "jq";         Exe = "jq.exe";         WinGet = "jqlang.jq" }
-    @{ Name = "sqlite";     Exe = "sqlite3.exe";    WinGet = "SQLite.SQLite" }
+    # Core
+    @{ Name = "git";         Exe = "git.exe";         WinGet = "Git.Git" }
+    @{ Name = "gh";          Exe = "gh.exe";          WinGet = "GitHub.cli" }
+    @{ Name = "oh-my-posh";  Exe = "oh-my-posh.exe";  WinGet = "JanDeDobbeleer.OhMyPosh" }
+    @{ Name = "neovim";      Exe = "nvim.exe";        WinGet = "Neovim.Neovim" }
+    @{ Name = "alacritty";   Exe = "alacritty.exe";   WinGet = "Alacritty.Alacritty" }
+    @{ Name = "podman";      Exe = "podman.exe";      WinGet = "RedHat.Podman" }
+    # CLI replacements
+    @{ Name = "fd";          Exe = "fd.exe";          WinGet = "sharkdp.fd" }
+    @{ Name = "ripgrep";     Exe = "rg.exe";          WinGet = "BurntSushi.ripgrep.MSVC" }
+    @{ Name = "fzf";         Exe = "fzf.exe";         WinGet = "junegunn.fzf" }
+    @{ Name = "zoxide";      Exe = "zoxide.exe";      WinGet = "ajeetdsouza.zoxide" }
+    @{ Name = "eza";         Exe = "eza.exe";         WinGet = "eza-community.eza" }
+    @{ Name = "bat";         Exe = "bat.exe";         WinGet = "sharkdp.bat" }
+    @{ Name = "delta";       Exe = "delta.exe";       WinGet = "dandavison.delta" }
+    @{ Name = "procs";       Exe = "procs.exe";       WinGet = "dalance.procs" }
+    @{ Name = "btop";        Exe = "btop.exe";        WinGet = "aristocratos.btop4win" }
+    # Data & text
+    @{ Name = "jq";          Exe = "jq.exe";          WinGet = "jqlang.jq" }
+    @{ Name = "yq";          Exe = "yq.exe";          WinGet = "MikeFarah.yq" }
+    @{ Name = "sqlite";      Exe = "sqlite3.exe";     WinGet = "SQLite.SQLite" }
+    @{ Name = "glow";        Exe = "glow.exe";        WinGet = "charmbracelet.glow" }
+    # Benchmarking & stats
+    @{ Name = "hyperfine";   Exe = "hyperfine.exe";   WinGet = "sharkdp.hyperfine" }
+    @{ Name = "tokei";       Exe = "tokei.exe";       WinGet = "XAMPPRocky.tokei" }
 )
+
+# Font check (installed via oh-my-posh, not WinGet)
+$fontName = "CaskaydiaCove"
+$fontDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+$fontInstalled = (Get-ChildItem $fontDir -Filter "${fontName}*" -ErrorAction SilentlyContinue).Count -gt 0
 
 $missing = @()
 $installed = @()
@@ -85,10 +100,23 @@ foreach ($tool in $tools) {
 }
 
 Write-Host "  $("─" * 50)" -ForegroundColor DarkGray
-Write-Host "  $($installed.Count) installed, $($missing.Count) missing" -ForegroundColor DarkGray
+
+# Font status
+if ($fontInstalled) {
+    Write-Host "  [OK]  $("$fontName NF".PadRight(14))" -ForegroundColor Green -NoNewline
+    Write-Host " oh-my-posh font" -ForegroundColor DarkGray
+} else {
+    Write-Host "  [  ]  $("$fontName NF".PadRight(14))" -ForegroundColor Yellow -NoNewline
+    Write-Host " oh-my-posh font install CascadiaCode" -ForegroundColor DarkGray
+}
+
+Write-Host "  $("─" * 50)" -ForegroundColor DarkGray
+$totalInstalled = $installed.Count + [int]$fontInstalled
+$totalMissing = $missing.Count + [int](-not $fontInstalled)
+Write-Host "  $totalInstalled installed, $totalMissing missing" -ForegroundColor DarkGray
 Write-Host ""
 
-if ($missing.Count -eq 0) {
+if ($missing.Count -eq 0 -and $fontInstalled) {
     Write-Host "  All tools installed." -ForegroundColor Green
     Write-Host ""
     exit 0
@@ -111,6 +139,18 @@ foreach ($tool in $missing) {
         Write-Host "  Installed $($tool.Name)" -ForegroundColor Green
     } else {
         Write-Warning "  Failed to install $($tool.Name)"
+    }
+    Write-Host ""
+}
+
+# Install font if missing
+if (-not $fontInstalled) {
+    Write-Host "  Installing $fontName Nerd Font via oh-my-posh..." -ForegroundColor Yellow
+    oh-my-posh font install CascadiaCode
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Installed $fontName Nerd Font" -ForegroundColor Green
+    } else {
+        Write-Warning "  Failed to install font. Try manually: oh-my-posh font install CascadiaCode"
     }
     Write-Host ""
 }
