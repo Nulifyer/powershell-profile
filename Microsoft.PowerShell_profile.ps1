@@ -346,6 +346,7 @@ Set-PSReadLineKeyHandler -Key Ctrl+z -Function Undo
 Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
     $global:_transientPrompt = $true
     [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+    [Console]::Write("`e[J")
     [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
 }
 
