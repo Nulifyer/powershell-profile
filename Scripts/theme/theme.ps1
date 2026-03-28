@@ -154,6 +154,9 @@ if ($scheme) {
     # File Pilot
     try { if (Update-FilePilotTheme $scheme $choice) { $updated += "File Pilot" } } catch {}
 
+    # Browsers (Chromium-based via BrowserThemeColor policy)
+    try { $updated += Update-BrowserTheme $scheme } catch {}
+
     # Windows system (dark/light mode + accent color)
     try { Update-WindowsTheme $scheme $choice; $updated += "Windows" } catch {}
 

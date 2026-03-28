@@ -993,14 +993,42 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
 
         # Variables — foreground
         (_tc "variable" $fg)
+        (_tc "variable.other" $fg)
+        (_tc "variable.other.readwrite" $fg)
+        (_tc "variable.other.property" $fg)
+        (_tc "variable.other.object" $fg)
         (_tc "variable.parameter" $fg)
         (_tc "variable.argument" $fg)
+        (_tc "punctuation.definition.variable" $fg)
         (_tc "entity.name.variable" $fg)
         (_tc "support.variable" $fg)
         (_tc "meta.definition.variable.name" $fg)
         (_tc "variable.language" $scheme.red)
         (_tc "variable.legacy.builtin.python" $fg)
         (_tc "variable.language.wildcard.java" $fg)
+
+        # PowerShell-specific
+        (_tc "support.function.powershell" $scheme.yellow)
+        (_tc "support.function.attribute.powershell" $scheme.yellow)
+        (_tc "support.variable.automatic.powershell" $scheme.red)
+        (_tc "support.variable.drive.powershell" $fg)
+        (_tc "support.constant.variable.powershell" $scheme.purple)
+        (_tc "variable.other.member.powershell" $scheme.yellow)
+        (_tc "variable.parameter.attribute.powershell" $orange)
+        (_tc "storage.modifier.scope.powershell" $scheme.red)
+        (_tc "keyword.other.powershell" $scheme.red)
+        (_tc "keyword.other.array.begin.powershell" $scheme.yellow)
+        (_tc "keyword.other.hashtable.begin.powershell" $scheme.yellow)
+        (_tc "keyword.operator.string-format.powershell" $orange)
+        (_tc "punctuation.section.embedded.substatement.begin.powershell" $orange)
+        (_tc "punctuation.section.embedded.substatement.end.powershell" $orange)
+        (_tc "punctuation.section.braces.begin.powershell" $scheme.yellow)
+        (_tc "punctuation.section.braces.end.powershell" $scheme.yellow)
+        (_tc "punctuation.section.bracket.begin.powershell" $scheme.yellow)
+        (_tc "punctuation.section.bracket.end.powershell" $scheme.yellow)
+        (_tc "punctuation.section.group.begin.powershell" $scheme.yellow)
+        (_tc "punctuation.section.group.end.powershell" $scheme.yellow)
+        (_tc "meta.attribute.powershell" $scheme.yellow)
 
         # Tags — yellow
         (_tc "entity.name.tag" $scheme.yellow)
@@ -1316,6 +1344,37 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
         $fileLines | Set-Content $configPath -Encoding UTF8
         return $true
     } catch { return $false }
+}
+
+# ── Browser theming (Chromium-based) ───────────────────────────────────────
+# Uses BrowserThemeColor managed policy via registry. Works on stock browsers.
+
+function Update-BrowserTheme([hashtable]$scheme) {
+    $color = $scheme.background
+    $updated = @()
+
+    # Map of browser name → policy registry path → exe detection paths
+    $browsers = @(
+        @{ Name = "Chrome";  Policy = "HKCU:\SOFTWARE\Policies\Google\Chrome";  Exe = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") }
+        @{ Name = "Brave";   Policy = "HKCU:\SOFTWARE\Policies\BraveSoftware\Brave";  Exe = @("$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe") }
+        @{ Name = "Edge";    Policy = "HKCU:\SOFTWARE\Policies\Microsoft\Edge";  Exe = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") }
+        @{ Name = "Vivaldi"; Policy = "HKCU:\SOFTWARE\Policies\Vivaldi";  Exe = @("$env:LOCALAPPDATA\Vivaldi\Application\vivaldi.exe") }
+    )
+
+    foreach ($b in $browsers) {
+        $installed = $b.Exe | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($installed) {
+            try {
+                if (-not (Test-Path $b.Policy)) {
+                    New-Item -Path $b.Policy -Force | Out-Null
+                }
+                Set-ItemProperty -Path $b.Policy -Name "BrowserThemeColor" -Value $color -Type String -Force -ErrorAction Stop
+                $updated += $b.Name
+            } catch {}
+        }
+    }
+
+    return $updated
 }
 
 # ── Windows system theming ─────────────────────────────────────────────────
