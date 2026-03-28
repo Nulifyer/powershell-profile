@@ -71,6 +71,10 @@ if ($runUpdateCheck) {
 # ENVIRONMENT & PATHS
 #───────────────────────────────────────────────────────────────────────────────
 
+# UTF-8 output — required for Nerd Font glyphs in the prompt
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # make sure to load user path
 try {
     $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
@@ -163,15 +167,25 @@ if (Test-Path $scriptsFolder) {
 #───────────────────────────────────────────────────────────────────────────────
 
 # ANSI colors — `theme` command changes what these render as
+$_e = [char]27
 $_c = @{
-    reset   = "`e[0m"
-    muted   = "`e[90m"   # bright black
-    blue    = "`e[34m"
-    magenta = "`e[35m"
-    cyan    = "`e[36m"
+    reset       = "$_e[0m"
+    muted       = "$_e[90m"   # bright black
+    blue        = "$_e[34m"
+    magenta     = "$_e[35m"
+    cyan        = "$_e[36m"
+    brightCyan  = "$_e[96m"
+    white       = "$_e[37m"
+    yellow      = "$_e[33m"
+    red         = "$_e[31m"
+    green       = "$_e[32m"
 }
 
 function prompt {
+    if ($global:_transientPrompt) {
+        $global:_transientPrompt = $false
+        return "`e[90m`u{f105}`e[0m "
+    }
     $c = $script:_c
 
     # OS icon
@@ -235,14 +249,6 @@ function prompt {
     return "${os}${uh}${pathStr}${gitStr}$($c.muted)`u{f105}$($c.reset) "
 }
 
-# Transient prompt: collapse previous prompt to just ❯ on Enter
-Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
-    $saved = $function:global:prompt
-    $function:global:prompt = { "$($script:_c.muted)`u{f105}$($script:_c.reset) " }
-    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
-    $function:global:prompt = $saved
-    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
-}
 #───────────────────────────────────────────────────────────────────────────────
 # PSREADLINE CONFIGURATION
 #───────────────────────────────────────────────────────────────────────────────
@@ -254,9 +260,9 @@ Set-PSReadLineOption -EditMode Emacs
 Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 Set-PSReadLineOption -PredictionViewStyle ListView
 
-# Colors for predictions (gray text like zsh)
+# Colors for predictions (uses terminal bright black — follows theme)
 Set-PSReadLineOption -Colors @{
-    InlinePrediction = '#808080'
+    InlinePrediction = $_c.muted
 }
 
 # Accept suggestion with Right Arrow or End key
@@ -290,6 +296,13 @@ Set-PSReadLineKeyHandler -Key Ctrl+LeftArrow  -Function BackwardWord
 Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
 Set-PSReadLineKeyHandler -Key Ctrl+Delete     -Function DeleteWord
 Set-PSReadLineKeyHandler -Key Ctrl+Backspace  -Function BackwardDeleteWord
+
+# Transient prompt: collapse previous prompt to just ❯ on Enter
+Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+    $global:_transientPrompt = $true
+    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+}
 
 #───────────────────────────────────────────────────────────────────────────────
 # ALIASES - Unix Utilities (from Git)

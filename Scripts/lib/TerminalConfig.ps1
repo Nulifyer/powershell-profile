@@ -22,7 +22,9 @@ function _Ensure-WTProfile {
             scrollbarState = "hidden"
             historySize = 10000
         }
-        $wt.profiles.list = @($wt.profiles.list) + $profile
+        $newList = [System.Collections.ArrayList]@($wt.profiles.list)
+        $newList.Add($profile) | Out-Null
+        $wt.profiles | Add-Member -NotePropertyName "list" -NotePropertyValue $newList.ToArray() -Force
     }
 
     # Set as default
@@ -187,7 +189,9 @@ function Update-TerminalColors([hashtable]$scheme) {
                 if ($existingScheme) {
                     foreach ($key in $scheme.Keys) { $existingScheme | Add-Member -NotePropertyName $key -NotePropertyValue $scheme[$key] -Force }
                 } else {
-                    $wt.schemes = @($wt.schemes) + [PSCustomObject]$scheme
+                    $newSchemes = [System.Collections.ArrayList]@($wt.schemes)
+                    $newSchemes.Add([PSCustomObject]$scheme) | Out-Null
+                    $wt | Add-Member -NotePropertyName "schemes" -NotePropertyValue $newSchemes.ToArray() -Force
                 }
 
                 # Set colorScheme and opacity on the profile
