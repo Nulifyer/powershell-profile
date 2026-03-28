@@ -46,7 +46,6 @@ $tools = @(
     @{ Name = "fd";          Exe = "fd.exe";          WinGet = "sharkdp.fd" }
     @{ Name = "ripgrep";     Exe = "rg.exe";          WinGet = "BurntSushi.ripgrep.MSVC" }
     @{ Name = "fzf";         Exe = "fzf.exe";         WinGet = "junegunn.fzf" }
-    @{ Name = "zoxide";      Exe = "zoxide.exe";      WinGet = "ajeetdsouza.zoxide" }
     @{ Name = "eza";         Exe = "eza.exe";         WinGet = "eza-community.eza" }
     @{ Name = "bat";         Exe = "bat.exe";         WinGet = "sharkdp.bat" }
     @{ Name = "delta";       Exe = "delta.exe";       WinGet = "dandavison.delta" }

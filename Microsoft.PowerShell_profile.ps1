@@ -25,6 +25,58 @@ if (-not (Test-Path $updateCheckFile)) {
     }
 }
 
+function _Check-PwshVersion {
+    param([switch]$AutoUpdate)
+    $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 5).tag_name.TrimStart('v')
+    $currentVersion = $PSVersionTable.PSVersion.ToString()
+    if ([version]$currentVersion -lt [version]$latestVersion) {
+        Write-Host "PowerShell update available: $currentVersion → $latestVersion" -ForegroundColor Yellow
+        if ($AutoUpdate) {
+            Write-Host "Updating PowerShell via WinGet..." -ForegroundColor Yellow
+            winget upgrade Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "PowerShell updated. Restart your shell to use $latestVersion" -ForegroundColor Green
+            } else {
+                Write-Warning "Failed to update PowerShell"
+            }
+        } else {
+            Write-Host "  Run 'winget upgrade Microsoft.PowerShell' to update" -ForegroundColor DarkGray
+        }
+        return $true
+    }
+    Write-Host "PowerShell is up to date ($currentVersion)" -ForegroundColor Green
+    return $false
+}
+
+function _Check-ProfileUpdates {
+    param([switch]$AutoPull)
+    $profileDir = $PSScriptRoot
+    $status = git -C $profileDir status --porcelain
+    if ($status) {
+        Write-Host "You have local changes — stash or commit before updating." -ForegroundColor Yellow
+        git -C $profileDir status --short
+        return
+    }
+    git -C $profileDir fetch origin main --quiet
+    $local = git -C $profileDir rev-parse HEAD
+    $remote = git -C $profileDir rev-parse origin/main
+    if ($local -ne $remote) {
+        if ($AutoPull) {
+            Write-Host "Profile update available. Pulling..." -ForegroundColor Yellow
+            git -C $profileDir pull --ff-only origin main
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Profile updated. Restart your shell to apply changes." -ForegroundColor Green
+            } else {
+                Write-Warning "Failed to pull updates. Try manually: git -C $profileDir pull"
+            }
+        } else {
+            Write-Host "Profile update available! Run 'git -C $profileDir pull' to update" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Profile is up to date." -ForegroundColor Green
+    }
+}
+
 if ($runUpdateCheck) {
     # Test GitHub connectivity (1s timeout)
     $canConnect = try {
@@ -37,30 +89,8 @@ if ($runUpdateCheck) {
     } catch { $false }
 
     if ($canConnect) {
-        # Check for PowerShell updates
-        try {
-            $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 5).tag_name.TrimStart('v')
-            $currentVersion = $PSVersionTable.PSVersion.ToString()
-            if ([version]$currentVersion -lt [version]$latestVersion) {
-                Write-Host "PowerShell update available: $currentVersion → $latestVersion" -ForegroundColor Yellow
-                Write-Host "  Run 'winget upgrade Microsoft.PowerShell' to update" -ForegroundColor DarkGray
-            }
-        } catch {}
-
-        # Check for profile updates (compare local vs remote)
-        try {
-            $profileUrl = "https://raw.githubusercontent.com/nulifyer/powershell-profile/main/Microsoft.PowerShell_profile.ps1"
-            $tempProfile = "$env:TEMP\pwsh-profile-check.ps1"
-            Invoke-RestMethod $profileUrl -OutFile $tempProfile -TimeoutSec 5
-            $localHash = (Get-FileHash $PROFILE).Hash
-            $remoteHash = (Get-FileHash $tempProfile).Hash
-            if ($localHash -ne $remoteHash) {
-                Write-Host "Profile update available! Run 'git -C $PSScriptRoot pull' to update" -ForegroundColor Yellow
-            }
-            Remove-Item $tempProfile -ErrorAction SilentlyContinue
-        } catch {}
-
-        # Record check time
+        try { _Check-PwshVersion } catch {}
+        try { _Check-ProfileUpdates } catch {}
         (Get-Date -Format 'yyyy-MM-dd') | Set-Content $updateCheckFile
     }
 }
@@ -114,31 +144,42 @@ function Add-PathEntry([string]$Dir) {
 $GitUsrBin = "$env:ProgramFiles\Git\usr\bin"
 Add-PathEntry $GitUsrBin
 
-# Auto-detect WinGet installed tools — targeted by package ID
+# Auto-detect WinGet installed tools — cached for fast startup
 $WinGetPackages = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages"
+$wingetCacheFile = "$profileCache\winget-tool-paths.txt"
 if (Test-Path $WinGetPackages) {
-    @{
-        'sharkdp.fd'            = 'fd.exe'
-        'BurntSushi.ripgrep'    = 'rg.exe'
-        'junegunn.fzf'          = 'fzf.exe'
-        'ajeetdsouza.zoxide'    = 'zoxide.exe'
-        'eza-community.eza'     = 'eza.exe'
-        'sharkdp.bat'           = 'bat.exe'
-        'dandavison.delta'      = 'delta.exe'
-        'MikeFarah.yq'          = 'yq.exe'
-        'dalance.procs'         = 'procs.exe'
-        'sharkdp.hyperfine'     = 'hyperfine.exe'
-        'XAMPPRocky.tokei'      = 'tokei.exe'
-        'aristocratos.btop4win' = 'btop4win.exe'
-        'charmbracelet.glow'    = 'glow.exe'
-        'jqlang.jq'             = 'jq.exe'
-        'SQLite.SQLite'         = 'sqlite3.exe'
-    }.GetEnumerator() | ForEach-Object {
-        $pkgDir = Get-ChildItem $WinGetPackages -Directory -Filter "$($_.Key)_*" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($pkgDir) {
-            $exe = Get-ChildItem $pkgDir.FullName -Depth 1 -Filter $_.Value -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($exe) { Add-PathEntry $exe.DirectoryName }
+    if (Test-Path $wingetCacheFile) {
+        # Use cached paths
+        Get-Content $wingetCacheFile | Where-Object { $_ -and (Test-Path $_) } | ForEach-Object { Add-PathEntry $_ }
+    } else {
+        # Scan and cache
+        $resolvedPaths = @()
+        @{
+            'sharkdp.fd'            = 'fd.exe'
+            'BurntSushi.ripgrep'    = 'rg.exe'
+            'junegunn.fzf'          = 'fzf.exe'
+            'eza-community.eza'     = 'eza.exe'
+            'sharkdp.bat'           = 'bat.exe'
+            'dandavison.delta'      = 'delta.exe'
+            'MikeFarah.yq'          = 'yq.exe'
+            'dalance.procs'         = 'procs.exe'
+            'sharkdp.hyperfine'     = 'hyperfine.exe'
+            'XAMPPRocky.tokei'      = 'tokei.exe'
+            'aristocratos.btop4win' = 'btop4win.exe'
+            'charmbracelet.glow'    = 'glow.exe'
+            'jqlang.jq'             = 'jq.exe'
+            'SQLite.SQLite'         = 'sqlite3.exe'
+        }.GetEnumerator() | ForEach-Object {
+            $pkgDir = Get-ChildItem $WinGetPackages -Directory -Filter "$($_.Key)_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($pkgDir) {
+                $exe = Get-ChildItem $pkgDir.FullName -Depth 1 -Filter $_.Value -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($exe) {
+                    Add-PathEntry $exe.DirectoryName
+                    $resolvedPaths += $exe.DirectoryName
+                }
+            }
         }
+        $resolvedPaths | Set-Content $wingetCacheFile
     }
 }
 #───────────────────────────────────────────────────────────────────────────────
@@ -298,6 +339,9 @@ Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
 Set-PSReadLineKeyHandler -Key Ctrl+Delete     -Function DeleteWord
 Set-PSReadLineKeyHandler -Key Ctrl+Backspace  -Function BackwardDeleteWord
 
+# Undo
+Set-PSReadLineKeyHandler -Key Ctrl+z -Function Undo
+
 # Transient prompt: collapse previous prompt to just ❯ on Enter
 Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
     $global:_transientPrompt = $true
@@ -337,15 +381,14 @@ Set-Alias -Name nano        -Value "$GitUsrBin\nano.exe"
 Set-Alias -Name less        -Value "$GitUsrBin\less.exe"
 
 # SSH
-Set-Alias -Name Ssh-Keygen  -Value "$GitUsrBin\ssh-keygen.exe"
-Set-Alias -Name Ssh         -Value "$GitUsrBin\ssh.exe"
+Set-Alias -Name ssh-keygen  -Value "$GitUsrBin\ssh-keygen.exe"
+Set-Alias -Name ssh         -Value "$GitUsrBin\ssh.exe"
 
 #───────────────────────────────────────────────────────────────────────────────
 # ALIASES - General
 #───────────────────────────────────────────────────────────────────────────────
 
 Set-Alias -Name which       -Value Get-Command
-Set-Alias -Name clear       -Value Clear-Host
 Set-Alias -Name docker      -Value podman
 
 #───────────────────────────────────────────────────────────────────────────────
@@ -403,6 +446,39 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 }
 
 #───────────────────────────────────────────────────────────────────────────────
+# FZF INTEGRATION
+#───────────────────────────────────────────────────────────────────────────────
+
+if (Get-Command fzf -ErrorAction SilentlyContinue) {
+    # Ctrl+R: fuzzy history search
+    Set-PSReadLineKeyHandler -Key Ctrl+r -ScriptBlock {
+        $line = $null
+        $cursor = $null
+        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
+        $history = [Microsoft.PowerShell.PSConsoleReadLine]::GetHistoryItems() |
+            ForEach-Object { $_.CommandLine } |
+            Select-Object -Unique
+        $selected = $history | fzf --tac --no-sort --query="$line"
+        if ($selected) {
+            [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+            [Microsoft.PowerShell.PSConsoleReadLine]::Insert($selected)
+        }
+    }
+
+    # Ctrl+T: fuzzy file picker (uses fd if available, falls back to Get-ChildItem)
+    Set-PSReadLineKeyHandler -Key Ctrl+t -ScriptBlock {
+        $selected = if (Get-Command fd -ErrorAction SilentlyContinue) {
+            fd --type f --hidden --exclude .git | fzf
+        } else {
+            Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName } | fzf
+        }
+        if ($selected) {
+            [Microsoft.PowerShell.PSConsoleReadLine]::Insert($selected)
+        }
+    }
+}
+
+#───────────────────────────────────────────────────────────────────────────────
 # FUNCTIONS - File Operations
 #───────────────────────────────────────────────────────────────────────────────
 
@@ -437,7 +513,7 @@ function mkcd {
     Set-Location $Path
 }
 
-function find {
+function ff {
     param(
         [Parameter(Position=0)][string]$Path = ".",
         [Alias("name")][string]$Filter = "*"
@@ -463,9 +539,6 @@ function .... { Set-Location ..\..\.. }
 # FUNCTIONS - System Info
 #───────────────────────────────────────────────────────────────────────────────
 
-function whoami  { $env:USERNAME }
-function hostname { $env:COMPUTERNAME }
-
 function df {
     Get-PSDrive -PSProvider FileSystem |
         Select-Object Name,
@@ -475,12 +548,7 @@ function df {
             @{N='Use%';E={[math]::Round($_.Used/($_.Used+$_.Free)*100,1)}}
 }
 
-function du {
-    param([string]$Path = ".")
-    Get-ChildItem $Path -Recurse -ErrorAction SilentlyContinue |
-        Measure-Object -Property Length -Sum |
-        Select-Object @{N='Size(MB)';E={[math]::Round($_.Sum/1MB,2)}}, Count
-}
+Set-Alias -Name du -Value "$GitUsrBin\du.exe"
 
 #───────────────────────────────────────────────────────────────────────────────
 # FUNCTIONS - Process Management
@@ -538,69 +606,19 @@ function watch {
 
 Set-Alias -Name file -Value "$GitUsrBin\file.exe"
 
-function source {
-    param([Parameter(Mandatory)]$Path)
-    . $Path
-}
-
 #───────────────────────────────────────────────────────────────────────────────
 # FUNCTIONS - Profile Update
 #───────────────────────────────────────────────────────────────────────────────
 
 function profile-update {
-    $profileDir = $PSScriptRoot
-
-    # Check for PowerShell updates
     Write-Host "Checking for PowerShell updates..." -ForegroundColor Cyan
-    try {
-        $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 5).tag_name.TrimStart('v')
-        $currentVersion = $PSVersionTable.PSVersion.ToString()
-        if ([version]$currentVersion -lt [version]$latestVersion) {
-            Write-Host "PowerShell update available: $currentVersion → $latestVersion" -ForegroundColor Yellow
-            Write-Host "Updating PowerShell via WinGet..." -ForegroundColor Yellow
-            winget upgrade Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "PowerShell updated. Restart your shell to use $latestVersion" -ForegroundColor Green
-            } else {
-                Write-Warning "Failed to update PowerShell"
-            }
-        } else {
-            Write-Host "PowerShell is up to date ($currentVersion)" -ForegroundColor Green
-        }
-    } catch {
-        Write-Warning "Failed to check PowerShell version: $_"
-    }
+    try { _Check-PwshVersion -AutoUpdate } catch { Write-Warning "Failed to check PowerShell version: $_" }
 
-    # Check for profile updates
     Write-Host ""
     Write-Host "Checking for profile updates..." -ForegroundColor Cyan
-    try {
-        $status = git -C $profileDir status --porcelain
-        if ($status) {
-            Write-Host "You have local changes — stash or commit before updating." -ForegroundColor Yellow
-            git -C $profileDir status --short
-            return
-        }
-        git -C $profileDir fetch origin main --quiet
-        $local = git -C $profileDir rev-parse HEAD
-        $remote = git -C $profileDir rev-parse origin/main
-        if ($local -ne $remote) {
-            Write-Host "Profile update available. Pulling..." -ForegroundColor Yellow
-            git -C $profileDir pull --ff-only origin main
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "Profile updated. Restart your shell to apply changes." -ForegroundColor Green
-            } else {
-                Write-Warning "Failed to pull updates. Try manually: git -C $profileDir pull"
-            }
-        } else {
-            Write-Host "Profile is up to date." -ForegroundColor Green
-        }
-    } catch {
-        Write-Warning "Failed to check profile updates: $_"
-    }
+    try { _Check-ProfileUpdates -AutoPull } catch { Write-Warning "Failed to check profile updates: $_" }
 
-    # Reset update check timer
-    (Get-Date -Format 'yyyy-MM-dd') | Set-Content "$profileDir\LastUpdateCheck.txt"
+    (Get-Date -Format 'yyyy-MM-dd') | Set-Content "$PSScriptRoot\LastUpdateCheck.txt"
 }
 Set-Alias -Name pu -Value profile-update
 
