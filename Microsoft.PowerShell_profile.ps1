@@ -162,17 +162,25 @@ if (Test-Path $scriptsFolder) {
 # PROMPT (native — uses terminal ANSI colors set by `theme` command)
 #───────────────────────────────────────────────────────────────────────────────
 
+# ANSI colors — `theme` command changes what these render as
+$_c = @{
+    reset   = "`e[0m"
+    muted   = "`e[90m"   # bright black
+    blue    = "`e[34m"
+    magenta = "`e[35m"
+    cyan    = "`e[36m"
+}
+
 function prompt {
-    # Colors come from the terminal palette — `theme` changes what these look like
-    $r = "`e[0m"
+    $c = $script:_c
 
-    # OS icon (bright black — muted)
-    $os = "`e[90m`u{e70f} $r"
+    # OS icon
+    $os = "$($c.muted)`u{e70f} $($c.reset)"
 
-    # user@host (blue)
-    $uh = "`e[34m$env:USERNAME@$env:COMPUTERNAME $r"
+    # user@host
+    $uh = "$($c.blue)$env:USERNAME@$env:COMPUTERNAME $($c.reset)"
 
-    # Shortened path (magenta, fish-style: first char of intermediate dirs)
+    # Shortened path (fish-style: first char of intermediate dirs)
     $cur = $PWD.ProviderPath
     $home_ = [Environment]::GetFolderPath('UserProfile')
     if ($cur.StartsWith($home_, [StringComparison]::OrdinalIgnoreCase)) {
@@ -188,9 +196,9 @@ function prompt {
         $short.Add($parts[-1])
         $cur = $short -join '\'
     }
-    $pathStr = "`e[35m$cur $r"
+    $pathStr = "$($c.magenta)$cur $($c.reset)"
 
-    # Git branch (cyan, read .git/HEAD directly — no process spawn)
+    # Git branch (read .git/HEAD directly — no process spawn)
     $gitStr = ""
     $d = $PWD.ProviderPath
     while ($d) {
@@ -216,7 +224,7 @@ function prompt {
             } else {
                 $head.Substring(0, [Math]::Min(7, $head.Length))
             }
-            $gitStr = "`e[36m`u{e725} $branch $r"
+            $gitStr = "$($c.cyan)`u{e725} $branch $($c.reset)"
             break
         }
         $parent = [IO.Path]::GetDirectoryName($d)
@@ -224,13 +232,13 @@ function prompt {
         $d = $parent
     }
 
-    return "${os}${uh}${pathStr}${gitStr}`e[90m`u{f105}$r "
+    return "${os}${uh}${pathStr}${gitStr}$($c.muted)`u{f105}$($c.reset) "
 }
 
 # Transient prompt: collapse previous prompt to just ❯ on Enter
 Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
     $saved = $function:global:prompt
-    $function:global:prompt = { "`e[90m`u{f105}`e[0m " }
+    $function:global:prompt = { "$($script:_c.muted)`u{f105}$($script:_c.reset) " }
     [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
     $function:global:prompt = $saved
     [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
