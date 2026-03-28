@@ -4,7 +4,7 @@
     Switch prompt color palette.
 
 .DESCRIPTION
-    Changes the oh-my-posh prompt colors while keeping the same layout.
+    Changes the prompt color palette and terminal color scheme.
     The chosen palette is saved and persists across sessions.
 
 .EXAMPLE
@@ -130,50 +130,6 @@ $wtSchemes = @{
     }
 }
 
-# ── Base theme layout ────────────────────────────────────────────────────────
-
-$baseTheme = @{
-    '$schema' = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json"
-    version = 3
-    final_space = $true
-    blocks = @(
-        @{
-            type = "prompt"
-            alignment = "left"
-            segments = @(
-                @{ type = "os";      style = "plain"; foreground = "p:os";       template = "{{.Icon}} " }
-                @{ type = "session"; style = "plain"; foreground = "p:blue";     template = "{{ .UserName }}@{{ .HostName }} " }
-                @{
-                    type = "path"; style = "plain"; foreground = "p:pink"
-                    template = "{{ .Path }} "
-                    properties = @{
-                        folder_icon = "..$([char]0xe5fe).."
-                        home_icon = "~"
-                        style = "agnoster_short"
-                    }
-                }
-                @{
-                    type = "git"; style = "plain"; foreground = "p:lavender"
-                    template = "{{ .HEAD }} "
-                    properties = @{
-                        branch_icon = "$([char]0xe725) "
-                        cherry_pick_icon = "$([char]0xe29b) "
-                        commit_icon = "$([char]0xf417) "
-                        fetch_status = $false
-                        fetch_upstream_icon = $false
-                        merge_icon = "$([char]0xe727) "
-                        no_commits_icon = "$([char]0xf0c3) "
-                        rebase_icon = "$([char]0xe728) "
-                        revert_icon = "$([char]0xf0e2) "
-                        tag_icon = "$([char]0xf412) "
-                    }
-                }
-                @{ type = "text"; style = "plain"; foreground = "p:closer"; template = "$([char]0xf105)" }
-            )
-        }
-    )
-}
-
 # ── Config ───────────────────────────────────────────────────────────────────
 
 $configKey = "theme"
@@ -290,22 +246,8 @@ if (-not $palettes.Contains($choice)) {
     exit 1
 }
 
-# Build theme JSON with chosen palette (exclude bg — it's for the terminal, not oh-my-posh)
-$theme = $baseTheme.Clone()
-$ompPalette = @{}
-foreach ($k in $palettes[$choice].Keys) {
-    if ($k -ne 'bg') { $ompPalette[$k] = $palettes[$choice][$k] }
-}
-$theme.palette = $ompPalette
-$themeJson = $theme | ConvertTo-Json -Depth 10
-
-# Write theme file
-$themeFile = "$PSScriptRoot\..\omp-theme.json"
-$themeJson | Set-Content $themeFile -Encoding UTF8
-
-# Re-init oh-my-posh with new theme
-$initScript = (oh-my-posh init pwsh --config $themeFile) -join "`n"
-Invoke-Expression $initScript
+# Save choice
+Set-ScriptConfig $configKey "palette" $choice
 
 # ── Update all terminal emulators ────────────────────────────────────────────
 
@@ -316,16 +258,5 @@ if ($scheme) {
         Write-Host "Updated: $($updatedTerminals -join ', ')" -ForegroundColor DarkGray
     }
 }
-
-# Cache the init script for fast profile load
-$ompCmd = Get-Command oh-my-posh -ErrorAction SilentlyContinue
-if ($ompCmd) {
-    $ompMtime = (Get-Item $ompCmd.Source).LastWriteTime.ToString("yyyyMMddHHmmss")
-    $cacheFile = "$env:TEMP\pwsh-profile\omp-custom-${ompMtime}.ps1"
-    $initScript | Set-Content $cacheFile -Encoding UTF8
-}
-
-# Save choice
-Set-ScriptConfig $configKey "palette" $choice
 
 Write-Host "Switched to $choice" -ForegroundColor Green

@@ -159,24 +159,81 @@ if (Test-Path $scriptsFolder) {
     }
 }
 #───────────────────────────────────────────────────────────────────────────────
-# PROMPT
+# PROMPT (native — uses terminal ANSI colors set by `theme` command)
 #───────────────────────────────────────────────────────────────────────────────
 
-$ompCmd = Get-Command oh-my-posh -ErrorAction SilentlyContinue
-if ($ompCmd) {
-    $ompMtime = (Get-Item $ompCmd.Source).LastWriteTime.ToString("yyyyMMddHHmmss")
-    $ompThemeFile = "$PSScriptRoot\omp-theme.json"
-    $ompCache = "$profileCache\omp-custom-${ompMtime}.ps1"
+function prompt {
+    # Colors come from the terminal palette — `theme` changes what these look like
+    $r = "`e[0m"
 
-    # Generate theme if missing (default palette: gruvbox)
-    if (-not (Test-Path $ompThemeFile)) {
-        & "$HOME\Documents\PowerShell\Scripts\theme.ps1" gruvbox
+    # OS icon (bright black — muted)
+    $os = "`e[90m`u{e70f} $r"
+
+    # user@host (blue)
+    $uh = "`e[34m$env:USERNAME@$env:COMPUTERNAME $r"
+
+    # Shortened path (magenta, fish-style: first char of intermediate dirs)
+    $cur = $PWD.ProviderPath
+    $home_ = [Environment]::GetFolderPath('UserProfile')
+    if ($cur.StartsWith($home_, [StringComparison]::OrdinalIgnoreCase)) {
+        $cur = "~" + $cur.Substring($home_.Length)
+    }
+    $parts = $cur -split '[\\/]'
+    if ($parts.Count -gt 2) {
+        $short = [System.Collections.Generic.List[string]]::new($parts.Count)
+        $short.Add($parts[0])
+        for ($i = 1; $i -lt $parts.Count - 1; $i++) {
+            if ($parts[$i].Length -gt 0) { $short.Add($parts[$i][0].ToString()) }
+        }
+        $short.Add($parts[-1])
+        $cur = $short -join '\'
+    }
+    $pathStr = "`e[35m$cur $r"
+
+    # Git branch (cyan, read .git/HEAD directly — no process spawn)
+    $gitStr = ""
+    $d = $PWD.ProviderPath
+    while ($d) {
+        $gitPath = [IO.Path]::Combine($d, '.git')
+        $headFile = $null
+        if ([IO.Directory]::Exists($gitPath)) {
+            $headFile = [IO.Path]::Combine($gitPath, 'HEAD')
+        } elseif ([IO.File]::Exists($gitPath)) {
+            # Worktree: .git file contains "gitdir: <path>"
+            $link = [IO.File]::ReadAllText($gitPath).Trim()
+            if ($link.StartsWith('gitdir: ')) {
+                $gd = $link.Substring(8)
+                if (-not [IO.Path]::IsPathRooted($gd)) {
+                    $gd = [IO.Path]::GetFullPath([IO.Path]::Combine($d, $gd))
+                }
+                $headFile = [IO.Path]::Combine($gd, 'HEAD')
+            }
+        }
+        if ($headFile -and [IO.File]::Exists($headFile)) {
+            $head = [IO.File]::ReadAllText($headFile).Trim()
+            $branch = if ($head.StartsWith('ref: refs/heads/')) {
+                $head.Substring(16)
+            } else {
+                $head.Substring(0, [Math]::Min(7, $head.Length))
+            }
+            $gitStr = "`e[36m`u{e725} $branch $r"
+            break
+        }
+        $parent = [IO.Path]::GetDirectoryName($d)
+        if (-not $parent -or $parent -eq $d) { break }
+        $d = $parent
     }
 
-    if (-not (Test-Path $ompCache)) {
-        oh-my-posh init pwsh --config $ompThemeFile | Set-Content $ompCache -Encoding UTF8
-    }
-    . $ompCache
+    return "${os}${uh}${pathStr}${gitStr}`e[90m`u{f105}$r "
+}
+
+# Transient prompt: collapse previous prompt to just ❯ on Enter
+Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+    $saved = $function:global:prompt
+    $function:global:prompt = { "`e[90m`u{f105}`e[0m " }
+    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+    $function:global:prompt = $saved
+    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
 }
 #───────────────────────────────────────────────────────────────────────────────
 # PSREADLINE CONFIGURATION
