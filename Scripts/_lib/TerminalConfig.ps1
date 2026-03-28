@@ -751,66 +751,282 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "settings.rowHoverBackground" = $bgSurface
     }
 
-    # Token color mapping — warm-first: red, orange, yellow, green as primaries; blue/purple sparingly
+    # Token color mapping — one rule per scope to ensure specificity over base theme
     $orange = $scheme.brightRed   # brightRed is typically the orange slot in most themes
+
+    # Helper to generate standalone rules — each scope gets its own entry
+    function _tc([string]$scope, [string]$color, [string]$style) {
+        $s = @{ foreground = $color }
+        if ($style) { $s.fontStyle = $style }
+        return @{ scope = $scope; settings = $s }
+    }
+
     $tokenColors = @(
-        # Variables & properties — plain foreground (one.two in one.two.three)
-        @{ scope = "variable, variable.argument, support.variable, meta.definition.variable, entity.name.variable, constant.other.placeholder, variable.parameter"; settings = @{ foreground = $fg } }
-        @{ scope = "variable.language"; settings = @{ foreground = $scheme.red } }
+        # ── Standalone rules for every base theme scope (prevents Dark VS/Dark+ color leaks) ──
 
-        # Keywords — red (var, const, let, if, return, func, etc.)
-        @{ scope = "keyword, storage.modifier"; settings = @{ foreground = $scheme.red } }
-        @{ scope = "keyword.control"; settings = @{ foreground = $scheme.red } }
+        # Comments — muted
+        (_tc "comment" $fgMuted)
+        (_tc "punctuation.definition.comment" $fgMuted)
 
-        # Operators & punctuation — orange (., =>, =, +, etc.)
-        @{ scope = "keyword.operator, punctuation.accessor, punctuation.separator.dot, punctuation.other.period"; settings = @{ foreground = $orange } }
-        @{ scope = "keyword.operator.arrow, storage.type.function.arrow"; settings = @{ foreground = $orange } }
+        # Strings — dim green
+        (_tc "string" $scheme.brightGreen)
+        (_tc "string.tag" $scheme.brightGreen)
+        (_tc "string.value" $scheme.brightGreen)
+        (_tc "string.regexp" $scheme.cyan)
+        (_tc "string meta.image.inline.markdown" $scheme.brightGreen)
+        (_tc "meta.embedded.assembly" $scheme.brightGreen)
+        (_tc "meta.preprocessor.string" $scheme.brightGreen)
+        (_tc "punctuation.definition.string.begin" $scheme.brightGreen)
+        (_tc "punctuation.definition.string.end" $scheme.brightGreen)
+        (_tc "punctuation.definition.string.template.begin" $scheme.brightGreen)
+        (_tc "punctuation.definition.string.template.end" $scheme.brightGreen)
 
-        # Functions & brackets — yellow (function names, (), {})
-        @{ scope = "entity.name.function, support.function, meta.function-call.generic, entity.name.command"; settings = @{ foreground = $scheme.yellow } }
-        @{ scope = "support.function.builtin"; settings = @{ foreground = $scheme.yellow; fontStyle = "bold" } }
-        @{ scope = "punctuation.definition.block, punctuation.section, meta.brace, punctuation.squarebracket, punctuation.definition.attribute, punctuation.curlybrace, punctuation.parenthesis, punctuation.definition.parameters, punctuation.definition.arguments, punctuation.definition.begin.bracket, punctuation.definition.end.bracket"; settings = @{ foreground = $scheme.yellow } }
+        # Constants — purple
+        (_tc "constant.language" $scheme.purple)
+        (_tc "constant.numeric" $scheme.purple)
+        (_tc "constant.character" $scheme.purple)
+        (_tc "constant.other.option" $scheme.purple)
+        (_tc "constant.regexp" $scheme.purple)
+        (_tc "constant.sha.git-rebase" $scheme.purple)
+        (_tc "variable.other.constant" $scheme.purple)
+        (_tc "variable.other.enummember" $scheme.purple)
+        (_tc "keyword.other.unit" $scheme.purple)
+        (_tc "keyword.operator.plus.exponent" $scheme.purple)
+        (_tc "keyword.operator.minus.exponent" $scheme.purple)
+        (_tc "meta.preprocessor.numeric" $scheme.purple)
 
-        # Strings — dim green (distinct from types)
-        @{ scope = "string, punctuation.definition.string.begin, punctuation.definition.string.end, punctuation.definition.string.template.begin, punctuation.definition.string.template.end, punctuation.section.embedded"; settings = @{ foreground = $scheme.brightGreen } }
-        @{ scope = "string.regexp"; settings = @{ foreground = $scheme.cyan } }
+        # Format placeholders & escapes — orange
+        (_tc "constant.other.placeholder" $orange)
+        (_tc "constant.character.format.placeholder" $orange)
+        (_tc "constant.character.escape" $orange)
+        (_tc "constant.other.color.rgb-value" $scheme.brightGreen)
+        (_tc "constant.other.rgb-value" $scheme.brightGreen)
 
-        # Types & classes — green (type names in declarations)
-        @{ scope = "support.type, support.class, entity.name.type, entity.name.class, entity.name.namespace, entity.name.scope-resolution, entity.other.attribute, entity.other.inherited-class, keyword.type, storage.type, storage.type.cs, storage.type.generic.cs, storage.type.modifier.cs, storage.type.variable.cs, storage.type.annotation.java, storage.type.generic.java, storage.type.java, storage.type.primitive.java, storage.type.boolean.go, storage.type.byte.go, storage.type.error.go, storage.type.numeric.go, storage.type.rune.go, storage.type.string.go, storage.type.uintptr.go, meta.type.cast.expr, meta.type.new.expr"; settings = @{ foreground = $scheme.green } }
+        # Keywords — red
+        (_tc "keyword" $scheme.red)
+        (_tc "keyword.control" $scheme.red)
+        (_tc "keyword.other.using" $scheme.red)
+        (_tc "keyword.other.directive.using" $scheme.red)
+        (_tc "keyword.other.operator" $scheme.red)
+        (_tc "storage" $scheme.red)
+        (_tc "storage.modifier" $scheme.red)
 
-        # Constants & numbers — purple (used sparingly)
-        @{ scope = "constant.numeric"; settings = @{ foreground = $scheme.purple } }
-        @{ scope = "constant.language"; settings = @{ foreground = $scheme.purple } }
-        @{ scope = "variable.other.constant, variable.other.enummember"; settings = @{ foreground = $scheme.purple } }
+        # Storage type — green (types, not keywords)
+        (_tc "storage.type" $scheme.green)
 
-        # Comments
-        @{ scope = "comment, punctuation.definition.comment"; settings = @{ foreground = $fgMuted } }
+        # Word-like operators — red
+        (_tc "keyword.operator.expression" $scheme.red)
+        (_tc "keyword.operator.new" $scheme.red)
+        (_tc "keyword.operator.delete" $scheme.red)
+        (_tc "keyword.operator.cast" $scheme.red)
+        (_tc "keyword.operator.sizeof" $scheme.red)
+        (_tc "keyword.operator.alignof" $scheme.red)
+        (_tc "keyword.operator.typeid" $scheme.red)
+        (_tc "keyword.operator.alignas" $scheme.red)
+        (_tc "keyword.operator.instanceof" $scheme.red)
+        (_tc "keyword.operator.logical.python" $scheme.red)
+        (_tc "keyword.operator.wordlike" $scheme.red)
+        (_tc "keyword.operator.noexcept" $scheme.red)
+        (_tc "source.cpp keyword.operator.new" $scheme.red)
+        (_tc "entity.name.operator" $scheme.red)
 
-        # JSON keys, object keys
-        @{ scope = "meta.object-literal.key, support.type.property-name.json"; settings = @{ foreground = $scheme.yellow } }
+        # Symbolic operators — orange
+        (_tc "keyword.operator" $orange)
+        (_tc "keyword.operator.quantifier.regexp" $orange)
+        (_tc "keyword.operator.negation.regexp" $orange)
+        (_tc "keyword.operator.arrow" $orange)
+        (_tc "storage.type.function.arrow" $orange)
+        (_tc "punctuation.accessor" $orange)
+        (_tc "punctuation.separator.dot" $orange)
+        (_tc "punctuation.other.period" $orange)
+        (_tc "punctuation.separator.namespace" $orange)
+        (_tc "punctuation.separator.namespace.ruby" $orange)
+        (_tc "punctuation.definition.template-expression.begin" $orange)
+        (_tc "punctuation.definition.template-expression.end" $orange)
+        (_tc "punctuation.section.embedded" $orange)
+        (_tc "punctuation.section.embedded.begin.php" $scheme.red)
+        (_tc "punctuation.section.embedded.end.php" $scheme.red)
+        (_tc "punctuation.definition.list.begin.markdown" $orange)
+
+        # Regex
+        (_tc "support.other.parenthesis.regexp" $scheme.brightGreen)
+        (_tc "punctuation.definition.group.regexp" $scheme.brightGreen)
+        (_tc "punctuation.definition.group.assertion.regexp" $scheme.brightGreen)
+        (_tc "punctuation.definition.character-class.regexp" $scheme.brightGreen)
+        (_tc "punctuation.character.set.begin.regexp" $scheme.brightGreen)
+        (_tc "punctuation.character.set.end.regexp" $scheme.brightGreen)
+        (_tc "constant.character.character-class.regexp" $scheme.red)
+        (_tc "constant.other.character-class.set.regexp" $scheme.red)
+        (_tc "constant.other.character-class.regexp" $scheme.red)
+        (_tc "constant.character.set.regexp" $scheme.red)
+        (_tc "keyword.operator.or.regexp" $scheme.yellow)
+        (_tc "keyword.control.anchor.regexp" $scheme.yellow)
+
+        # Functions — yellow
+        (_tc "entity.name.function" $scheme.yellow)
+        (_tc "entity.name.function.macro" $scheme.yellow)
+        (_tc "entity.name.function.preprocessor" $scheme.red)
+        (_tc "entity.name.function.support.builtin" $scheme.yellow)
+        (_tc "entity.name.operator.custom-literal" $scheme.yellow)
+        (_tc "entity.name.command" $scheme.yellow)
+        (_tc "support.function" $scheme.yellow)
+        (_tc "support.function.builtin" $scheme.yellow "bold")
+        (_tc "support.function.library" $scheme.yellow "bold")
+        (_tc "support.function.git-rebase" $scheme.yellow)
+        (_tc "support.constant.handlebars" $scheme.yellow)
+        (_tc "source.powershell variable.other.member" $scheme.yellow)
+
+        # Brackets — yellow
+        (_tc "punctuation.definition.block" $scheme.yellow)
+        (_tc "punctuation.section" $scheme.yellow)
+        (_tc "meta.brace" $scheme.yellow)
+        (_tc "punctuation.squarebracket" $scheme.yellow)
+        (_tc "punctuation.curlybrace" $scheme.yellow)
+        (_tc "punctuation.parenthesis" $scheme.yellow)
+        (_tc "punctuation.definition.parameters" $scheme.yellow)
+        (_tc "punctuation.definition.arguments" $scheme.yellow)
+        (_tc "punctuation.definition.begin.bracket" $scheme.yellow)
+        (_tc "punctuation.definition.end.bracket" $scheme.yellow)
+        (_tc "punctuation.definition.attribute" $scheme.yellow)
+        (_tc "punctuation.definition.mapping.begin" $scheme.yellow)
+        (_tc "punctuation.definition.mapping.end" $scheme.yellow)
+
+        # Types — green
+        (_tc "entity.name.type" $scheme.green)
+        (_tc "entity.name.class" $scheme.green)
+        (_tc "entity.name.namespace" $scheme.green)
+        (_tc "entity.name.module" $scheme.green)
+        (_tc "entity.name.scope-resolution" $scheme.green)
+        (_tc "entity.other.attribute" $scheme.green)
+        (_tc "entity.other.inherited-class" $scheme.green)
+        (_tc "support.type" $scheme.green)
+        (_tc "support.type.builtin" $scheme.green)
+        (_tc "support.type.primitive" $scheme.green)
+        (_tc "support.type.exception" $scheme.green)
+        (_tc "support.class" $scheme.green)
+        (_tc "support.class.builtin" $scheme.green)
+        (_tc "support.constant.math" $scheme.green)
+        (_tc "support.constant.dom" $scheme.green)
+        (_tc "support.constant.json" $scheme.green)
+        (_tc "meta.type.cast.expr" $scheme.green)
+        (_tc "meta.type.new.expr" $scheme.green)
+        (_tc "keyword.type" $scheme.green)
+        (_tc "storage.type.cs" $scheme.green)
+        (_tc "storage.type.generic.cs" $scheme.green)
+        (_tc "storage.type.modifier.cs" $scheme.green)
+        (_tc "storage.type.variable.cs" $scheme.green)
+        (_tc "storage.type.annotation.java" $scheme.green)
+        (_tc "storage.type.generic.java" $scheme.green)
+        (_tc "storage.type.java" $scheme.green)
+        (_tc "storage.type.object.array.java" $scheme.green)
+        (_tc "storage.type.primitive.array.java" $scheme.green)
+        (_tc "storage.type.primitive.java" $scheme.green)
+        (_tc "storage.type.token.java" $scheme.green)
+        (_tc "storage.type.groovy" $scheme.green)
+        (_tc "storage.type.annotation.groovy" $scheme.green)
+        (_tc "storage.type.parameters.groovy" $scheme.green)
+        (_tc "storage.type.generic.groovy" $scheme.green)
+        (_tc "storage.type.object.array.groovy" $scheme.green)
+        (_tc "storage.type.primitive.array.groovy" $scheme.green)
+        (_tc "storage.type.primitive.groovy" $scheme.green)
+        (_tc "storage.type.numeric.go" $scheme.green)
+        (_tc "storage.type.byte.go" $scheme.green)
+        (_tc "storage.type.boolean.go" $scheme.green)
+        (_tc "storage.type.string.go" $scheme.green)
+        (_tc "storage.type.uintptr.go" $scheme.green)
+        (_tc "storage.type.error.go" $scheme.green)
+        (_tc "storage.type.rune.go" $scheme.green)
+
+        # Variables — foreground
+        (_tc "variable" $fg)
+        (_tc "variable.parameter" $fg)
+        (_tc "variable.argument" $fg)
+        (_tc "entity.name.variable" $fg)
+        (_tc "support.variable" $fg)
+        (_tc "meta.definition.variable.name" $fg)
+        (_tc "variable.language" $scheme.red)
+        (_tc "variable.legacy.builtin.python" $fg)
+        (_tc "variable.language.wildcard.java" $fg)
+
+        # Tags — yellow
+        (_tc "entity.name.tag" $scheme.yellow)
+        (_tc "entity.name.tag.css" $scheme.yellow)
+        (_tc "entity.name.tag.less" $scheme.yellow)
+        (_tc "entity.name.tag.yaml" $scheme.yellow)
+        (_tc "entity.other.attribute-name" $orange)
+        (_tc "entity.other.attribute-name.class.css" $orange)
+        (_tc "entity.other.attribute-name.id.css" $orange)
+        (_tc "entity.other.attribute-name.parent-selector.css" $orange)
+        (_tc "entity.other.attribute-name.parent.less" $orange)
+        (_tc "entity.other.attribute-name.pseudo-element.css" $orange)
+        (_tc "entity.other.attribute-name.scss" $orange)
+        (_tc "source.css entity.other.attribute-name.class" $orange)
+        (_tc "source.css entity.other.attribute-name.pseudo-class" $orange)
+        (_tc "source.css.less entity.other.attribute-name.id" $orange)
+        (_tc "punctuation.definition.tag" $fgMuted)
 
         # CSS
-        @{ scope = "support.type.property-name.css, meta.property-name.css"; settings = @{ foreground = $scheme.yellow } }
-        @{ scope = "support.constant.property-value.css, constant.other.color.rgb-value.hex.css, support.constant.color"; settings = @{ foreground = $scheme.brightGreen } }
+        (_tc "support.type.vendored.property-name" $scheme.yellow)
+        (_tc "support.type.property-name" $scheme.yellow)
+        (_tc "support.constant.property-value" $scheme.brightGreen)
+        (_tc "support.constant.font-name" $scheme.brightGreen)
+        (_tc "support.constant.media-type" $scheme.brightGreen)
+        (_tc "support.constant.media" $scheme.brightGreen)
+        (_tc "support.constant.color" $scheme.brightGreen)
+        (_tc "source.css variable" $fg)
+        (_tc "source.coffee.embedded" $fg)
 
-        # HTML/XML
-        @{ scope = "entity.name.tag"; settings = @{ foreground = $scheme.yellow } }
-        @{ scope = "entity.other.attribute-name"; settings = @{ foreground = $orange } }
+        # JSON/object keys
+        (_tc "meta.object-literal.key" $scheme.yellow)
+        (_tc "support.type.property-name.json" $scheme.yellow)
+        (_tc "meta.structure.dictionary.key.python" $scheme.yellow)
 
-        # Decorators/attributes
-        @{ scope = "meta.decorator, entity.name.decorator, punctuation.decorator"; settings = @{ foreground = $scheme.yellow } }
+        # Decorators
+        (_tc "meta.decorator" $scheme.yellow)
+        (_tc "entity.name.decorator" $scheme.yellow)
+        (_tc "punctuation.decorator" $scheme.yellow)
+        (_tc "punctuation.definition.decorator" $scheme.yellow)
+        (_tc "punctuation.definition.annotation" $scheme.yellow)
+        (_tc "meta.attribute" $scheme.yellow)
+
+        # Rust lifetimes
+        (_tc "entity.name.type.lifetime" $orange)
+        (_tc "punctuation.definition.lifetime" $orange)
+
+        # Preprocessor
+        (_tc "meta.preprocessor" $scheme.red)
+
+        # Resets — foreground
+        (_tc "meta.embedded" $fg)
+        (_tc "source.groovy.embedded" $fg)
+        (_tc "meta.template.expression" $fg)
+        (_tc "entity.name.label" $fg)
+        (_tc "storage.modifier.import.java" $fg)
+        (_tc "storage.modifier.package.java" $fg)
+
+        # Misc
+        (_tc "meta.diff.header" $scheme.yellow)
+        (_tc "punctuation.definition.quote.begin.markdown" $fgMuted)
+        (_tc "entity.other.document.begin" $fgMuted)
+        (_tc "entity.other.document.end" $fgMuted)
+        (_tc "header" $scheme.yellow)
+        (_tc "invalid" $scheme.red)
 
         # Markup
-        @{ scope = "markup.heading, entity.name.section"; settings = @{ foreground = $scheme.yellow; fontStyle = "bold" } }
-        @{ scope = "markup.bold"; settings = @{ fontStyle = "bold" } }
-        @{ scope = "markup.italic"; settings = @{ fontStyle = "italic" } }
-        @{ scope = "markup.underline.link, markup.link"; settings = @{ foreground = $scheme.blue; fontStyle = "underline" } }
-        @{ scope = "markup.inline.raw.string, markup.raw.monospace"; settings = @{ foreground = $scheme.green } }
-        @{ scope = "markup.inserted, punctuation.definition.to-file.diff"; settings = @{ foreground = $scheme.green } }
-        @{ scope = "markup.deleted, punctuation.definition.from-file.diff"; settings = @{ foreground = $scheme.red } }
+        (_tc "markup.heading" $scheme.yellow "bold")
+        (_tc "markup.bold" $fg "bold")
+        (_tc "markup.italic" $fg "italic")
+        (_tc "markup.inserted" $scheme.green)
+        (_tc "markup.deleted" $scheme.red)
+        (_tc "markup.changed" $scheme.yellow)
+        (_tc "markup.inline.raw" $scheme.brightGreen)
+        (_tc "markup.underline.link" $scheme.blue "underline")
+        (_tc "markup.link" $scheme.blue "underline")
+        (_tc "punctuation.definition.to-file.diff" $scheme.green)
+        (_tc "punctuation.definition.from-file.diff" $scheme.red)
 
         # Text
-        @{ scope = "text"; settings = @{ foreground = $fg } }
+        (_tc "text" $fg)
     )
 
     $tokenCustomizations = [ordered]@{
@@ -865,6 +1081,13 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
 
             # Muted — comments
             "comment"                    = $fgMuted
+
+            # Base theme semantic overrides
+            "newOperator"                = $scheme.red
+            "stringLiteral"              = $scheme.brightGreen
+            "customLiteral"              = $scheme.yellow
+            "numberLiteral"              = $scheme.purple
+            "label"                      = $fg
 
             # Yellow — decorators, macros
             "namespace"                  = $fg
