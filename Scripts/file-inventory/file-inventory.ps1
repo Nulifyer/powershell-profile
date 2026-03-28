@@ -8,7 +8,7 @@
     Recursively scans a directory and returns file count and total size.
 #>
 
-. "$PSScriptRoot\..\ScriptUtils.ps1"
+. "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 
 $parsed = Parse-Args $args @{
     Raw     = @{ Aliases = @('r', 'raw') }

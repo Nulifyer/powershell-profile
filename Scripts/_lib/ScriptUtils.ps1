@@ -1,5 +1,5 @@
 # Shared utilities for scripts — dot-source this at the top of any script.
-# Usage: . "$PSScriptRoot\..\ScriptUtils.ps1"  (or adjust path as needed)
+# Usage: . "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 
 <#
 .SYNOPSIS

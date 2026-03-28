@@ -45,7 +45,7 @@
 #>
 
 $ErrorActionPreference = 'Stop'
-. "$PSScriptRoot\..\ScriptUtils.ps1"
+. "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 
 $Update = $false
 $UpdateAll = $false

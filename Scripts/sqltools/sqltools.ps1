@@ -10,10 +10,10 @@
     Supports SQL Server (Windows/SQL auth), SQLite, and ODBC connections.
 #>
 
-. "$PSScriptRoot\..\ScriptUtils.ps1"
+. "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 
 # Load all lib modules
-Get-ChildItem "$PSScriptRoot\lib\*.ps1" | ForEach-Object { . $_.FullName }
+Get-ChildItem "$PSScriptRoot\_lib\*.ps1" | ForEach-Object { . $_.FullName }
 
 $parsed = Parse-Args $args @{
     Server   = @{ Aliases = @('s', 'server');   Type = 'value' }

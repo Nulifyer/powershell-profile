@@ -13,8 +13,8 @@
     font "CaskaydiaMono NF"  # set font directly
 #>
 
-. "$PSScriptRoot\ScriptUtils.ps1"
-. "$PSScriptRoot\lib\TerminalConfig.ps1"
+. "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
+. "$PSScriptRoot\..\_lib\TerminalConfig.ps1"
 
 $parsed = Parse-Args $args @{
     Install = @{ Aliases = @('i', 'install') }

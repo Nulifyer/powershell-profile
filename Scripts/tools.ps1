@@ -16,7 +16,7 @@
     # Install any missing tools
 #>
 
-. "$PSScriptRoot\ScriptUtils.ps1"
+. "$PSScriptRoot\_lib\ScriptUtils.ps1"
 
 $parsed = Parse-Args $args @{
     Install = @{ Aliases = @('i', 'install') }
