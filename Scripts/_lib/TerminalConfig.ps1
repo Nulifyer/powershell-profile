@@ -1430,6 +1430,53 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
 $script:WP_ORIGINALS = "$env:USERPROFILE\.config\wallpapers\originals"
 $script:WP_CACHE = "$env:USERPROFILE\.config\wallpapers\cache"
 
+function _Get-LargestMonitorResolution {
+    Add-Type -AssemblyName System.Windows.Forms
+    $largest = [System.Windows.Forms.Screen]::AllScreens |
+        Sort-Object { $_.Bounds.Width * $_.Bounds.Height } -Descending |
+        Select-Object -First 1
+    return @{
+        Width  = $largest.Bounds.Width
+        Height = $largest.Bounds.Height
+    }
+}
+
+function _Get-MonitorRatioString([int]$w, [int]$h) {
+    $r = [math]::Round($w / $h, 2)
+    if     ($r -ge 2.3)  { return "21x9"  }  # ultrawide: 3440x1440, 3840x1600
+    elseif ($r -ge 1.7)  { return "16x9"  }
+    elseif ($r -ge 1.5)  { return "16x10" }
+    else                  { return $null   }  # unusual — don't filter
+}
+
+$script:LutgenPalettes = @{
+    catppuccin_mocha     = "catppuccin-mocha"
+    catppuccin_macchiato = "catppuccin-macchiato"
+    catppuccin_frappe    = "catppuccin-frappe"
+    catppuccin_latte     = "catppuccin-latte"
+    gruvbox              = "gruvbox-dark"
+    gruvbox_light        = "gruvbox-light"
+    everforest           = "everforest-dark-medium"
+    everforest_light     = "everforest-light-medium"
+    tokyonight           = "tokyo-night-dark"
+    tokyonight_light     = "tokyo-night-light"
+    nord                 = "nord"
+    dracula              = "dracula"
+    rose_pine            = "rose-pine"
+    rose_pine_dawn       = "rose-pine-dawn"
+    kanagawa             = "kanagawa"
+    solarized            = "solarized-dark"
+    onedark              = "onedark"
+    monokai              = "monokai"
+    ayu_dark             = "ayu-dark"
+    ayu_mirage           = "ayu-mirage"
+    vesper               = "vesper"
+    nightfox             = "nightfox"
+    horizon              = "horizon-dark"
+    palenight            = "material-palenight"
+    zenburn              = "zenburn"
+}
+
 function _Get-LutgenColors([hashtable]$scheme) {
     return @(
         $scheme.background, $scheme.foreground,
@@ -1445,11 +1492,15 @@ function _Apply-ThemeToWallpaper([string]$originalPath, [string]$themeName, [has
     $ext = [System.IO.Path]::GetExtension($originalPath)
     $cachePath = "$script:WP_CACHE\${themeName}_${fileName}${ext}"
 
-    if (Test-Path $cachePath) { return $cachePath }
-
     New-Item -ItemType Directory -Path $script:WP_CACHE -Force | Out-Null
-    $colors = _Get-LutgenColors $scheme
-    & lutgen apply -o $cachePath $originalPath -- @colors 2>&1 | Out-Null
+    if (Test-Path $cachePath) { Remove-Item $cachePath -Force }
+    $lutgenPalette = $script:LutgenPalettes[$themeName]
+    if ($lutgenPalette) {
+        & lutgen apply -P -L 0.1 -o $cachePath -p $lutgenPalette $originalPath 2>&1 | Out-Null
+    } else {
+        $colors = _Get-LutgenColors $scheme
+        & lutgen apply -S -o $cachePath $originalPath -- @colors 2>&1 | Out-Null
+    }
 
     if (Test-Path $cachePath) { return $cachePath }
     return $null
