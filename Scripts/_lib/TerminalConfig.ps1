@@ -457,12 +457,66 @@ white   = "$($scheme.brightWhite)"
 }
 
 # ── VS Code theme generation ───────────────────────────────────────────────
-# Writes directly to settings.json (colorCustomizations + tokenColorCustomizations)
-# Both apply live without restart.
+# Uses a local Nulifyer extension with file watcher for live reload.
+# The extension source lives in Scripts/theme/vscode-extension/ and is
+# synced to ~/.vscode/extensions/nulifyer-theme/ on theme switch.
+
+$script:VS_EXT_SOURCE = "$PSScriptRoot\..\theme\vscode-extension"
+function _Sync-VSCodeExtension {
+    if (-not (Test-Path $script:VS_EXT_SOURCE)) { return }
+    $sourceVersion = (Get-Content "$script:VS_EXT_SOURCE\package.json" -Raw | ConvertFrom-Json).version
+    $script:VS_EXT_DEST = "$env:USERPROFILE\.vscode\extensions\nulifyer.nulifyer-theme-$sourceVersion"
+    $destPkg = "$script:VS_EXT_DEST\package.json"
+    $needsSync = -not (Test-Path $destPkg)
+    if (-not $needsSync) {
+        $destVersion = (Get-Content $destPkg -Raw | ConvertFrom-Json).version
+        $needsSync = $destVersion -ne $sourceVersion
+    }
+    if ($needsSync) {
+        if (Test-Path $script:VS_EXT_DEST) { Remove-Item $script:VS_EXT_DEST -Recurse -Force }
+        # Copy only what VS Code needs: package.json + themes/
+        New-Item -ItemType Directory -Path "$script:VS_EXT_DEST\themes" -Force | Out-Null
+        Copy-Item "$script:VS_EXT_SOURCE\package.json" "$script:VS_EXT_DEST\package.json" -Force
+        Copy-Item "$script:VS_EXT_SOURCE\themes\nulifyer.json" "$script:VS_EXT_DEST\themes\nulifyer.json" -Force
+        # Register in extensions.json so VS Code recognizes it
+        _Register-VSCodeExtension
+    }
+}
+
+function _Register-VSCodeExtension {
+    $extJsonPath = "$env:USERPROFILE\.vscode\extensions\extensions.json"
+    if (-not (Test-Path $extJsonPath)) { return }
+    try {
+        $extensions = Get-Content $extJsonPath -Raw -ErrorAction Stop | ConvertFrom-Json
+        $extId = "nulifyer.nulifyer-theme"
+        $already = $extensions | Where-Object { $_.identifier.id -eq $extId }
+        if (-not $already) {
+            $entry = [PSCustomObject]@{
+                identifier = [PSCustomObject]@{ id = $extId }
+                version = (Get-Content "$script:VS_EXT_SOURCE\package.json" -Raw | ConvertFrom-Json).version
+                location = [PSCustomObject]@{
+                    '$mid' = 1
+                    path = ($script:VS_EXT_DEST -replace '\\','/' -replace '^C:','/c:')
+                    scheme = "file"
+                }
+                relativeLocation = Split-Path $script:VS_EXT_DEST -Leaf
+                metadata = [PSCustomObject]@{
+                    installedTimestamp = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+                    source = "local"
+                }
+            }
+            $extensions = @($extensions) + @($entry)
+            ConvertTo-Json $extensions -Depth 10 | Set-Content $extJsonPath -Encoding UTF8
+        }
+    } catch {}
+}
 
 function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
+    _Sync-VSCodeExtension
+    $themeFile = "$script:VS_EXT_DEST\themes\nulifyer.json"
+    if (-not (Test-Path (Split-Path $themeFile))) { return }
+
     $vsSettingsPath = "$env:APPDATA\Code\User\settings.json"
-    if (-not (Test-Path $vsSettingsPath)) { return }
 
     $isLight = _Is-LightTheme $themeName
 
@@ -631,9 +685,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "inputValidation.infoBackground" = $scheme.blue
         "inputValidation.infoBorder" = $scheme.blue
         "inputValidation.infoForeground" = $fg
-        "button.background" = $fgMuted
+        "button.background" = $scheme.cyan
         "button.foreground" = $bgBase
-        "button.hoverBackground" = (Adjust-HexBrightness $fgMuted -15)
+        "button.hoverBackground" = (Adjust-HexBrightness $scheme.cyan -15)
         "button.secondaryBackground" = $bgSurface
         "button.secondaryForeground" = $fg
         "button.secondaryHoverBackground" = $bgBorder
@@ -1096,15 +1150,37 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         }
     }
 
-    # Write to VS Code settings.json
-    try {
-        $vsSettings = Get-Content $vsSettingsPath -Raw -ErrorAction Stop | ConvertFrom-Json
-        $vsSettings | Add-Member -NotePropertyName "workbench.colorCustomizations" -NotePropertyValue ([PSCustomObject]$colors) -Force
-        $vsSettings | Add-Member -NotePropertyName "editor.tokenColorCustomizations" -NotePropertyValue ([PSCustomObject]$tokenCustomizations) -Force
-        $vsSettings | Add-Member -NotePropertyName "editor.semanticTokenColorCustomizations" -NotePropertyValue ([PSCustomObject]$semanticTokenCustomizations) -Force
-        $vsSettings | Add-Member -NotePropertyName "editor.semanticHighlighting.enabled" -NotePropertyValue $true -Force
-        $vsSettings | ConvertTo-Json -Depth 10 | Set-Content $vsSettingsPath -Encoding UTF8
-    } catch {}
+    # Write neutral base theme to extension (prevents flash of default theme colors)
+    $baseTheme = [ordered]@{
+        '$schema' = "vscode://schemas/color-theme"
+        type = if ($isLight) { "light" } else { "dark" }
+        semanticHighlighting = $true
+        semanticTokenColors = @{}
+        colors = [ordered]@{
+            "editor.background" = $bgBase
+            "editor.foreground" = $fg
+        }
+        tokenColors = @()
+    }
+    $baseTheme | ConvertTo-Json -Depth 5 | Set-Content $themeFile -Encoding UTF8
+
+    # Write live colors to settings.json (colorCustomizations update instantly)
+    $tokenCustomizations = [ordered]@{
+        semanticHighlighting = $true
+        textMateRules = $tokenColors
+    }
+
+    if (Test-Path $vsSettingsPath) {
+        try {
+            $vsSettings = Get-Content $vsSettingsPath -Raw -ErrorAction Stop | ConvertFrom-Json
+            $vsSettings | Add-Member -NotePropertyName "workbench.colorTheme" -NotePropertyValue "Nulifyer" -Force
+            $vsSettings | Add-Member -NotePropertyName "workbench.colorCustomizations" -NotePropertyValue ([PSCustomObject]$colors) -Force
+            $vsSettings | Add-Member -NotePropertyName "editor.tokenColorCustomizations" -NotePropertyValue ([PSCustomObject]$tokenCustomizations) -Force
+            $vsSettings | Add-Member -NotePropertyName "editor.semanticTokenColorCustomizations" -NotePropertyValue ([PSCustomObject]$semanticTokenCustomizations) -Force
+            $vsSettings | Add-Member -NotePropertyName "editor.semanticHighlighting.enabled" -NotePropertyValue $true -Force
+            $vsSettings | ConvertTo-Json -Depth 10 | Set-Content $vsSettingsPath -Encoding UTF8
+        } catch {}
+    }
 }
 
 # ── File Pilot theming ─────────────────────────────────────────────────────
@@ -1144,7 +1220,7 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
             Folder                    = & $strip $scheme.white
             Warning                   = & $strip $scheme.red
             Progress                  = & $strip $scheme.blue
-            Selection                 = & $strip ($scheme.blue + "80")
+            Selection                 = & $strip $scheme.blue
             RectSelection             = & $strip $scheme.blue
             Match                     = & $strip $scheme.yellow
             Hidden                    = & $strip $bgLighter
@@ -1163,25 +1239,81 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
     }
 
     try {
-        $config = Get-Content $configPath -Raw -ErrorAction Stop | ConvertFrom-Json
+        $fileLines = [System.Collections.ArrayList]@(Get-Content $configPath -ErrorAction Stop)
 
-        # Ensure Colors array exists
-        if (-not $config.Colors) {
-            $config | Add-Member -NotePropertyName "Colors" -NotePropertyValue @() -Force
+        # Build scheme block
+        $block = @("`t`t`"Nulifyer`":", "`t`t{")
+        $entries = @($fpScheme["Nulifyer"].GetEnumerator())
+        for ($i = 0; $i -lt $entries.Count; $i++) {
+            $comma = if ($i -lt $entries.Count - 1) { "," } else { "" }
+            $block += "`t`t`t`"$($entries[$i].Key)`": `"$($entries[$i].Value)`"$comma"
+        }
+        $block += "`t`t}"
+
+        # Set ColorScheme and SystemColorScheme
+        for ($i = 0; $i -lt $fileLines.Count; $i++) {
+            if ($fileLines[$i] -match '"ColorScheme"') { $fileLines[$i] = "`t`t`"ColorScheme`": `"Nulifyer`"," }
+            if ($fileLines[$i] -match '"SystemColorScheme"') { $fileLines[$i] = "`t`t`"SystemColorScheme`": false," }
         }
 
-        # Replace or add our scheme
-        $colors = [System.Collections.ArrayList]@($config.Colors)
-        $existing = $colors | Where-Object { $_.PSObject.Properties.Name -contains "Nulifyer" }
-        if ($existing) { $colors.Remove($existing) | Out-Null }
-        $colors.Insert(0, [PSCustomObject]$fpScheme) | Out-Null
-        $config.Colors = $colors.ToArray()
+        # Find Colors array and handle Nulifyer entry
+        $colorsIdx = -1
+        $nulStart = -1
+        $nulEnd = -1
+        for ($i = 0; $i -lt $fileLines.Count; $i++) {
+            if ($fileLines[$i] -match '"Colors"') { $colorsIdx = $i }
+            if ($fileLines[$i] -match '"Nulifyer"') { $nulStart = $i }
+        }
 
-        # Set active color scheme
-        $config.Options.ColorScheme = "Nulifyer"
-        $config.Options.SystemColorScheme = $false
+        if ($nulStart -ge 0) {
+            # Find the closing } for our entry (track brace depth)
+            $depth = 0
+            for ($i = $nulStart; $i -lt $fileLines.Count; $i++) {
+                if ($fileLines[$i] -match '\{') { $depth++ }
+                if ($fileLines[$i] -match '\}') { $depth--; if ($depth -eq 0) { $nulEnd = $i; break } }
+            }
+            # Remove old entry (and trailing comma if present)
+            if ($nulEnd -ge 0) {
+                if ($nulEnd + 1 -lt $fileLines.Count -and $fileLines[$nulEnd] -match '\},') {
+                    $fileLines.RemoveRange($nulStart, $nulEnd - $nulStart + 1)
+                } else {
+                    $fileLines.RemoveRange($nulStart, $nulEnd - $nulStart + 1)
+                }
+            }
+            # Re-find Colors [ since indices shifted
+            for ($i = 0; $i -lt $fileLines.Count; $i++) {
+                if ($fileLines[$i] -match '"Colors"') { $colorsIdx = $i; break }
+            }
+        }
 
-        $config | ConvertTo-Json -Depth 5 | Set-Content $configPath -Encoding UTF8
+        if ($colorsIdx -ge 0) {
+            # Colors array exists — find the [ line
+            $bracketIdx = $colorsIdx
+            if ($fileLines[$colorsIdx] -notmatch '\[') { $bracketIdx++ }
+
+            # Check if there are existing entries after [
+            $hasOther = $false
+            for ($i = $bracketIdx + 1; $i -lt $fileLines.Count; $i++) {
+                if ($fileLines[$i] -match '^\s*\]') { break }
+                if ($fileLines[$i] -match '\S') { $hasOther = $true; break }
+            }
+
+            # Insert our block after [
+            $insertLines = if ($hasOther) { $block + @(",") } else { $block }
+            $fileLines.InsertRange($bracketIdx + 1, $insertLines)
+        } else {
+            # No Colors array — create it before Hotkeys
+            $hotkeysIdx = -1
+            for ($i = 0; $i -lt $fileLines.Count; $i++) {
+                if ($fileLines[$i] -match '"Hotkeys"') { $hotkeysIdx = $i; break }
+            }
+            if ($hotkeysIdx -ge 0) {
+                $colorsBlock = @("`t`"Colors`":", "`t[") + $block + @("`t],")
+                $fileLines.InsertRange($hotkeysIdx, $colorsBlock)
+            }
+        }
+
+        $fileLines | Set-Content $configPath -Encoding UTF8
         return $true
     } catch { return $false }
 }

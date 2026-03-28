@@ -5,3 +5,8 @@ LastUpdateCheck.txt
 omp-theme.json
 alacritty.toml
 windows-terminal-fragment.json
+
+# VS Code extension build artifacts
+Scripts/theme/vscode-extension/node_modules/
+Scripts/theme/vscode-extension/bun.lock
+Scripts/theme/vscode-extension/bun.lockb

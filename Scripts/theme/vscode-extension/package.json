@@ -1,0 +1,16 @@
+{
+  "name": "nulifyer-theme",
+  "displayName": "Nulifyer",
+  "publisher": "nulifyer",
+  "description": "Dynamic theme managed by PowerShell profile",
+  "version": "1.1.0",
+  "engines": { "vscode": "^1.60.0" },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [{
+      "label": "Nulifyer",
+      "uiTheme": "vs-dark",
+      "path": "./themes/nulifyer.json"
+    }]
+  }
+}
