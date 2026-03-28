@@ -71,9 +71,10 @@ if ($runUpdateCheck) {
 # ENVIRONMENT & PATHS
 #───────────────────────────────────────────────────────────────────────────────
 
-# UTF-8 output — required for Nerd Font glyphs in the prompt
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+# UTF-8 output (no BOM) — required for Nerd Font glyphs in the prompt
+$_utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = $_utf8NoBom
+$OutputEncoding = $_utf8NoBom
 
 # make sure to load user path
 try {
