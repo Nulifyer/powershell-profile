@@ -116,8 +116,9 @@ function _Browse-Wallhaven {
     $apiKeyArg = if ($ApiKey) { $ApiKey } else { "" }
 
     # Initial search
+    $defaultSort = if ($Query) { 'relevance' } else { 'toplist' }
     Write-Host "$($c.dim)Searching Wallhaven...$($c.reset)"
-    $initialLines = & pwsh -NoProfile -File "$PSScriptRoot\_wallhaven-search.ps1" $Query $ApiKey
+    $initialLines = & pwsh -NoProfile -File "$PSScriptRoot\_wallhaven-search.ps1" $Query $ApiKey $defaultSort
 
     if (-not $initialLines) {
         Write-Host "$($c.yellow)No wallpapers found.$($c.reset)"
@@ -126,13 +127,22 @@ function _Browse-Wallhaven {
 
     [Console]::Clear()
 
-    # fzf with live reload on query change
-    $reloadCmd = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`""
+    # Sort and page reload commands
+    $reloadToplist    = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`" toplist"
+    $reloadFavorites  = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`" favorites"
+    $reloadViews      = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`" views"
+    $reloadDateAdded  = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`" date_added"
+    $reloadRandom     = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`" random"
+    $reloadDefault    = "pwsh -NoProfile -File `"$searchScript`" {q} `"$apiKeyArg`" $defaultSort"
+    $pageScript = ("$PSScriptRoot\_wallhaven-page.ps1" -replace '\\', '/')
+    $reloadNext       = "pwsh -NoProfile -File `"$pageScript`" next {q} `"$apiKeyArg`""
+    $reloadPrev       = "pwsh -NoProfile -File `"$pageScript`" prev {q} `"$apiKeyArg`""
 
     $previewCmd = if ($hasChafa) {
         "chafa -f sixels --polite on --animate off -s %FZF_PREVIEW_COLUMNS%x%FZF_PREVIEW_LINES% $thumbDirFwd/{1}"
     } else { "" }
 
+    $sortHints = "^t󰓒 ^f󰋑 ^e󰈈 ^d󰃭 ^r󰒝 ^n/^p󰁍"
     $fzfArgs = @(
         "--ansi", "--no-sort",
         "--height=-1",
@@ -142,13 +152,17 @@ function _Browse-Wallhaven {
         "--no-scrollbar",
         "--disabled",
         "--ghost=type to search wallhaven...",
-        "--bind=change:change-header(searching...)+reload:$reloadCmd",
-        "--bind=load:change-header()",
+        "--bind=change:change-border-label( wallhaven | searching... | $sortHints)+reload($reloadDefault)+first",
+        "--bind=ctrl-t:change-border-label( wallhaven | 󰓒 toplist | $sortHints)+reload($reloadToplist)+first",
+        "--bind=ctrl-f:change-border-label( wallhaven | 󰋑 favorites | $sortHints)+reload($reloadFavorites)+first",
+        "--bind=ctrl-e:change-border-label( wallhaven | 󰈈 views | $sortHints)+reload($reloadViews)+first",
+        "--bind=ctrl-d:change-border-label( wallhaven | 󰃭 newest | $sortHints)+reload($reloadDateAdded)+first",
+        "--bind=ctrl-r:change-border-label( wallhaven | 󰒝 random | $sortHints)+reload($reloadRandom)+first",
+        "--bind=ctrl-n:change-border-label( wallhaven | 󰁍 next page... | $sortHints)+reload($reloadNext)+first",
+        "--bind=ctrl-p:change-border-label( wallhaven | 󰁍 prev page... | $sortHints)+reload($reloadPrev)+first",
         "--border=rounded",
-        "--footer= enter select  |  type to search  |  esc cancel ",
-        "--footer-border=none",
-        "--header=wallhaven",
-        "--header-first",
+        "--border-label= wallhaven | $defaultSort | $sortHints",
+        "--border-label-pos=0:top",
         "--info=inline-right"
     )
     if ($Query) {
