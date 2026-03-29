@@ -1519,3 +1519,35 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
         try { [NativeMethods]::SetWallpaper($cachePath) } catch {}
     }
 }
+
+function Update-KarchyTheme([string]$accent) {
+    $configPath = "$env:APPDATA\karchy\config.toml"
+    if (-not (Test-Path $configPath)) { return $false }
+
+    $lines = [System.Collections.Generic.List[string]](Get-Content $configPath)
+
+    # Find existing [theme] section
+    $themeIdx = -1
+    $accentIdx = -1
+    $nextSectionIdx = -1
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\[theme\]') { $themeIdx = $i }
+        elseif ($themeIdx -ge 0 -and $accentIdx -lt 0 -and $lines[$i] -match '^accent\s*=') { $accentIdx = $i }
+        elseif ($themeIdx -ge 0 -and $nextSectionIdx -lt 0 -and $i -gt $themeIdx -and $lines[$i] -match '^\[') { $nextSectionIdx = $i }
+    }
+
+    $accentLine = "accent = `"$accent`""
+
+    if ($accentIdx -ge 0) {
+        $lines[$accentIdx] = $accentLine
+    } elseif ($themeIdx -ge 0) {
+        $lines.Insert($themeIdx + 1, $accentLine)
+    } else {
+        $lines.Add("")
+        $lines.Add("[theme]")
+        $lines.Add($accentLine)
+    }
+
+    $lines | Set-Content $configPath -Encoding utf8
+    return $true
+}

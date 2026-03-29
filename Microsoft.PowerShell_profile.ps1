@@ -205,22 +205,37 @@ if (Test-Path $scriptsFolder) {
     }
 }
 #───────────────────────────────────────────────────────────────────────────────
-# PROMPT (native — uses terminal ANSI colors set by `theme` command)
+# PROMPT (uses palette truecolors from active theme)
 #───────────────────────────────────────────────────────────────────────────────
 
-# ANSI colors — `theme` command changes what these render as
 $_e = [char]27
-$_c = @{
+$global:_c = @{
     reset       = "$_e[0m"
-    muted       = "$_e[90m"   # bright black
-    blue        = "$_e[34m"
-    magenta     = "$_e[35m"
-    cyan        = "$_e[36m"
-    brightCyan  = "$_e[96m"
-    white       = "$_e[37m"
-    yellow      = "$_e[33m"
-    red         = "$_e[31m"
-    green       = "$_e[32m"
+    muted       = "$_e[90m"
+    userhost    = "$_e[34m"
+    path        = "$_e[35m"
+    git         = "$_e[36m"
+}
+
+# Load active theme palette and override with truecolors
+. "$PSScriptRoot\Scripts\_lib\ScriptUtils.ps1"
+. "$PSScriptRoot\Scripts\_lib\ThemeData.ps1"
+$_themeName = Get-ScriptConfig "theme" "palette"
+if ($_themeName) {
+    $_pal = $script:palettes[$_themeName]
+    if ($_pal) {
+        function _hex2ansi([string]$h) {
+            $r = [Convert]::ToInt32($h.Substring(1,2),16)
+            $g = [Convert]::ToInt32($h.Substring(3,2),16)
+            $b = [Convert]::ToInt32($h.Substring(5,2),16)
+            return "$_e[38;2;${r};${g};${b}m"
+        }
+        $global:_c.muted    = _hex2ansi $_pal.muted
+        $global:_c.userhost = _hex2ansi $_pal.userhost
+        $global:_c.path     = _hex2ansi $_pal.path
+        $global:_c.git      = _hex2ansi $_pal.git
+        Remove-Item -Path Function:\_hex2ansi
+    }
 }
 
 function prompt {
@@ -228,13 +243,13 @@ function prompt {
         $global:_transientPrompt = $false
         return "`e[90m`u{f105}`e[0m "
     }
-    $c = $script:_c
+    $c = $global:_c
 
     # OS icon
     $os = "$($c.muted)`u{e70f} $($c.reset)"
 
     # user@host
-    $uh = "$($c.blue)$env:USERNAME@$env:COMPUTERNAME $($c.reset)"
+    $uh = "$($c.userhost)$env:USERNAME@$env:COMPUTERNAME $($c.reset)"
 
     # Shortened path (fish-style: first char of intermediate dirs)
     $cur = $PWD.ProviderPath
@@ -252,7 +267,7 @@ function prompt {
         $short.Add($parts[-1])
         $cur = $short -join '\'
     }
-    $pathStr = "$($c.magenta)$cur $($c.reset)"
+    $pathStr = "$($c.path)$cur $($c.reset)"
 
     # Git branch (read .git/HEAD directly — no process spawn)
     $gitStr = ""
@@ -280,7 +295,7 @@ function prompt {
             } else {
                 $head.Substring(0, [Math]::Min(7, $head.Length))
             }
-            $gitStr = "$($c.cyan)`u{e725} $branch $($c.reset)"
+            $gitStr = "$($c.git)`u{e725} $branch $($c.reset)"
             break
         }
         $parent = [IO.Path]::GetDirectoryName($d)

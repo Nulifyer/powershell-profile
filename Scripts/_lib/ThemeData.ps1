@@ -1,37 +1,37 @@
 # Shared theme data for theme.ps1 and wallpaper.ps1
-# Keys: bg (terminal background), os (muted/UI), closer (prompt char), pink (path), lavender (git), blue (user@host)
+# Keys: bg (terminal background), muted (dimmed UI), path (cwd), git (branch), userhost (user@host)
 
 $script:palettes = [ordered]@{
-    catppuccin_mocha      = @{ bg = "#1E1E2E"; os = "#ACB0BE"; closer = "p:os"; pink = "#F5C2E7"; lavender = "#B4BEFE"; blue = "#89B4FA" }
-    catppuccin_macchiato  = @{ bg = "#24273A"; os = "#ACB0BE"; closer = "p:os"; pink = "#F5BDE6"; lavender = "#B7BDF8"; blue = "#8AADF4" }
-    catppuccin_frappe     = @{ bg = "#303446"; os = "#ACB0BE"; closer = "p:os"; pink = "#F4B8E4"; lavender = "#BABBF1"; blue = "#8CAAEE" }
-    catppuccin_latte      = @{ bg = "#EFF1F5"; os = "#ACB0BE"; closer = "p:os"; pink = "#ea76cb"; lavender = "#7287FD"; blue = "#1e66f5" }
-    gruvbox               = @{ bg = "#282828"; os = "#A89984"; closer = "p:os"; pink = "#E78A4E"; lavender = "#A9B665"; blue = "#D8A657" }
-    gruvbox_light         = @{ bg = "#FBF1C7"; os = "#7C6F64"; closer = "p:os"; pink = "#AF3A03"; lavender = "#79740E"; blue = "#B57614" }
-    everforest            = @{ bg = "#2D353B"; os = "#9DA9A0"; closer = "p:os"; pink = "#E69875"; lavender = "#A7C080"; blue = "#DBBC7F" }
-    everforest_light      = @{ bg = "#FDF6E3"; os = "#829181"; closer = "p:os"; pink = "#E67E80"; lavender = "#8DA101"; blue = "#DFA000" }
-    tokyonight            = @{ bg = "#1A1B26"; os = "#565F89"; closer = "p:os"; pink = "#FF966C"; lavender = "#9ECE6A"; blue = "#7AA2F7" }
-    tokyonight_light      = @{ bg = "#D5D6DB"; os = "#6172B0"; closer = "p:os"; pink = "#8C4351"; lavender = "#485E30"; blue = "#34548A" }
-    nord                  = @{ bg = "#2E3440"; os = "#D8DEE9"; closer = "p:os"; pink = "#B48EAD"; lavender = "#A3BE8C"; blue = "#88C0D0" }
-    dracula               = @{ bg = "#282A36"; os = "#6272A4"; closer = "p:os"; pink = "#FF79C6"; lavender = "#50FA7B"; blue = "#F1FA8C" }
-    rose_pine             = @{ bg = "#191724"; os = "#908CAA"; closer = "p:os"; pink = "#EB6F92"; lavender = "#F6C177"; blue = "#9CCFD8" }
-    rose_pine_dawn        = @{ bg = "#FAF4ED"; os = "#797593"; closer = "p:os"; pink = "#B4637A"; lavender = "#EA9D34"; blue = "#56949F" }
-    kanagawa              = @{ bg = "#1F1F28"; os = "#727169"; closer = "p:os"; pink = "#FFA066"; lavender = "#98BB6C"; blue = "#E6C384" }
-    solarized             = @{ bg = "#002B36"; os = "#93A1A1"; closer = "p:os"; pink = "#CB4B16"; lavender = "#859900"; blue = "#268BD2" }
-    onedark               = @{ bg = "#282C34"; os = "#ABB2BF"; closer = "p:os"; pink = "#E86671"; lavender = "#98C379"; blue = "#E5C07B" }
-    lume                  = @{ bg = "#12101E"; os = "#8A8498"; closer = "p:os"; pink = "#D0A0B8"; lavender = "#A0D4A8"; blue = "#C4B080" }
-    monokai               = @{ bg = "#272822"; os = "#A59F85"; closer = "p:os"; pink = "#F92672"; lavender = "#A6E22E"; blue = "#FD971F" }
-    ayu_dark              = @{ bg = "#0B0E14"; os = "#565B66"; closer = "p:os"; pink = "#FF8F40"; lavender = "#AAD94C"; blue = "#E6B450" }
-    ayu_mirage            = @{ bg = "#1F2430"; os = "#707A8C"; closer = "p:os"; pink = "#FFAD66"; lavender = "#D5FF80"; blue = "#FFD173" }
-    vesper                = @{ bg = "#101010"; os = "#8B8B8B"; closer = "p:os"; pink = "#FFC799"; lavender = "#99FFE4"; blue = "#FF8080" }
-    poimandres            = @{ bg = "#1B1E28"; os = "#A6ACCD"; closer = "p:os"; pink = "#D0679D"; lavender = "#5DE4C7"; blue = "#FFFAC2" }
-    nightfox              = @{ bg = "#192330"; os = "#738091"; closer = "p:os"; pink = "#F4A261"; lavender = "#81B29A"; blue = "#DBC074" }
-    carbonfox             = @{ bg = "#161616"; os = "#7B7C7E"; closer = "p:os"; pink = "#EE5396"; lavender = "#25BE6A"; blue = "#33B1FF" }
-    mellow                = @{ bg = "#161617"; os = "#757581"; closer = "p:os"; pink = "#F5A191"; lavender = "#90B99F"; blue = "#E6B99D" }
-    moonfly               = @{ bg = "#080808"; os = "#808080"; closer = "p:os"; pink = "#FF5189"; lavender = "#79DAC8"; blue = "#E3C78A" }
-    horizon               = @{ bg = "#1C1E26"; os = "#BBBBBB"; closer = "p:os"; pink = "#E95678"; lavender = "#FAB795"; blue = "#29D398" }
-    palenight             = @{ bg = "#292D3E"; os = "#A6ACCD"; closer = "p:os"; pink = "#C792EA"; lavender = "#C3E88D"; blue = "#FFCB6B" }
-    zenburn               = @{ bg = "#3F3F3F"; os = "#DCDCCC"; closer = "p:os"; pink = "#F0DFAF"; lavender = "#7F9F7F"; blue = "#CC9393" }
+    ayu_dark              = @{ bg = "#0B0E14"; muted = "#565B66"; path = "#FF8F40"; git = "#AAD94C"; userhost = "#E6B450" }
+    ayu_mirage            = @{ bg = "#1F2430"; muted = "#707A8C"; path = "#FFAD66"; git = "#D5FF80"; userhost = "#FFD173" }
+    carbonfox             = @{ bg = "#161616"; muted = "#7B7C7E"; path = "#EE5396"; git = "#25BE6A"; userhost = "#33B1FF" }
+    catppuccin_frappe     = @{ bg = "#303446"; muted = "#ACB0BE"; path = "#F4B8E4"; git = "#BABBF1"; userhost = "#8CAAEE" }
+    catppuccin_latte      = @{ bg = "#EFF1F5"; muted = "#ACB0BE"; path = "#ea76cb"; git = "#7287FD"; userhost = "#1e66f5" }
+    catppuccin_macchiato  = @{ bg = "#24273A"; muted = "#ACB0BE"; path = "#F5BDE6"; git = "#B7BDF8"; userhost = "#8AADF4" }
+    catppuccin_mocha      = @{ bg = "#1E1E2E"; muted = "#ACB0BE"; path = "#F5C2E7"; git = "#B4BEFE"; userhost = "#89B4FA" }
+    dracula               = @{ bg = "#282A36"; muted = "#6272A4"; path = "#FF79C6"; git = "#50FA7B"; userhost = "#F1FA8C" }
+    everforest            = @{ bg = "#2D353B"; muted = "#9DA9A0"; path = "#E69875"; git = "#A7C080"; userhost = "#DBBC7F" }
+    everforest_light      = @{ bg = "#FDF6E3"; muted = "#829181"; path = "#E67E80"; git = "#8DA101"; userhost = "#DFA000" }
+    gruvbox               = @{ bg = "#282828"; muted = "#A89984"; path = "#E78A4E"; git = "#A9B665"; userhost = "#D8A657" }
+    gruvbox_light         = @{ bg = "#FBF1C7"; muted = "#7C6F64"; path = "#AF3A03"; git = "#79740E"; userhost = "#B57614" }
+    horizon               = @{ bg = "#1C1E26"; muted = "#BBBBBB"; path = "#E95678"; git = "#FAB795"; userhost = "#29D398" }
+    kanagawa              = @{ bg = "#1F1F28"; muted = "#727169"; path = "#FFA066"; git = "#98BB6C"; userhost = "#E6C384" }
+    lume                  = @{ bg = "#12101E"; muted = "#8A8498"; path = "#D0A0B8"; git = "#A0D4A8"; userhost = "#C4B080" }
+    mellow                = @{ bg = "#161617"; muted = "#757581"; path = "#F5A191"; git = "#90B99F"; userhost = "#E6B99D" }
+    monokai               = @{ bg = "#272822"; muted = "#A59F85"; path = "#F92672"; git = "#A6E22E"; userhost = "#FD971F" }
+    moonfly               = @{ bg = "#080808"; muted = "#808080"; path = "#FF5189"; git = "#79DAC8"; userhost = "#E3C78A" }
+    nightfox              = @{ bg = "#192330"; muted = "#738091"; path = "#F4A261"; git = "#81B29A"; userhost = "#DBC074" }
+    nord                  = @{ bg = "#2E3440"; muted = "#D8DEE9"; path = "#B48EAD"; git = "#A3BE8C"; userhost = "#88C0D0" }
+    onedark               = @{ bg = "#282C34"; muted = "#ABB2BF"; path = "#E86671"; git = "#98C379"; userhost = "#E5C07B" }
+    palenight             = @{ bg = "#292D3E"; muted = "#A6ACCD"; path = "#C792EA"; git = "#C3E88D"; userhost = "#FFCB6B" }
+    poimandres            = @{ bg = "#1B1E28"; muted = "#A6ACCD"; path = "#D0679D"; git = "#5DE4C7"; userhost = "#FFFAC2" }
+    rose_pine             = @{ bg = "#191724"; muted = "#908CAA"; path = "#EB6F92"; git = "#F6C177"; userhost = "#9CCFD8" }
+    rose_pine_dawn        = @{ bg = "#FAF4ED"; muted = "#797593"; path = "#B4637A"; git = "#EA9D34"; userhost = "#56949F" }
+    solarized             = @{ bg = "#002B36"; muted = "#93A1A1"; path = "#CB4B16"; git = "#859900"; userhost = "#268BD2" }
+    tokyonight            = @{ bg = "#1A1B26"; muted = "#565F89"; path = "#FF966C"; git = "#9ECE6A"; userhost = "#7AA2F7" }
+    tokyonight_light      = @{ bg = "#D5D6DB"; muted = "#6172B0"; path = "#8C4351"; git = "#485E30"; userhost = "#34548A" }
+    vesper                = @{ bg = "#101010"; muted = "#8B8B8B"; path = "#FFC799"; git = "#99FFE4"; userhost = "#FF8080" }
+    zenburn               = @{ bg = "#3F3F3F"; muted = "#DCDCCC"; path = "#F0DFAF"; git = "#7F9F7F"; userhost = "#CC9393" }
 }
 
 # Full ANSI 16-color schemes for terminal emulators and VS Code

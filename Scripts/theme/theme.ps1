@@ -39,27 +39,8 @@ function _hex2rgb([string]$hex) {
 }
 
 function _swatch([hashtable]$p) {
-    $b = _hex2rgb $p.blue; $pk = _hex2rgb $p.pink; $l = _hex2rgb $p.lavender
-    return "`e[38;2;${b}m●`e[0m `e[38;2;${pk}m●`e[0m `e[38;2;${l}m●`e[0m"
-}
-
-function _preview([string]$name, [hashtable]$p) {
-    $os = _hex2rgb $p.os; $bl = _hex2rgb $p.blue; $pk = _hex2rgb $p.pink; $lv = _hex2rgb $p.lavender
-    $r = "`e[0m"
-    $lines = @(
-        ""
-        "  `e[38;2;${os}m$name`e[0m"
-        "  $("─" * 44)"
-        ""
-        "  `e[38;2;${os}m`e[0m `e[38;2;${bl}m$env:USERNAME@$env:COMPUTERNAME`e[0m `e[38;2;${pk}m~/Projects/my-app`e[0m `e[38;2;${lv}m main`e[0m `e[38;2;${os}m`e[0m"
-        ""
-        "  `e[1mColors:`e[0m"
-        "  `e[38;2;${os}m████`e[0m os        $($p.os)"
-        "  `e[38;2;${bl}m████`e[0m blue      $($p.blue)   (user@host)"
-        "  `e[38;2;${pk}m████`e[0m pink      $($p.pink)   (path)"
-        "  `e[38;2;${lv}m████`e[0m lavender  $($p.lavender)   (git)"
-    )
-    return $lines -join "`n"
+    $uh = _hex2rgb $p.userhost; $pa = _hex2rgb $p.path; $g = _hex2rgb $p.git
+    return "`e[38;2;${uh}m●`e[0m `e[38;2;${pa}m●`e[0m `e[38;2;${g}m●`e[0m"
 }
 
 if (-not $choice) {
@@ -70,7 +51,12 @@ if (-not $choice) {
         $paletteLines = @()
         foreach ($name in $palettes.Keys) {
             $p = $palettes[$name]
-            $paletteLines += "$name|$($p.bg)|$($p.os)|$($p.blue)|$($p.pink)|$($p.lavender)"
+            $s = $wtSchemes[$name]
+            $ansi16 = if ($s) {
+                "$($s.black)|$($s.red)|$($s.green)|$($s.yellow)|$($s.blue)|$($s.purple)|$($s.cyan)|$($s.white)" +
+                "|$($s.brightBlack)|$($s.brightRed)|$($s.brightGreen)|$($s.brightYellow)|$($s.brightBlue)|$($s.brightPurple)|$($s.brightCyan)|$($s.brightWhite)"
+            } else { "||||||||||||||||" }
+            $paletteLines += "$name|$($p.bg)|$($p.muted)|$($p.userhost)|$($p.path)|$($p.git)|$ansi16"
         }
         $paletteLines | Set-Content $previewData -Encoding UTF8
 
@@ -160,12 +146,31 @@ if ($scheme) {
     # Windows system (dark/light mode + accent color)
     try { Update-WindowsTheme $scheme $choice; $updated += "Windows" } catch {}
 
+    # Karchy launcher
+    try { if (Update-KarchyTheme $palettes[$choice].userhost) { $updated += "Karchy" } } catch {}
+
     # Re-theme active wallpaper (if set)
     try { Update-Wallpaper $choice $scheme } catch {}
 
     if ($updated.Count -gt 0) {
         Write-Host "Updated: $($updated -join ', ')" -ForegroundColor DarkGray
     }
+}
+
+# Update prompt colors in current session
+$_pal = $palettes[$choice]
+if ($_pal -and $global:_c) {
+    $_e = [char]27
+    function _hex2ansi([string]$h) {
+        $r = [Convert]::ToInt32($h.Substring(1,2),16)
+        $g = [Convert]::ToInt32($h.Substring(3,2),16)
+        $b = [Convert]::ToInt32($h.Substring(5,2),16)
+        return "$_e[38;2;${r};${g};${b}m"
+    }
+    $global:_c.muted    = _hex2ansi $_pal.muted
+    $global:_c.userhost = _hex2ansi $_pal.userhost
+    $global:_c.path     = _hex2ansi $_pal.path
+    $global:_c.git      = _hex2ansi $_pal.git
 }
 
 Write-Host "Switched to $choice" -ForegroundColor Green
