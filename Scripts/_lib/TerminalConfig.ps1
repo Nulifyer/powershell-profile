@@ -62,6 +62,7 @@ if (-not ([System.Management.Automation.PSTypeName]'NativeMethods').Type) {
             SystemParametersInfo(0x0014, 0, path, 0x01 | 0x02);
         }
 
+
         // uxtheme ordinal 104: GetUserColorPreference
         [DllImport("uxtheme.dll", EntryPoint = "#104")]
         public static extern int GetUserColorPreference(ref IMMERSIVE_COLOR_PREFERENCE pref, bool forceReload);
@@ -79,6 +80,28 @@ if (-not ([System.Management.Automation.PSTypeName]'NativeMethods').Type) {
         }
     }
 "@
+}
+
+function Set-LockScreen([string]$imagePath) {
+    $script = @"
+[Windows.System.UserProfile.LockScreen, Windows.System.UserProfile, ContentType = WindowsRuntime] | Out-Null
+[Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime] | Out-Null
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+`$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() |
+    Where-Object { `$_.Name -eq 'AsTask' -and `$_.GetParameters().Count -eq 1 -and
+        `$_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation``1' })[0]
+`$asTaskAction = ([System.WindowsRuntimeSystemExtensions].GetMethods() |
+    Where-Object { `$_.Name -eq 'AsTask' -and `$_.GetParameters().Count -eq 1 -and
+        `$_.GetParameters()[0].ParameterType.Name -eq 'IAsyncAction' })[0]
+`$op = [Windows.Storage.StorageFile]::GetFileFromPathAsync('$($imagePath -replace "'","''")')
+`$task = `$asTask.MakeGenericMethod([Windows.Storage.StorageFile]).Invoke(`$null, @(`$op))
+`$task.Wait()
+`$file = `$task.Result
+`$setOp = [Windows.System.UserProfile.LockScreen]::SetImageFileAsync(`$file)
+`$setTask = `$asTaskAction.Invoke(`$null, @(`$setOp))
+`$setTask.Wait()
+"@
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $script 2>$null
 }
 
 # ── Terminal config ─────────────────────────────────────────────────────────
@@ -1517,6 +1540,7 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
     $cachePath = _Apply-ThemeToWallpaper $originalPath $themeName $scheme
     if ($cachePath) {
         try { [NativeMethods]::SetWallpaper($cachePath) } catch {}
+        try { Set-LockScreen $cachePath } catch {}
     }
 }
 

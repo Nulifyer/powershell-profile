@@ -41,13 +41,16 @@ function _Set-SelectedWallpaper([string]$originalPath, [string]$displayName) {
         $cachePath = _Apply-ThemeToWallpaper $originalPath $themeName $scheme
         if ($cachePath) {
             [NativeMethods]::SetWallpaper($cachePath)
+            try { Set-LockScreen $cachePath } catch {}
             Write-Host "$($c.dim) done$($c.reset)"
         } else {
             Write-Host " $($c.red)failed$($c.reset)"
             [NativeMethods]::SetWallpaper($originalPath)
+            try { Set-LockScreen $originalPath } catch {}
         }
     } else {
         [NativeMethods]::SetWallpaper($originalPath)
+        try { Set-LockScreen $originalPath } catch {}
     }
 
     Write-Host "$($c.green)Wallpaper set to $displayName$($c.reset)"
