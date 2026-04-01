@@ -222,7 +222,7 @@ $global:_c = @{
 . "$PSScriptRoot\Scripts\_lib\ThemeData.ps1"
 $_themeName = Get-ScriptConfig "theme" "palette"
 if ($_themeName) {
-    $_pal = $script:palettes[$_themeName]
+    $_pal = Get-Theme $_themeName
     if ($_pal) {
         function _hex2ansi([string]$h) {
             $r = [Convert]::ToInt32($h.Substring(1,2),16)
@@ -438,6 +438,11 @@ if ($dockerCmd -and $dockerCmd.CommandType -ne 'Alias') {
         . $dockerCompletion
     }
 }
+
+# Theme name tab completion
+$themeCompletion = "$HOME\Documents\PowerShell\Completions\theme-completion.ps1"
+if (Test-Path $themeCompletion) { . $themeCompletion }
+
 #───────────────────────────────────────────────────────────────────────────────
 # ENHANCED TOOLS (eza, bat)
 #───────────────────────────────────────────────────────────────────────────────

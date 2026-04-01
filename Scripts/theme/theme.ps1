@@ -1,24 +1,15 @@
 #.ALIAS theme
-<#
-.SYNOPSIS
-    Switch prompt color palette.
-
-.DESCRIPTION
-    Changes the prompt color palette and terminal color scheme.
-    The chosen palette is saved and persists across sessions.
-
-.EXAMPLE
-    theme                        # show current + available palettes
-    theme gruvbox                # switch to gruvbox colors
-    theme catppuccin_mocha       # switch to catppuccin mocha
-#>
+#.HELP Usage: theme [name] [--list] [--current]
+#.HELP
+#.HELP Switch color theme across terminal emulators, VS Code, browsers, and Windows.
+#.HELP   theme            — fzf picker with preview
+#.HELP   theme <name>     — apply theme directly
+#.HELP   theme --list     — list available themes
+#.HELP   theme --current  — show current theme
 
 . "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 . "$PSScriptRoot\..\_lib\TerminalConfig.ps1"
 . "$PSScriptRoot\..\_lib\ThemeData.ps1"
-
-$palettes = $script:palettes
-$wtSchemes = $script:wtSchemes
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -26,10 +17,15 @@ $configKey = "theme"
 $currentTheme = Get-ScriptConfig $configKey "palette"
 if (-not $currentTheme) { $currentTheme = "catppuccin_mocha" }
 
-$parsed = Parse-Args $args @{}
+$parsed = Parse-Args $args @{
+    List    = @{ Aliases = @('l', 'list') }
+    Current = @{ Aliases = @('c', 'current') }
+}
 $choice = $parsed._positional | Select-Object -First 1
 
-# ── No args: show current + list ─────────────────────────────────────────────
+if ($parsed._help) { Show-Help; exit 0 }
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
 
 function _hex2rgb([string]$hex) {
     $r = [Convert]::ToInt32($hex.Substring(1,2),16)
@@ -38,25 +34,47 @@ function _hex2rgb([string]$hex) {
     return "$r;$g;$b"
 }
 
-function _swatch([hashtable]$p) {
-    $uh = _hex2rgb $p.userhost; $pa = _hex2rgb $p.path; $g = _hex2rgb $p.git
+function _swatch([hashtable]$t) {
+    $uh = _hex2rgb $t.userhost; $pa = _hex2rgb $t.path; $g = _hex2rgb $t.git
     return "`e[38;2;${uh}m●`e[0m `e[38;2;${pa}m●`e[0m `e[38;2;${g}m●`e[0m"
 }
 
+# ── --list ───────────────────────────────────────────────────────────────────
+
+if ($parsed.List) {
+    $themes = Get-Themes
+    foreach ($name in $themes.Keys) {
+        $swatch = _swatch $themes[$name]
+        if ($name -eq $currentTheme) {
+            Write-Host "  * $swatch $name" -ForegroundColor Green
+        } else {
+            Write-Host "    $swatch $name"
+        }
+    }
+    exit 0
+}
+
+# ── --current ────────────────────────────────────────────────────────────────
+
+if ($parsed.Current) {
+    Write-Host $currentTheme
+    exit 0
+}
+
+# ── No args: fzf picker ─────────────────────────────────────────────────────
+
 if (-not $choice) {
+    $themes = Get-Themes
     $hasFzf = Get-Command fzf -ErrorAction SilentlyContinue
     if ($hasFzf) {
         # Write palette data to temp file for the preview script
         $previewData = "$env:TEMP\pwsh-profile\theme-palettes.txt"
         $paletteLines = @()
-        foreach ($name in $palettes.Keys) {
-            $p = $palettes[$name]
-            $s = $wtSchemes[$name]
-            $ansi16 = if ($s) {
-                "$($s.black)|$($s.red)|$($s.green)|$($s.yellow)|$($s.blue)|$($s.purple)|$($s.cyan)|$($s.white)" +
-                "|$($s.brightBlack)|$($s.brightRed)|$($s.brightGreen)|$($s.brightYellow)|$($s.brightBlue)|$($s.brightPurple)|$($s.brightCyan)|$($s.brightWhite)"
-            } else { "||||||||||||||||" }
-            $paletteLines += "$name|$($p.bg)|$($p.muted)|$($p.userhost)|$($p.path)|$($p.git)|$ansi16"
+        foreach ($name in $themes.Keys) {
+            $t = $themes[$name]
+            $ansi16 = "$($t.black)|$($t.red)|$($t.green)|$($t.yellow)|$($t.blue)|$($t.purple)|$($t.cyan)|$($t.white)" +
+                "|$($t.brightBlack)|$($t.brightRed)|$($t.brightGreen)|$($t.brightYellow)|$($t.brightBlue)|$($t.brightPurple)|$($t.brightCyan)|$($t.brightWhite)"
+            $paletteLines += "$name|$($t.bg)|$($t.muted)|$($t.userhost)|$($t.path)|$($t.git)|$ansi16"
         }
         $paletteLines | Set-Content $previewData -Encoding UTF8
 
@@ -66,8 +84,8 @@ if (-not $choice) {
 
         # Build fzf input lines: "name<TAB>swatches marker name" — fzf shows field 2+ via --with-nth
         $lines = @()
-        foreach ($name in $palettes.Keys) {
-            $swatch = _swatch $palettes[$name]
+        foreach ($name in $themes.Keys) {
+            $swatch = _swatch $themes[$name]
             $marker = if ($name -eq $currentTheme) { " *" } else { "  " }
             $lines += "$name`t$swatch$marker $name"
         }
@@ -99,8 +117,8 @@ if (-not $choice) {
         Write-Host ""
         Write-Host "  Prompt Palette" -ForegroundColor Cyan
         Write-Host "  $("─" * 40)" -ForegroundColor DarkGray
-        foreach ($name in $palettes.Keys) {
-            $swatch = _swatch $palettes[$name]
+        foreach ($name in $themes.Keys) {
+            $swatch = _swatch $themes[$name]
             $marker = if ($name -eq $currentTheme) { "*" } else { " " }
             $color = if ($name -eq $currentTheme) { "Green" } else { "White" }
             Write-Host "  $marker $swatch " -NoNewline
@@ -116,9 +134,10 @@ if (-not $choice) {
 
 # ── Set palette ──────────────────────────────────────────────────────────────
 
-if (-not $palettes.Contains($choice)) {
+$theme = Get-Theme $choice
+if (-not $theme) {
     Write-Host "Unknown palette: $choice" -ForegroundColor Red
-    Write-Host "Available: $($palettes.Keys -join ', ')" -ForegroundColor DarkGray
+    Write-Host "Available: $((Get-Themes).Keys -join ', ')" -ForegroundColor DarkGray
     exit 1
 }
 
@@ -127,39 +146,35 @@ Set-ScriptConfig $configKey "palette" $choice
 
 # ── Update everything ───────────────────────────────────────────────────────
 
-$scheme = $wtSchemes[$choice]
-if ($scheme) {
-    $updated = @()
+$updated = @()
 
-    # Terminal emulators
-    $updated += Update-TerminalColors $scheme
+# Terminal emulators
+$updated += Update-TerminalColors $theme
 
-    # VS Code theme
-    try { Update-VSCodeTheme $scheme $choice; $updated += "VS Code" } catch {}
+# VS Code theme
+try { Update-VSCodeTheme $theme $choice; $updated += "VS Code" } catch {}
 
-    # File Pilot
-    try { if (Update-FilePilotTheme $scheme $choice) { $updated += "File Pilot" } } catch {}
+# File Pilot
+try { if (Update-FilePilotTheme $theme $choice) { $updated += "File Pilot" } } catch {}
 
-    # Browsers (Chromium-based via BrowserThemeColor policy)
-    try { $updated += Update-BrowserTheme $scheme } catch {}
+# Browsers (Chromium-based via BrowserThemeColor policy)
+try { $updated += Update-BrowserTheme $theme } catch {}
 
-    # Windows system (dark/light mode + accent color)
-    try { Update-WindowsTheme $scheme $choice; $updated += "Windows" } catch {}
+# Windows system (dark/light mode + accent color)
+try { Update-WindowsTheme $theme $choice; $updated += "Windows" } catch {}
 
-    # Karchy launcher
-    try { if (Update-KarchyTheme $palettes[$choice].userhost) { $updated += "Karchy" } } catch {}
+# Karchy launcher
+try { if (Update-KarchyTheme $theme.userhost) { $updated += "Karchy" } } catch {}
 
-    # Re-theme active wallpaper (if set)
-    try { Update-Wallpaper $choice $scheme } catch {}
+# Re-theme active wallpaper (if set)
+try { Update-Wallpaper $choice $theme } catch {}
 
-    if ($updated.Count -gt 0) {
-        Write-Host "Updated: $($updated -join ', ')" -ForegroundColor DarkGray
-    }
+if ($updated.Count -gt 0) {
+    Write-Host "Updated: $($updated -join ', ')" -ForegroundColor DarkGray
 }
 
 # Update prompt colors in current session
-$_pal = $palettes[$choice]
-if ($_pal -and $global:_c) {
+if ($global:_c) {
     $_e = [char]27
     function _hex2ansi([string]$h) {
         $r = [Convert]::ToInt32($h.Substring(1,2),16)
@@ -167,10 +182,10 @@ if ($_pal -and $global:_c) {
         $b = [Convert]::ToInt32($h.Substring(5,2),16)
         return "$_e[38;2;${r};${g};${b}m"
     }
-    $global:_c.muted    = _hex2ansi $_pal.muted
-    $global:_c.userhost = _hex2ansi $_pal.userhost
-    $global:_c.path     = _hex2ansi $_pal.path
-    $global:_c.git      = _hex2ansi $_pal.git
+    $global:_c.muted    = _hex2ansi $theme.muted
+    $global:_c.userhost = _hex2ansi $theme.userhost
+    $global:_c.path     = _hex2ansi $theme.path
+    $global:_c.git      = _hex2ansi $theme.git
 }
 
 Write-Host "Switched to $choice" -ForegroundColor Green

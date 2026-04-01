@@ -1,35 +1,23 @@
 #.ALIAS font
-<#
-.SYNOPSIS
-    Select terminal font from installed Nerd Fonts.
-
-.DESCRIPTION
-    Lists installed Nerd Fonts, lets you pick one with fzf, then updates
-    all detected terminal configs (WT, Alacritty, Kitty, Ghostty, WezTerm).
-
-.EXAMPLE
-    font                   # pick a font with fzf
-    font --install         # install a new Nerd Font via oh-my-posh
-    font "CaskaydiaMono NF"  # set font directly
-#>
+#.HELP Usage: font [name] [--list] [--current] [--install]
+#.HELP
+#.HELP Select terminal font from installed Nerd Fonts.
+#.HELP   font            — fzf picker of installed Nerd Fonts
+#.HELP   font <name>     — set font directly
+#.HELP   font --list     — list installed Nerd Fonts
+#.HELP   font --current  — show current font
+#.HELP   font --install  — install a new Nerd Font via oh-my-posh
 
 . "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 . "$PSScriptRoot\..\_lib\TerminalConfig.ps1"
 
 $parsed = Parse-Args $args @{
     Install = @{ Aliases = @('i', 'install') }
+    List    = @{ Aliases = @('l', 'list') }
+    Current = @{ Aliases = @('c', 'current') }
 }
 
-if ($parsed._help) {
-    Write-Host "Usage: font [name] [--install]" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Select terminal font from installed Nerd Fonts."
-    Write-Host ""
-    Write-Host "Options:"
-    Write-Host "  -i, --install   Install a new Nerd Font via oh-my-posh"
-    Write-Host "  -h, --help      Show this help"
-    exit 0
-}
+if ($parsed._help) { Show-Help; exit 0 }
 
 # Install mode — hand off to oh-my-posh interactive installer
 if ($parsed.Install) {
@@ -60,6 +48,26 @@ if ($fonts.Count -eq 0) {
 
 $currentFont = Get-ScriptConfig "font" "face"
 if (-not $currentFont) { $currentFont = "CaskaydiaMono NF" }
+
+# ── --current ────────────────────────────────────────────────────────────────
+
+if ($parsed.Current) {
+    Write-Host $currentFont
+    exit 0
+}
+
+# ── --list ───────────────────────────────────────────────────────────────────
+
+if ($parsed.List) {
+    foreach ($f in $fonts) {
+        if ($f -eq $currentFont) {
+            Write-Host "  * $f" -ForegroundColor Green
+        } else {
+            Write-Host "    $f"
+        }
+    }
+    exit 0
+}
 
 # ── Select font ──────────────────────────────────────────────────────────────
 

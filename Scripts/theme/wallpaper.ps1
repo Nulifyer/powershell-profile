@@ -1,23 +1,17 @@
 #.ALIAS wallpaper
-<#
-.SYNOPSIS
-    Set a theme-matched wallpaper.
-
-.DESCRIPTION
-    Pick a wallpaper and remap its colors to the active theme using lutgen.
-    Cached outputs avoid regeneration on repeated theme switches.
-    Browse Wallhaven for new wallpapers filtered to your monitor resolution.
-
-.EXAMPLE
-    wallpaper                    # pick a wallpaper with fzf
-    wallpaper forest.jpg         # set a specific wallpaper
-    wallpaper --clear            # stop managing wallpaper
-    wallpaper browse             # browse top wallpapers on Wallhaven
-    wallpaper browse mountains   # search Wallhaven for "mountains"
-    wallpaper browse -s toplist  # sort by most popular
-    wallpaper browse -r 16x9    # override aspect ratio filter
-    wallpaper browse --apikey X  # save API key for future use
-#>
+#.HELP Usage: wallpaper [file|browse] [--clear] [--current]
+#.HELP
+#.HELP Set a theme-matched wallpaper using lutgen.
+#.HELP   wallpaper              — fzf picker from local wallpapers
+#.HELP   wallpaper <file>       — set specific wallpaper
+#.HELP   wallpaper browse [q]   — browse Wallhaven for wallpapers
+#.HELP   wallpaper --clear      — stop managing wallpaper
+#.HELP   wallpaper --current    — show current wallpaper
+#.HELP
+#.HELP Browse options:
+#.HELP   -s, --sort <mode>      — toplist, favorites, views, date_added, random
+#.HELP   -r, --ratio <ratio>    — override aspect ratio filter (16x9, 21x9)
+#.HELP   --apikey <key>         — save Wallhaven API key for NSFW results
 
 . "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 . "$PSScriptRoot\..\_lib\TerminalConfig.ps1"
@@ -33,7 +27,7 @@ function _Set-SelectedWallpaper([string]$originalPath, [string]$displayName) {
     $themeName = Get-ScriptConfig "theme" "palette"
     if (-not $themeName) { $themeName = "catppuccin_mocha" }
 
-    $scheme = $script:wtSchemes[$themeName]
+    $scheme = Get-Theme $themeName
     $hasLutgen = Get-Command lutgen -ErrorAction SilentlyContinue
 
     if ($hasLutgen -and $scheme) {
@@ -216,15 +210,26 @@ function _Browse-Wallhaven {
 # ── Args ────────────────────────────────────────────────────────────────────
 
 $parsed = Parse-Args $args @{
-    clear  = @{ Aliases = @('c', 'clear');           Type = 'switch' }
-    ratio  = @{ Aliases = @('r', 'ratio');             Type = 'value'  }
-    sort   = @{ Aliases = @('s', 'sort');               Type = 'value'; Default = 'relevance' }
-    apikey = @{ Aliases = @('apikey');                   Type = 'value'  }
+    clear   = @{ Aliases = @('clear');                   Type = 'switch' }
+    current = @{ Aliases = @('current');                  Type = 'switch' }
+    ratio   = @{ Aliases = @('r', 'ratio');               Type = 'value'  }
+    sort    = @{ Aliases = @('s', 'sort');                 Type = 'value'; Default = 'relevance' }
+    apikey  = @{ Aliases = @('apikey');                     Type = 'value'  }
 }
+
+if ($parsed._help) { Show-Help; exit 0 }
 
 $subcommand = $parsed._positional | Select-Object -First 1
 
-# ── Clear ───────────────────────────────────────────────────────────────────
+# ── --current ──────────────────────────────────────────────────────────────
+
+if ($parsed.current) {
+    $wpName = Get-ScriptConfig "wallpaper" "name"
+    if ($wpName) { Write-Host $wpName } else { Write-Host "$($c.dim)(none)$($c.reset)" }
+    exit 0
+}
+
+# ── --clear ────────────────────────────────────────────────────────────────
 
 if ($parsed.clear) {
     Set-ScriptConfig "wallpaper" "name" ""

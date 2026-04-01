@@ -29,7 +29,9 @@ function Convert-HexToABGR([string]$hex) {
 }
 
 function _Is-LightTheme([string]$themeName) {
-    return $themeName -in @('catppuccin_latte','gruvbox_light','everforest_light','tokyonight_light','rose_pine_dawn','flexoki_light','iceberg_light','oxocarbon_light')
+    $t = Get-Theme $themeName
+    if ($t) { return $t.variant -eq 'light' }
+    return $themeName -match '_light|_dawn|_latte'
 }
 
 # ── P/Invoke for Windows theming + wallpaper ────────────────────────────────
@@ -1472,43 +1474,6 @@ function _Get-MonitorRatioString([int]$w, [int]$h) {
     else                  { return $null   }  # unusual — don't filter
 }
 
-$script:LutgenPalettes = @{
-    catppuccin_mocha     = "catppuccin-mocha"
-    catppuccin_macchiato = "catppuccin-macchiato"
-    catppuccin_frappe    = "catppuccin-frappe"
-    catppuccin_latte     = "catppuccin-latte"
-    gruvbox              = "gruvbox-material-dark-hard"
-    gruvbox_light        = "gruvbox-light"
-    everforest           = "everforest-dark-medium"
-    everforest_light     = "everforest-light-medium"
-    tokyonight           = "tokyo-night-terminal-dark"
-    tokyonight_light     = "tokyo-night-light"
-    nord                 = "nord"
-    dracula              = "dracula"
-    rose_pine            = "rose-pine"
-    rose_pine_dawn       = "rose-pine-dawn"
-    kanagawa             = "kanagawa"
-    solarized            = "solarized-dark"
-    onedark              = "onedark"
-    monokai              = "monokai"
-    ayu_dark             = "ayu-dark"
-    ayu_mirage           = "ayu-mirage"
-    vesper               = "vesper"
-    nightfox             = "nightfox"
-    horizon              = "horizon-terminal-dark"
-    palenight            = "material-palenight"
-    zenburn              = "zenburn"
-    challengerdeep       = "challengerdeep"
-    flexoki              = "flexoki-dark"
-    flexoki_light        = "flexoki-light"
-    github_dark          = "github-dark"
-    iceberg              = "iceberg-dark"
-    iceberg_light        = "iceberg-light"
-    material_darker      = "material-darker"
-    oxocarbon            = "oxocarbon-dark"
-    oxocarbon_light      = "oxocarbon-light"
-    spaceduck            = "spaceduck"
-}
 
 function _Get-LutgenColors([hashtable]$scheme) {
     return @(
@@ -1527,7 +1492,8 @@ function _Apply-ThemeToWallpaper([string]$originalPath, [string]$themeName, [has
 
     New-Item -ItemType Directory -Path $script:WP_CACHE -Force | Out-Null
     if (Test-Path $cachePath) { Remove-Item $cachePath -Force }
-    $lutgenPalette = $script:LutgenPalettes[$themeName]
+    $t = Get-Theme $themeName
+    $lutgenPalette = if ($t) { $t.lutgen_palette } else { $null }
     if ($lutgenPalette) {
         & lutgen apply -P -L 0.1 -o $cachePath -p $lutgenPalette $originalPath 2>&1 | Out-Null
     } else {

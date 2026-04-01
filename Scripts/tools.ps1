@@ -1,20 +1,9 @@
 #.ALIAS tools
-<#
-.SYNOPSIS
-    Check and install terminal tools via WinGet.
-
-.DESCRIPTION
-    Verifies that all expected CLI tools are installed. Shows status for each
-    tool and optionally installs missing ones.
-
-.EXAMPLE
-    tools
-    # Show status of all tools
-
-.EXAMPLE
-    tools --install
-    # Install any missing tools
-#>
+#.HELP Usage: tools [--install]
+#.HELP
+#.HELP Show installation status of CLI tools.
+#.HELP   tools           — show status of all tools
+#.HELP   tools --install — install missing tools via WinGet
 
 . "$PSScriptRoot\_lib\ScriptUtils.ps1"
 
@@ -22,16 +11,7 @@ $parsed = Parse-Args $args @{
     Install = @{ Aliases = @('i', 'install') }
 }
 
-if ($parsed._help) {
-    Write-Host "Usage: tools [--install]" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Check and install terminal tools via WinGet."
-    Write-Host ""
-    Write-Host "Options:"
-    Write-Host "  -i, --install   Install missing tools via WinGet"
-    Write-Host "  -h, --help      Show this help"
-    exit 0
-}
+if ($parsed._help) { Show-Help; exit 0 }
 
 # Tool definitions: display name, winget package ID, exe to check
 $tools = @(

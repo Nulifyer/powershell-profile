@@ -1,12 +1,15 @@
 #.ALIAS file-inventory
 #.ALIAS finv
-<#
-.SYNOPSIS
-    Get file count and total size for a directory.
-
-.DESCRIPTION
-    Recursively scans a directory and returns file count and total size.
-#>
+#.HELP Usage: finv <path> [filter] [-r|--raw] [-nc|--no-color]
+#.HELP
+#.HELP Recursively scan a directory and report file count and total size.
+#.HELP   finv .              — scan current directory
+#.HELP   finv ~/Downloads    — scan Downloads
+#.HELP   finv . "*.log"      — scan only .log files
+#.HELP
+#.HELP Options:
+#.HELP   -r, --raw           — plain text output for piping
+#.HELP   -nc, --no-color     — disable colored output
 
 . "$PSScriptRoot\..\_lib\ScriptUtils.ps1"
 
@@ -19,21 +22,7 @@ $Path   = $parsed._positional[0]
 $Filter = if ($parsed._positional[1]) { $parsed._positional[1] } else { '*.*' }
 
 if ($parsed._help -or -not $Path) {
-    Show-ScriptHelp -Usage "<Path> [Filter] [-r|--raw] [-nc|--no-color]" `
-        -Description "Get file count and total size for a directory." `
-        -Arguments ([ordered]@{
-            Path   = "Directory to scan"
-            Filter = "File filter (default: *.*)"
-        }) `
-        -Options ([ordered]@{
-            "-r, --raw"      = "Output plain text for piping"
-            "-nc, --no-color" = "Disable colored output"
-            "-h, --help"     = "Show this help"
-        }) `
-        -Examples @(
-            "finv C:\Logs",
-            "finv C:\Logs *.log"
-        )
+    Show-Help
     exit 0
 }
 

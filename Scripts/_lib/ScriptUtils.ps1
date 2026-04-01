@@ -233,6 +233,25 @@ function Show-ScriptHelp {
     }
 }
 
+# ── Show-Help (#.HELP convention) ────────────────────────────────────────────
+# Reads #.HELP lines from the calling script and displays them.
+# Usage: add #.HELP lines at the top of your script, then call Show-Help.
+
+function Show-Help {
+    $scriptFile = (Get-PSCallStack)[1].ScriptName
+    if (-not $scriptFile -or -not (Test-Path $scriptFile)) { return }
+
+    $inHelp = $false
+    foreach ($line in Get-Content $scriptFile) {
+        if ($line -match '^\s*#\.HELP\s?(.*)$') {
+            Write-Host $Matches[1]
+            $inHelp = $true
+        } elseif ($inHelp) {
+            break
+        }
+    }
+}
+
 # ── Script Config ─────────────────────────────────────────────────────────────
 # Shared JSON config at ~/.config/scriptutils/config.json, keyed by script name.
 

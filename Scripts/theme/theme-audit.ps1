@@ -17,8 +17,6 @@
 . "$PSScriptRoot\..\_lib\TerminalConfig.ps1"
 . "$PSScriptRoot\..\_lib\ThemeData.ps1"
 
-$palettes = $script:palettes
-$wtSchemes = $script:wtSchemes
 $c = Get-Colors
 
 # ── Determine target theme ──────────────────────────────────────────────────
@@ -30,17 +28,15 @@ if (-not $themeName) {
     if (-not $themeName) { $themeName = "catppuccin_mocha" }
 }
 
-if (-not $palettes.Contains($themeName)) {
+$theme = Get-Theme $themeName
+if (-not $theme) {
     Write-Host "Unknown theme: $themeName" -ForegroundColor Red
     exit 1
 }
 
-$scheme = $wtSchemes[$themeName]
-$palette = $palettes[$themeName]
-if (-not $scheme) {
-    Write-Host "No color scheme defined for: $themeName" -ForegroundColor Red
-    exit 1
-}
+# Aliases for backward compat within this script
+$scheme = $theme
+$palette = $theme
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
