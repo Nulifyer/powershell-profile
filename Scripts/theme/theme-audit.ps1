@@ -1010,6 +1010,86 @@ if ($savedTheme) {
 }
 _SectionResult "Saved Config" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
+# ── Lutgen Palette ──────────────────────────────────────────────────────────
+
+_Section "Lutgen Palette"
+$preFail = $script:failCount
+$prePass = $script:passCount
+
+$lutgenMap = $script:LutgenPalettes
+$lutgenName = $lutgenMap[$themeName]
+
+if ($lutgenName) {
+    $haslutgen = Get-Command lutgen -ErrorAction SilentlyContinue
+    if ($haslutgen) {
+        $lutgenOutput = & lutgen palette $lutgenName 2>$null
+        $lutgenColors = @{}
+        foreach ($line in $lutgenOutput) {
+            if ($line -is [string] -and $line -match "^#[0-9A-Fa-f]{6}$") {
+                $lutgenColors[$line.Trim().ToUpper()] = $true
+            }
+        }
+        if ($lutgenColors.Count -gt 0) {
+            $schemeKeys = @('background','foreground','cursorColor','selectionBackground',
+                'black','red','green','yellow','blue','purple','cyan','white',
+                'brightBlack','brightRed','brightGreen','brightYellow','brightBlue','brightPurple','brightCyan','brightWhite')
+            foreach ($key in $schemeKeys) {
+                $val = $scheme[$key]
+                if (-not $val) { continue }
+                if ($lutgenColors.ContainsKey($val.ToUpper())) {
+                    $script:passCount++
+                } else {
+                    $script:failCount++
+                    Write-Host "  $($c.red)MISMATCH$($c.reset) $key=$val $($c.dim)(not in $lutgenName palette)$($c.reset)"
+                }
+            }
+        } else {
+            _Skip "lutgen" "$lutgenName returned no colors"
+        }
+    } else {
+        _Skip "lutgen" "lutgen not installed"
+    }
+} else {
+    _Skip "lutgen" "no palette mapping for $themeName"
+}
+_SectionResult "Lutgen Palette" ($script:passCount - $prePass) ($script:failCount - $preFail)
+
+# ── Theme Data Integrity ───────────────────────────────────────────────────
+
+_Section "Theme Data"
+$preFail = $script:failCount
+$prePass = $script:passCount
+
+# palette.bg should match scheme.background
+_Check "palette.bg = scheme.background" $scheme.background $palette.bg
+
+# palette colors should exist in scheme
+$palSchemeMap = @{
+    'muted' = 'brightBlack'
+}
+foreach ($pk in $palSchemeMap.Keys) {
+    $palVal = $palette[$pk]
+    $schemeVal = $scheme[$palSchemeMap[$pk]]
+    if ($palVal -and $schemeVal) {
+        _Check "palette.$pk vs scheme.$($palSchemeMap[$pk])" $schemeVal $palVal
+    }
+}
+
+# Check wtScheme has all required keys
+$requiredKeys = @('name','background','foreground','cursorColor','selectionBackground',
+    'black','red','green','yellow','blue','purple','cyan','white',
+    'brightBlack','brightRed','brightGreen','brightYellow','brightBlue','brightPurple','brightCyan','brightWhite')
+foreach ($key in $requiredKeys) {
+    if (-not $scheme[$key]) {
+        $script:failCount++
+        Write-Host "  $($c.red)MISSING$($c.reset)  wtScheme key: $key"
+    } else {
+        $script:passCount++
+    }
+}
+
+_SectionResult "Theme Data" ($script:passCount - $prePass) ($script:failCount - $preFail)
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 
 Write-Host ""

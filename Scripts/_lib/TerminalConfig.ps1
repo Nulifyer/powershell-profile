@@ -29,7 +29,7 @@ function Convert-HexToABGR([string]$hex) {
 }
 
 function _Is-LightTheme([string]$themeName) {
-    return $themeName -in @('catppuccin_latte','gruvbox_light','everforest_light','tokyonight_light','rose_pine_dawn')
+    return $themeName -in @('catppuccin_latte','gruvbox_light','everforest_light','tokyonight_light','rose_pine_dawn','flexoki_light','iceberg_light','oxocarbon_light')
 }
 
 # ── P/Invoke for Windows theming + wallpaper ────────────────────────────────
@@ -1477,11 +1477,11 @@ $script:LutgenPalettes = @{
     catppuccin_macchiato = "catppuccin-macchiato"
     catppuccin_frappe    = "catppuccin-frappe"
     catppuccin_latte     = "catppuccin-latte"
-    gruvbox              = "gruvbox-dark"
+    gruvbox              = "gruvbox-material-dark-hard"
     gruvbox_light        = "gruvbox-light"
     everforest           = "everforest-dark-medium"
     everforest_light     = "everforest-light-medium"
-    tokyonight           = "tokyo-night-dark"
+    tokyonight           = "tokyo-night-terminal-dark"
     tokyonight_light     = "tokyo-night-light"
     nord                 = "nord"
     dracula              = "dracula"
@@ -1495,9 +1495,19 @@ $script:LutgenPalettes = @{
     ayu_mirage           = "ayu-mirage"
     vesper               = "vesper"
     nightfox             = "nightfox"
-    horizon              = "horizon-dark"
+    horizon              = "horizon-terminal-dark"
     palenight            = "material-palenight"
     zenburn              = "zenburn"
+    challengerdeep       = "challengerdeep"
+    flexoki              = "flexoki-dark"
+    flexoki_light        = "flexoki-light"
+    github_dark          = "github-dark"
+    iceberg              = "iceberg-dark"
+    iceberg_light        = "iceberg-light"
+    material_darker      = "material-darker"
+    oxocarbon            = "oxocarbon-dark"
+    oxocarbon_light      = "oxocarbon-light"
+    spaceduck            = "spaceduck"
 }
 
 function _Get-LutgenColors([hashtable]$scheme) {
