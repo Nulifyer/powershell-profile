@@ -2346,38 +2346,7 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
 }
 
 function Update-KarchyTheme([string]$themeName) {
-    $configPath = "$env:APPDATA\karchy\config.toml"
-    if (-not (Test-Path $configPath)) {
-        if (-not (Get-Command karchy -ErrorAction SilentlyContinue)) { return $false }
-        New-Item -Path (Split-Path $configPath) -ItemType Directory -Force | Out-Null
-        "[theme]`nname = `"$themeName`"" | Set-Content $configPath -Encoding utf8
-        return $true
-    }
-
-    $lines = [System.Collections.Generic.List[string]](Get-Content $configPath)
-
-    # Find existing [theme] section and name key.
-    # [theme.prompt], [theme.terminal.*] are subsections — skip them.
-    $themeIdx = -1
-    $nameIdx = -1
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\[theme\]$') { $themeIdx = $i }
-        elseif ($themeIdx -ge 0 -and $nameIdx -lt 0 -and $lines[$i] -match '^name\s*=') { $nameIdx = $i }
-        elseif ($themeIdx -ge 0 -and $lines[$i] -match '^\[' -and $lines[$i] -notmatch '^\[theme\.') { break }
-    }
-
-    $nameLine = "name = `"$themeName`""
-
-    if ($nameIdx -ge 0) {
-        $lines[$nameIdx] = $nameLine
-    } elseif ($themeIdx -ge 0) {
-        $lines.Insert($themeIdx + 1, $nameLine)
-    } else {
-        $lines.Add("")
-        $lines.Add("[theme]")
-        $lines.Add($nameLine)
-    }
-
-    $lines | Set-Content $configPath -Encoding utf8
-    return $true
+    if (-not (Get-Command karchy -ErrorAction SilentlyContinue)) { return $false }
+    $null = karchy theme set $themeName 2>&1
+    return ($LASTEXITCODE -eq 0)
 }
