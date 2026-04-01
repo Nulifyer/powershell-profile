@@ -1053,6 +1053,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         # ── Constants — purple ──
         (_tc "constant" $scheme.purple)
         (_tc "constant.language" $scheme.purple)
+        (_tc "constant.language.null" $scheme.purple)
+        (_tc "constant.language.boolean" $scheme.purple)
+        (_tc "constant.language.undefined" $scheme.purple)
         (_tc "constant.numeric" $scheme.purple)
         (_tc "constant.character" $scheme.purple)
         (_tc "constant.other.option" $scheme.purple)
@@ -1913,7 +1916,12 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         enabled = $true
         rules = [ordered]@{
             # Red — keywords, storage
+            # NOTE: C# LSP classifies null/true/false as "keyword" (same as if/class/public).
+            # No semantic-level fix exists — Roslyn doesn't distinguish them.
+            # TextMate correctly scopes null as constant.language.null → purple,
+            # but the semantic layer overrides it. This is a known C# LSP limitation.
             "keyword"                    = $scheme.red
+            "controlKeyword"             = $scheme.red
 
             # Yellow — functions, methods
             "function"                   = $scheme.yellow
