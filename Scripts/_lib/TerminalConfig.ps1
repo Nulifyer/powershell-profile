@@ -1520,32 +1520,31 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
     }
 }
 
-function Update-KarchyTheme([string]$accent) {
+function Update-KarchyTheme([string]$themeName) {
     $configPath = "$env:APPDATA\karchy\config.toml"
     if (-not (Test-Path $configPath)) { return $false }
 
     $lines = [System.Collections.Generic.List[string]](Get-Content $configPath)
 
-    # Find existing [theme] section
+    # Find existing [theme] section and name key
     $themeIdx = -1
-    $accentIdx = -1
-    $nextSectionIdx = -1
+    $nameIdx = -1
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i] -match '^\[theme\]') { $themeIdx = $i }
-        elseif ($themeIdx -ge 0 -and $accentIdx -lt 0 -and $lines[$i] -match '^accent\s*=') { $accentIdx = $i }
-        elseif ($themeIdx -ge 0 -and $nextSectionIdx -lt 0 -and $i -gt $themeIdx -and $lines[$i] -match '^\[') { $nextSectionIdx = $i }
+        elseif ($themeIdx -ge 0 -and $nameIdx -lt 0 -and $lines[$i] -match '^name\s*=') { $nameIdx = $i }
+        elseif ($themeIdx -ge 0 -and $i -gt $themeIdx -and $lines[$i] -match '^\[') { break }
     }
 
-    $accentLine = "accent = `"$accent`""
+    $nameLine = "name = `"$themeName`""
 
-    if ($accentIdx -ge 0) {
-        $lines[$accentIdx] = $accentLine
+    if ($nameIdx -ge 0) {
+        $lines[$nameIdx] = $nameLine
     } elseif ($themeIdx -ge 0) {
-        $lines.Insert($themeIdx + 1, $accentLine)
+        $lines.Insert($themeIdx + 1, $nameLine)
     } else {
         $lines.Add("")
         $lines.Add("[theme]")
-        $lines.Add($accentLine)
+        $lines.Add($nameLine)
     }
 
     $lines | Set-Content $configPath -Encoding utf8

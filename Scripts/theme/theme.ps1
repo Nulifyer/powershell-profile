@@ -164,7 +164,7 @@ try { $updated += Update-BrowserTheme $theme } catch {}
 try { Update-WindowsTheme $theme $choice; $updated += "Windows" } catch {}
 
 # Karchy launcher
-try { if (Update-KarchyTheme $theme.userhost) { $updated += "Karchy" } } catch {}
+try { if (Update-KarchyTheme $choice) { $updated += "Karchy" } } catch {}
 
 # Re-theme active wallpaper (if set)
 try { Update-Wallpaper $choice $theme } catch {}
