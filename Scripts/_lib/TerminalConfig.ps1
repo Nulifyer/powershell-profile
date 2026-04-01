@@ -108,12 +108,19 @@ Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
 # ── Terminal config ─────────────────────────────────────────────────────────
 
-$script:WT_SETTINGS = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+# Windows Terminal — check Store, scoop, and winget install locations
+$script:WT_SETTINGS = $null
+foreach ($p in @(
+    "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+    "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"
+)) {
+    if (Test-Path $p) { $script:WT_SETTINGS = $p; break }
+}
 $script:NULIFYR_GUID = "{f1a2b3c4-d5e6-4f78-9a0b-1c2d3e4f5a6b}"
 
 # Ensure our WT profile exists in settings.json, create if missing, set as default
 function _Ensure-WTProfile {
-    if (-not (Test-Path $script:WT_SETTINGS)) { return $null }
+    if (-not $script:WT_SETTINGS -or -not (Test-Path $script:WT_SETTINGS)) { return $null }
     $wt = Get-Content $script:WT_SETTINGS -Raw | ConvertFrom-Json
 
     $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
@@ -189,7 +196,7 @@ function _Get-TerminalConfigs {
     }
 
     # Windows Terminal
-    if (Test-Path $script:WT_SETTINGS) { $configs.wt = $script:WT_SETTINGS }
+    if ($script:WT_SETTINGS -and (Test-Path $script:WT_SETTINGS)) { $configs.wt = $script:WT_SETTINGS }
 
     return $configs
 }
@@ -541,7 +548,16 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     $themeFile = "$script:VS_EXT_DEST\themes\nulifyer.json"
     if (-not (Test-Path (Split-Path $themeFile))) { return }
 
-    $vsSettingsPath = "$env:APPDATA\Code\User\settings.json"
+    # Check VSCode, VSCode Insiders, and VSCodium
+    $vsSettingsPath = $null
+    foreach ($p in @(
+        "$env:APPDATA\Code\User\settings.json"
+        "$env:APPDATA\Code - Insiders\User\settings.json"
+        "$env:APPDATA\VSCodium\User\settings.json"
+    )) {
+        if (Test-Path $p) { $vsSettingsPath = $p; break }
+    }
+    if (-not $vsSettingsPath) { return }
 
     $isLight = _Is-LightTheme $themeName
 
@@ -2213,6 +2229,7 @@ function Update-BrowserTheme([hashtable]$scheme) {
 # ── Windows system theming ─────────────────────────────────────────────────
 
 function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
+    if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) { return }
     $personalizePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize"
     $dwmPath = "HKCU:\SOFTWARE\Microsoft\Windows\DWM"
     $accentPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Accent"
@@ -2330,7 +2347,12 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
 
 function Update-KarchyTheme([string]$themeName) {
     $configPath = "$env:APPDATA\karchy\config.toml"
-    if (-not (Test-Path $configPath)) { return $false }
+    if (-not (Test-Path $configPath)) {
+        if (-not (Get-Command karchy -ErrorAction SilentlyContinue)) { return $false }
+        New-Item -Path (Split-Path $configPath) -ItemType Directory -Force | Out-Null
+        "[theme]`nname = `"$themeName`"" | Set-Content $configPath -Encoding utf8
+        return $true
+    }
 
     $lines = [System.Collections.Generic.List[string]](Get-Content $configPath)
 
