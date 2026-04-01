@@ -1066,7 +1066,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.section.bracket.end.powershell" $bracket)
         (_tc "punctuation.section.group.begin.powershell" $bracket)
         (_tc "punctuation.section.group.end.powershell" $bracket)
-        (_tc "meta.attribute.powershell" $scheme.yellow)
+        (_tc "meta.attribute.powershell" $bracket)
 
         # Tags — yellow
         (_tc "entity.name.tag" $scheme.yellow)
