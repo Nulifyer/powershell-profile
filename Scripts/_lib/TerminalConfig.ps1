@@ -565,6 +565,12 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     }
     $vsc = $scheme.vscode
     if (-not $vsc) { $vsc = @{ accent = 'cyan'; link = 'green'; match = 'green'; find = 'yellow'; bracket = 'yellow' } }
+    $validRoles = $ansiMap.Keys
+    foreach ($role in @('accent','link','match','find','bracket')) {
+        if ($vsc[$role] -and $vsc[$role] -notin $validRoles) {
+            Write-Warning "Theme vscode.$role = '$($vsc[$role])' is not valid (expected: $($validRoles -join ', '))"
+        }
+    }
     $accent  = $ansiMap[$vsc.accent]
     $link    = $ansiMap[$vsc.link]
     $match   = $ansiMap[$vsc.match]
