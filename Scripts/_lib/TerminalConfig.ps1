@@ -604,6 +604,19 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "editorLink.activeForeground" = $link
         "editorWhitespace.foreground" = $bgBorder
         "editorOverviewRuler.border" = "#00000000"
+        "editorOverviewRuler.findMatchForeground" = $match + "A0"
+        "editorOverviewRuler.errorForeground" = $scheme.red
+        "editorOverviewRuler.warningForeground" = $scheme.yellow
+        "editorOverviewRuler.infoForeground" = $scheme.blue
+        "editorOverviewRuler.modifiedForeground" = $scheme.blue + "A0"
+        "editorOverviewRuler.addedForeground" = $scheme.green + "A0"
+        "editorOverviewRuler.deletedForeground" = $scheme.red + "A0"
+        "editorRuler.foreground" = $bgBorder
+        "editorIndentGuide.background1" = $bgBorder
+        "editorIndentGuide.activeBackground1" = $fgMuted
+        "editorStickyScroll.background" = $bgBase
+        "editorStickyScrollHover.background" = $bgSurface
+        "editorGutter.foldingControlForeground" = $fgMuted
         "editorLineNumber.foreground" = $fgMuted
         "editorLineNumber.activeForeground" = $fg
         "editorBracketHighlight.foreground1" = $bracket
@@ -651,18 +664,22 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "tab.border" = $bgBase
         "tab.hoverBackground" = $bgBase
         "tab.hoverForeground" = $fg
+        "tab.activeBorderTop" = "#00000000"
+        "tab.activeModifiedBorder" = $accent
+        "tab.inactiveModifiedBorder" = $fgMuted
         "tab.lastPinnedBorder" = $fgMuted
         "tab.unfocusedActiveBorder" = $fgMuted
         "tab.unfocusedActiveForeground" = $fgDim
         "tab.unfocusedInactiveForeground" = $fgMuted
         "sideBar.background" = $bgMid
         "sideBar.foreground" = $fgDim
+        "sideBar.border" = $bgMid
         "sideBarTitle.foreground" = $fgDim
         "sideBarSectionHeader.background" = "#00000000"
         "sideBarSectionHeader.foreground" = $fgDim
         "activityBar.background" = $bgMid
         "activityBar.foreground" = $fgDim
-        "activityBar.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
+        "activityBar.inactiveForeground" = $fgMuted
         "activityBar.border" = $bgMid
         "activityBar.activeBorder" = $fgMuted
         "activityBarBadge.background" = $accent
@@ -671,8 +688,14 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "panel.border" = $bgMid
         "panelTitle.activeForeground" = $fgDim
         "panelTitle.activeBorder" = $fgDim
-        "panelTitle.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
+        "panelTitle.inactiveForeground" = $fgMuted
+        "panelInput.border" = $bgBorder
+        "panelSection.border" = $bgBorder
         "panelSectionHeader.background" = $bgSurface
+        "panelSectionHeader.foreground" = $fgDim
+        "panelSectionHeader.border" = $bgBorder
+        "panelStickyScroll.background" = $bgMid
+        "panelStickyScroll.border" = $bgBorder
         "statusBar.background" = $bgDarkest
         "statusBar.foreground" = $fgDim
         "statusBar.border" = $bgDarkest
@@ -692,15 +715,18 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "titleBar.activeBackground" = $bgDarkest
         "titleBar.activeForeground" = $fgDim
         "titleBar.inactiveBackground" = $bgDarkest
-        "titleBar.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
+        "titleBar.inactiveForeground" = $fgMuted
         "titleBar.border" = $bgDarkest
         "menu.background" = $bgDarkest
         "menu.foreground" = $fgDim
+        "menu.border" = $bgBorder
+        "menu.separatorBackground" = $bgBorder
         "menu.selectionBackground" = $bgBase
         "menu.selectionForeground" = $fg
         "menubar.selectionBackground" = $bgBase
         "menubar.selectionBorder" = $bgBase
         "list.focusBackground" = $bgHover
+        "list.dropBackground" = $bgHover
         "list.focusForeground" = $fg
         "list.focusOutline" = "#00000000"
         "list.activeSelectionBackground" = $scheme.foreground + "10"
@@ -761,12 +787,26 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "peekViewResult.matchHighlightBackground" = $find + "50"
         "peekViewResult.selectionBackground" = $match + "50"
         "diffEditor.insertedTextBackground" = $scheme.green + "40"
+        "diffEditor.insertedLineBackground" = $scheme.green + "15"
         "diffEditor.removedTextBackground" = $scheme.red + "40"
+        "diffEditor.removedLineBackground" = $scheme.red + "15"
+        "diffEditor.border" = $bgBorder
         "diffEditor.diagonalFill" = $bgBorder
+        "diffEditorGutter.insertedLineBackground" = $scheme.green + "30"
+        "diffEditorGutter.removedLineBackground" = $scheme.red + "30"
+        "diffEditorOverview.insertedForeground" = $scheme.green + "A0"
+        "diffEditorOverview.removedForeground" = $scheme.red + "A0"
+        "merge.currentHeaderBackground" = $scheme.green + "40"
+        "merge.currentContentBackground" = $scheme.green + "15"
+        "merge.incomingHeaderBackground" = $scheme.blue + "40"
+        "merge.incomingContentBackground" = $scheme.blue + "15"
+        "merge.commonHeaderBackground" = $fgMuted + "40"
+        "merge.commonContentBackground" = $fgMuted + "15"
         "notificationCenterHeader.background" = $bgBorder
         "notificationCenterHeader.foreground" = $fg
         "notifications.background" = $bgBase
         "notifications.foreground" = $fg
+        "notifications.border" = $bgBorder
         "notificationsErrorIcon.foreground" = $scheme.red
         "notificationsWarningIcon.foreground" = $scheme.yellow
         "notificationsInfoIcon.foreground" = $scheme.blue
@@ -780,7 +820,12 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "gitDecoration.conflictingResourceForeground" = $scheme.purple + "A0"
         "gitDecoration.stageModifiedResourceForeground" = $scheme.cyan + "A0"
         "gitDecoration.stageDeletedResourceForeground" = $scheme.cyan + "A0"
+        "gitDecoration.renamedResourceForeground" = $scheme.cyan + "A0"
         "gitDecoration.submoduleResourceForeground" = $scheme.yellow + "A0"
+        "quickInput.background" = $bgSurface
+        "quickInput.foreground" = $fg
+        "quickInputList.focusBackground" = $bgHover
+        "quickInputList.focusForeground" = $fg
         "quickInputTitle.background" = $bgSurface
         "pickerGroup.foreground" = $fg
         "pickerGroup.border" = $fg + "1A"
@@ -790,9 +835,20 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "textBlockQuote.background" = $bgSurface
         "textBlockQuote.border" = $fgMuted
         "textCodeBlock.background" = $bgSurface
+        "toolbar.hoverBackground" = $bgSurface
+        "toolbar.activeBackground" = $bgBorder
+        "toolbar.hoverOutline" = "#00000000"
         "terminal.background" = $bgBase
         "terminal.foreground" = $fg
+        "terminal.border" = $bgMid
+        "terminal.selectionBackground" = $scheme.blue + "40"
+        "terminal.findMatchBackground" = $find + "50"
+        "terminal.findMatchHighlightBackground" = $match + "40"
+        "terminal.tab.activeBorder" = $fgMuted
         "terminalCursor.foreground" = $fg
+        "terminalCommandDecoration.defaultBackground" = $fgMuted
+        "terminalCommandDecoration.successBackground" = $fgMuted
+        "terminalCommandDecoration.errorBackground" = $scheme.red
         "terminal.ansiBlack" = $scheme.black
         "terminal.ansiRed" = $scheme.red
         "terminal.ansiGreen" = $scheme.green
@@ -840,13 +896,101 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "problemsErrorIcon.foreground" = $scheme.red
         "problemsWarningIcon.foreground" = $scheme.yellow
         "problemsInfoIcon.foreground" = $scheme.blue
+        "minimap.background" = $bgBase
+        "minimapSlider.background" = $fgMuted + "20"
+        "minimapSlider.hoverBackground" = $fgMuted + "40"
+        "minimapSlider.activeBackground" = $fgMuted + "50"
+        "minimapGutter.addedBackground" = $scheme.green + "A0"
+        "minimapGutter.modifiedBackground" = $scheme.blue + "A0"
+        "minimapGutter.deletedBackground" = $scheme.red + "A0"
+        "editorMarkerNavigation.background" = $bgSurface
+        "editorMarkerNavigationError.background" = $scheme.red + "20"
+        "editorMarkerNavigationWarning.background" = $scheme.yellow + "20"
+        "editorMarkerNavigationInfo.background" = $scheme.blue + "20"
         "breadcrumb.foreground" = $fgDim
         "breadcrumb.focusForeground" = $fg
         "breadcrumb.activeSelectionForeground" = $fg
+        "breadcrumbPicker.background" = $bgSurface
         "settings.headerForeground" = $fgDim
         "settings.modifiedItemIndicator" = $fgMuted
         "settings.focusedRowBackground" = $bgSurface
         "settings.rowHoverBackground" = $bgSurface
+        "settings.checkboxBackground" = $bgBase
+        "settings.checkboxForeground" = $fg
+        "settings.checkboxBorder" = $bgBorder
+        "settings.textInputBackground" = $bgBase
+        "settings.textInputForeground" = $fg
+        "settings.textInputBorder" = $bgBorder
+        "settings.numberInputBackground" = $bgBase
+        "settings.numberInputForeground" = $fg
+        "settings.numberInputBorder" = $bgBorder
+        "settings.dropdownBackground" = $bgBase
+        "settings.dropdownForeground" = $fg
+        "settings.dropdownBorder" = $bgBorder
+        "commandCenter.foreground" = $fgDim
+        "commandCenter.activeForeground" = $fg
+        "commandCenter.background" = $bgDarkest
+        "commandCenter.activeBackground" = $bgBase
+        "commandCenter.border" = $bgBorder
+        "commandCenter.inactiveForeground" = $fgMuted
+        "commandCenter.inactiveBorder" = $bgDarkest
+        "commandCenter.activeBorder" = $bgBorder
+        "commandCenter.debuggingBackground" = $bgDarkest
+        "extensionButton.prominentForeground" = $bgBase
+        "extensionButton.prominentBackground" = $accent
+        "extensionButton.prominentHoverBackground" = (Adjust-HexBrightness $accent -15)
+        "extensionButton.background" = $accent
+        "extensionButton.foreground" = $bgBase
+        "extensionButton.hoverBackground" = (Adjust-HexBrightness $accent -15)
+        "extensionButton.separator" = $bgBase + "40"
+        "extensionBadge.remoteBackground" = $accent
+        "extensionBadge.remoteForeground" = $bgBase
+        "extensionIcon.starForeground" = $scheme.yellow
+        "extensionIcon.verifiedForeground" = $accent
+        "extensionIcon.preReleaseForeground" = $scheme.yellow
+        "checkbox.background" = $bgBase
+        "checkbox.foreground" = $fg
+        "checkbox.border" = $bgBorder
+        "checkbox.selectBackground" = $accent + "30"
+        "checkbox.selectBorder" = $accent
+        "keybindingLabel.background" = $bgSurface
+        "keybindingLabel.foreground" = $fg
+        "keybindingLabel.border" = $bgBorder
+        "keybindingLabel.bottomBorder" = $bgBorder
+        "keybindingTable.headerBackground" = $bgSurface
+        "keybindingTable.rowsBackground" = $bgBase
+        "banner.background" = $bgSurface
+        "banner.foreground" = $fg
+        "banner.iconForeground" = $accent
+        "welcomePage.background" = $bgBase
+        "welcomePage.tileBackground" = $bgSurface
+        "welcomePage.tileHoverBackground" = $bgBorder
+        "welcomePage.tileBorder" = $bgBorder
+        "welcomePage.progress.foreground" = $accent
+        "welcomePage.progress.background" = $bgBorder
+        "walkThrough.embeddedEditorBackground" = $bgSurface
+        "walkthrough.stepTitle.foreground" = $fg
+        "debugToolBar.background" = $bgDarkest
+        "debugToolBar.border" = $bgBorder
+        "notificationToast.border" = $bgBorder
+        "actionBar.toggledBackground" = $accent + "30"
+        "sash.hoverBorder" = $accent
+        "chat.avatarBackground" = $bgSurface
+        "chat.avatarForeground" = $fgDim
+        "chat.requestBackground" = $bgSurface
+        "chat.requestBorder" = $bgBorder
+        "chat.slashCommandBackground" = $accent + "30"
+        "chat.slashCommandForeground" = $accent
+        "inlineChat.background" = $bgSurface
+        "inlineChat.border" = $bgBorder
+        "inlineChat.foreground" = $fg
+        "inlineChatInput.background" = $bgBase
+        "inlineChatInput.border" = $bgBorder
+        "scmGraph.foreground1" = $scheme.green
+        "scmGraph.foreground2" = $scheme.blue
+        "scmGraph.foreground3" = $scheme.yellow
+        "scmGraph.foreground4" = $scheme.purple
+        "scmGraph.foreground5" = $scheme.cyan
     }
 
     # Token color mapping — one rule per scope to ensure specificity over base theme
@@ -860,13 +1004,20 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     }
 
     $tokenColors = @(
-        # ── Standalone rules for every base theme scope (prevents Dark VS/Dark+ color leaks) ──
+        # ── Standalone rules grouped by semantic role (prevents Dark VS/Dark+ color leaks) ──
 
-        # Comments — muted
+        # ── Comments — muted ──
         (_tc "comment" $fgMuted)
         (_tc "punctuation.definition.comment" $fgMuted)
+        (_tc "punctuation.definition.comment.zig" $fgMuted)
+        (_tc "comment.line.number-sign.shell" $fgMuted)
+        (_tc "comment.line.number-sign.toml" $fgMuted)
+        (_tc "keyword.other.phpdoc" $fgMuted)
+        (_tc "keyword.other.documentation.javadoc" $fgMuted)
+        (_tc "string.quoted.docstring.multi" $fgMuted)
+        (_tc "meta.shebang" $fgMuted)
 
-        # Strings — dim green
+        # ── Strings — brightGreen (regexp → cyan) ──
         (_tc "string" $scheme.brightGreen)
         (_tc "string.tag" $scheme.brightGreen)
         (_tc "string.value" $scheme.brightGreen)
@@ -878,29 +1029,88 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.string.end" $scheme.brightGreen)
         (_tc "punctuation.definition.string.template.begin" $scheme.brightGreen)
         (_tc "punctuation.definition.string.template.end" $scheme.brightGreen)
+        # lang-specific strings
+        (_tc "string.interpolated.cs" $scheme.brightGreen)
+        (_tc "string.interpolated.python" $scheme.brightGreen)
+        (_tc "string.interpolated.ruby" $scheme.brightGreen)
+        (_tc "string.interpolated.dollar.shell" $scheme.brightGreen)
+        (_tc "string.interpolated.backtick.shell" $scheme.brightGreen)
+        (_tc "string.quoted.include" $scheme.brightGreen)
+        (_tc "string.quoted.double.html" $scheme.brightGreen)
+        (_tc "string.quoted.double.graphql" $scheme.brightGreen)
+        (_tc "string.quoted.double.zig" $scheme.brightGreen)
+        (_tc "string.quoted.single.basic.toml" $scheme.brightGreen)
+        (_tc "string.quoted.literalstring.fsharp" $scheme.brightGreen)
+        (_tc "string.other.math.latex" $scheme.brightGreen)
+        (_tc "string.assembly" $scheme.brightGreen)
+        (_tc "string.regexp.classic.ruby" $scheme.cyan)
+        (_tc "string.regexp.compile.perl" $scheme.cyan)
+        (_tc "meta.fstring.python" $scheme.brightGreen)
+        (_tc "punctuation.definition.string.begin.ruby" $scheme.brightGreen)
+        (_tc "punctuation.definition.string.end.ruby" $scheme.brightGreen)
+        (_tc "variable.parameter.url.scss" $scheme.brightGreen)
 
-        # Constants — purple
+        # ── Constants — purple ──
+        (_tc "constant" $scheme.purple)
         (_tc "constant.language" $scheme.purple)
         (_tc "constant.numeric" $scheme.purple)
         (_tc "constant.character" $scheme.purple)
         (_tc "constant.other.option" $scheme.purple)
         (_tc "constant.regexp" $scheme.purple)
         (_tc "constant.sha.git-rebase" $scheme.purple)
+        (_tc "support.constant" $scheme.purple)
+        (_tc "entity.name.constant" $scheme.purple)
         (_tc "variable.other.constant" $scheme.purple)
         (_tc "variable.other.enummember" $scheme.purple)
         (_tc "keyword.other.unit" $scheme.purple)
         (_tc "keyword.operator.plus.exponent" $scheme.purple)
         (_tc "keyword.operator.minus.exponent" $scheme.purple)
         (_tc "meta.preprocessor.numeric" $scheme.purple)
+        # lang-specific constants
+        (_tc "constant.language.boolean.yaml" $scheme.purple)
+        (_tc "constant.numeric.integer.yaml" $scheme.purple)
+        (_tc "constant.numeric.float.yaml" $scheme.purple)
+        (_tc "constant.other.timestamp.yaml" $scheme.purple)
+        (_tc "constant.language.null.yaml" $scheme.purple)
+        (_tc "constant.other.boolean.toml" $scheme.purple)
+        (_tc "constant.numeric.integer.toml" $scheme.purple)
+        (_tc "constant.numeric.float.toml" $scheme.purple)
+        (_tc "constant.other.date.toml" $scheme.purple)
+        (_tc "constant.other.datetime.toml" $scheme.purple)
+        (_tc "constant.other.time.toml" $scheme.purple)
+        (_tc "constant.other.symbol.ruby" $scheme.purple)
+        (_tc "constant.other.symbol.hashkey.ruby" $scheme.purple)
+        (_tc "constant.keyword.clojure" $scheme.purple)
+        (_tc "constant.language.lua" $scheme.purple)
+        (_tc "constant.language.r" $scheme.purple)
+        (_tc "constant.other.key.perl" $scheme.purple)
+        (_tc "constant.other.caps.python" $scheme.purple)
+        (_tc "constant.other.reference.latex" $scheme.purple)
+        (_tc "constant.numeric.zig" $scheme.purple)
+        (_tc "constant.builtin.zig" $scheme.purple)
+        (_tc "constant.numeric.hex.assembly" $scheme.purple)
+        (_tc "constant.numeric.dec.assembly" $scheme.purple)
+        (_tc "constant.numeric.binary.assembly" $scheme.purple)
+        (_tc "constant.numeric.matlab" $scheme.purple)
+        (_tc "constant.character.entity.xml" $scheme.purple)
+        (_tc "constant.character.entity.html" $scheme.purple)
+        (_tc "constant.character.entity.named" $scheme.purple)
+        (_tc "constant.character.entity.numeric" $scheme.purple)
+        (_tc "keyword.other.boxed.objc" $scheme.purple)
+        (_tc "keyword.other.unit.css" $scheme.purple)
+        (_tc "keyword.other.unit.scss" $scheme.purple)
+        (_tc "keyword.other.unit.less" $scheme.purple)
+        (_tc "support.constant.variable.powershell" $scheme.purple)
 
-        # Format placeholders & escapes — orange
+        # ── Format placeholders & escapes — orange ──
         (_tc "constant.other.placeholder" $orange)
         (_tc "constant.character.format.placeholder" $orange)
         (_tc "constant.character.escape" $orange)
+        (_tc "constant.other.placeholder.makefile" $orange)
         (_tc "constant.other.color.rgb-value" $scheme.brightGreen)
         (_tc "constant.other.rgb-value" $scheme.brightGreen)
 
-        # Keywords — red
+        # ── Keywords & storage — red ──
         (_tc "keyword" $scheme.red)
         (_tc "keyword.control" $scheme.red)
         (_tc "keyword.other.using" $scheme.red)
@@ -908,11 +1118,217 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.other.operator" $scheme.red)
         (_tc "storage" $scheme.red)
         (_tc "storage.modifier" $scheme.red)
+        (_tc "meta.preprocessor" $scheme.red)
+        # lang-specific keywords — Go
+        (_tc "keyword.function.go" $scheme.red)
+        (_tc "keyword.interface.go" $scheme.red)
+        (_tc "keyword.struct.go" $scheme.red)
+        (_tc "keyword.map.go" $scheme.red)
+        (_tc "keyword.channel.go" $scheme.red)
+        (_tc "keyword.control.go" $scheme.red)
+        (_tc "keyword.var.go" $scheme.red)
+        (_tc "keyword.const.go" $scheme.red)
+        (_tc "keyword.package.go" $scheme.red)
+        (_tc "keyword.import.go" $scheme.red)
+        (_tc "keyword.type.go" $scheme.red)
+        # lang-specific keywords — Rust
+        (_tc "keyword.other.crate.rust" $scheme.red)
+        (_tc "keyword.other.rust" $scheme.red)
+        (_tc "keyword.control.rust" $scheme.red)
+        (_tc "storage.modifier.mut.rust" $scheme.red)
+        (_tc "storage.modifier.type.rust" $scheme.red)
+        # lang-specific keywords — C/C++
+        (_tc "keyword.control.directive" $scheme.red)
+        (_tc "keyword.control.directive.include" $scheme.red)
+        (_tc "keyword.control.directive.define" $scheme.red)
+        (_tc "keyword.control.directive.conditional" $scheme.red)
+        (_tc "keyword.operator.overload.cpp" $scheme.red)
+        (_tc "storage.type.template.cpp" $scheme.red)
+        (_tc "storage.modifier.specifier.const" $scheme.red)
+        (_tc "storage.modifier.specifier.static" $scheme.red)
+        (_tc "storage.modifier.specifier.extern" $scheme.red)
+        (_tc "storage.modifier.specifier.inline" $scheme.red)
+        (_tc "punctuation.definition.directive.c" $scheme.red)
+        (_tc "punctuation.definition.directive.cpp" $scheme.red)
+        # lang-specific keywords — C#
+        (_tc "keyword.other.using.cs" $scheme.red)
+        (_tc "keyword.other.namespace.cs" $scheme.red)
+        (_tc "keyword.other.class.cs" $scheme.red)
+        (_tc "keyword.other.async.cs" $scheme.red)
+        (_tc "keyword.other.await.cs" $scheme.red)
+        (_tc "keyword.other.var.cs" $scheme.red)
+        (_tc "keyword.other.new.cs" $scheme.red)
+        (_tc "keyword.other.where.cs" $scheme.red)
+        # lang-specific keywords — Java
+        (_tc "keyword.control.new.java" $scheme.red)
+        (_tc "keyword.control.import.java" $scheme.red)
+        (_tc "keyword.other.import.java" $scheme.red)
+        (_tc "keyword.other.package.java" $scheme.red)
+        (_tc "storage.modifier.implements.java" $scheme.red)
+        (_tc "storage.modifier.extends.java" $scheme.red)
+        # lang-specific keywords — Python
+        (_tc "keyword.control.flow.python" $scheme.red)
+        (_tc "keyword.control.import.python" $scheme.red)
+        (_tc "storage.type.string.python" $scheme.red)
+        (_tc "storage.type.function.python" $scheme.red)
+        (_tc "storage.type.class.python" $scheme.red)
+        # lang-specific keywords — TypeScript/JavaScript
+        (_tc "keyword.control.import.ts" $scheme.red)
+        (_tc "keyword.control.export.ts" $scheme.red)
+        (_tc "keyword.control.from.ts" $scheme.red)
+        (_tc "keyword.control.as.ts" $scheme.red)
+        (_tc "keyword.control.default.ts" $scheme.red)
+        (_tc "keyword.control.import.js" $scheme.red)
+        (_tc "keyword.control.export.js" $scheme.red)
+        (_tc "keyword.control.from.js" $scheme.red)
+        (_tc "keyword.control.as.js" $scheme.red)
+        (_tc "keyword.control.default.js" $scheme.red)
+        (_tc "keyword.control.flow.ts" $scheme.red)
+        (_tc "keyword.control.flow.js" $scheme.red)
+        (_tc "keyword.control.conditional.ts" $scheme.red)
+        (_tc "keyword.control.conditional.js" $scheme.red)
+        (_tc "keyword.control.trycatch.ts" $scheme.red)
+        (_tc "keyword.control.trycatch.js" $scheme.red)
+        (_tc "keyword.control.loop.ts" $scheme.red)
+        (_tc "keyword.control.loop.js" $scheme.red)
+        (_tc "storage.type.enum.ts" $scheme.red)
+        (_tc "storage.type.interface.ts" $scheme.red)
+        (_tc "storage.type.type.ts" $scheme.red)
+        (_tc "storage.type.namespace.ts" $scheme.red)
+        # lang-specific keywords — Shell/Bash
+        (_tc "keyword.control.shell" $scheme.red)
+        (_tc "keyword.operator.heredoc.shell" $scheme.red)
+        (_tc "keyword.operator.heredoc" $scheme.red)
+        # lang-specific keywords — PHP
+        (_tc "keyword.control.php" $scheme.red)
+        (_tc "keyword.other.use.php" $scheme.red)
+        (_tc "keyword.other.namespace.php" $scheme.red)
+        (_tc "keyword.other.new.php" $scheme.red)
+        (_tc "keyword.other.class.php" $scheme.red)
+        (_tc "storage.type.class.php" $scheme.red)
+        (_tc "storage.type.function.php" $scheme.red)
+        (_tc "storage.modifier.php" $scheme.red)
+        # lang-specific keywords — Ruby
+        (_tc "keyword.control.ruby" $scheme.red)
+        (_tc "keyword.control.class.ruby" $scheme.red)
+        (_tc "keyword.control.module.ruby" $scheme.red)
+        (_tc "keyword.control.def.ruby" $scheme.red)
+        (_tc "keyword.control.start-block.ruby" $scheme.red)
+        (_tc "keyword.control.pseudo-method.ruby" $scheme.red)
+        # lang-specific keywords — Swift
+        (_tc "keyword.control.swift" $scheme.red)
+        (_tc "keyword.other.declaration.swift" $scheme.red)
+        (_tc "keyword.other.platform.os.swift" $scheme.red)
+        (_tc "storage.modifier.swift" $scheme.red)
+        (_tc "storage.type.swift" $scheme.red)
+        # lang-specific keywords — Dart
+        (_tc "keyword.control.dart" $scheme.red)
+        (_tc "keyword.declaration.dart" $scheme.red)
+        (_tc "keyword.other.import.dart" $scheme.red)
+        (_tc "storage.modifier.dart" $scheme.red)
+        # lang-specific keywords — Objective-C
+        (_tc "keyword.control.directive.objc" $scheme.red)
+        (_tc "keyword.other.property.attribute.objc" $scheme.red)
+        # lang-specific keywords — F#
+        (_tc "keyword.control.fsharp" $scheme.red)
+        (_tc "keyword.symbol.fsharp" $scheme.red)
+        (_tc "keyword.other.fsharp" $scheme.red)
+        # lang-specific keywords — Clojure
+        (_tc "keyword.control.clojure" $scheme.red)
+        # lang-specific keywords — Lua
+        (_tc "keyword.control.lua" $scheme.red)
+        # lang-specific keywords — R
+        (_tc "keyword.control.r" $scheme.red)
+        (_tc "keyword.other.r" $scheme.red)
+        # lang-specific keywords — Perl
+        (_tc "keyword.control.perl" $scheme.red)
+        # lang-specific keywords — SQL
+        (_tc "keyword.other.DML.sql" $scheme.red)
+        (_tc "keyword.other.DDL.sql" $scheme.red)
+        (_tc "keyword.other.sql" $scheme.red)
+        (_tc "keyword.other.alias.sql" $scheme.red)
+        (_tc "keyword.other.order.sql" $scheme.red)
+        (_tc "keyword.other.create.sql" $scheme.red)
+        (_tc "keyword.other.data-integrity.sql" $scheme.red)
+        (_tc "keyword.other.LUW.sql" $scheme.red)
+        (_tc "keyword.other.authorization.sql" $scheme.red)
+        (_tc "keyword.other.DML.II.sql" $scheme.red)
+        (_tc "keyword.other.object-comments.sql" $scheme.red)
+        # lang-specific keywords — GraphQL
+        (_tc "keyword.graphql" $scheme.red)
+        (_tc "keyword.operation.graphql" $scheme.red)
+        (_tc "keyword.fragment.graphql" $scheme.red)
+        (_tc "keyword.on.graphql" $scheme.red)
+        # lang-specific keywords — YAML
+        (_tc "keyword.control.flow.block-scalar.literal.yaml" $scheme.red)
+        (_tc "keyword.control.flow.block-scalar.folded.yaml" $scheme.red)
+        # lang-specific keywords — CSS/SCSS/Less
+        (_tc "keyword.control.at-rule.css" $scheme.red)
+        (_tc "keyword.control.at-rule.scss" $scheme.red)
+        (_tc "keyword.control.at-rule.less" $scheme.red)
+        (_tc "keyword.control.at-rule.include.scss" $scheme.red)
+        (_tc "keyword.control.at-rule.mixin.scss" $scheme.red)
+        (_tc "keyword.control.at-rule.extend.scss" $scheme.red)
+        (_tc "keyword.control.at-rule.import.scss" $scheme.red)
+        (_tc "keyword.control.at-rule.use.scss" $scheme.red)
+        (_tc "keyword.control.at-rule.forward.scss" $scheme.red)
+        (_tc "punctuation.definition.keyword.css" $scheme.red)
+        (_tc "punctuation.definition.keyword.scss" $scheme.red)
+        (_tc "punctuation.definition.keyword.less" $scheme.red)
+        # lang-specific keywords — Dockerfile/Makefile
+        (_tc "keyword.other.special-method.dockerfile" $scheme.red)
+        (_tc "keyword.control.dockerfile" $scheme.red)
+        (_tc "keyword.control.makefile" $scheme.red)
+        # lang-specific keywords — LaTeX
+        (_tc "keyword.control.latex" $scheme.red)
+        (_tc "keyword.control.equation.begin.latex" $scheme.red)
+        (_tc "keyword.control.equation.end.latex" $scheme.red)
+        (_tc "keyword.control.equation.newline.latex" $scheme.red)
+        (_tc "punctuation.definition.function.latex" $scheme.red)
+        # lang-specific keywords — Handlebars/Razor/Vue
+        (_tc "keyword.control.handlebars" $scheme.red)
+        (_tc "keyword.control.razor" $scheme.red)
+        (_tc "keyword.control.cshtml.transition" $scheme.red)
+        # lang-specific keywords — Groovy
+        (_tc "keyword.control.groovy" $scheme.red)
+        (_tc "storage.modifier.access.groovy" $scheme.red)
+        # lang-specific keywords — Zig
+        (_tc "keyword.control.zig" $scheme.red)
+        (_tc "keyword.storage.zig" $scheme.red)
+        (_tc "keyword.structure.zig" $scheme.red)
+        (_tc "keyword.other.zig" $scheme.red)
+        # lang-specific keywords — Assembly
+        (_tc "keyword.control.assembly" $scheme.red)
+        (_tc "entity.directive.assembly" $scheme.red)
+        # lang-specific keywords — Fortran
+        (_tc "keyword.control.fortran" $scheme.red)
+        (_tc "keyword.other.fortran" $scheme.red)
+        # lang-specific keywords — Ada
+        (_tc "keyword.control.ada" $scheme.red)
+        (_tc "keyword.other.ada" $scheme.red)
+        (_tc "storage.modifier.ada" $scheme.red)
+        # lang-specific keywords — MATLAB
+        (_tc "keyword.control.matlab" $scheme.red)
+        # lang-specific keywords — Delphi/Pascal
+        (_tc "keyword.control.pascal" $scheme.red)
+        (_tc "keyword.other.pascal" $scheme.red)
+        # lang-specific keywords — Visual Basic
+        (_tc "keyword.control.vb" $scheme.red)
+        (_tc "keyword.other.vb" $scheme.red)
+        # lang-specific keywords — HTML
+        (_tc "meta.tag.metadata.doctype" $scheme.red)
+        (_tc "entity.name.tag.doctype" $scheme.red)
+        # lang-specific keywords — XML
+        (_tc "meta.tag.preprocessor.xml" $scheme.red)
+        (_tc "punctuation.definition.processInstruction" $scheme.red)
+        # lang-specific keywords — PowerShell
+        (_tc "storage.modifier.scope.powershell" $scheme.red)
+        (_tc "keyword.other.powershell" $scheme.red)
 
-        # Storage type — green (types, not keywords)
+        # ── Storage type — green (type declarations, not keywords) ──
         (_tc "storage.type" $scheme.green)
 
-        # Word-like operators — red
+        # ── Word-like operators — red ──
         (_tc "keyword.operator.expression" $scheme.red)
         (_tc "keyword.operator.new" $scheme.red)
         (_tc "keyword.operator.delete" $scheme.red)
@@ -927,12 +1343,26 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.operator.noexcept" $scheme.red)
         (_tc "source.cpp keyword.operator.new" $scheme.red)
         (_tc "entity.name.operator" $scheme.red)
+        (_tc "keyword.operator.expression.typeof" $scheme.red)
+        (_tc "keyword.operator.expression.void" $scheme.red)
+        (_tc "keyword.operator.expression.in" $scheme.red)
+        (_tc "keyword.operator.expression.of" $scheme.red)
+        (_tc "keyword.operator.expression.keyof" $scheme.red)
 
-        # Symbolic operators — orange
+        # ── Symbolic operators — orange ──
         (_tc "keyword.operator" $orange)
+        (_tc "keyword.operator.logical" $orange)
+        (_tc "keyword.operator.bitwise" $orange)
+        (_tc "keyword.operator.comparison" $orange)
+        (_tc "keyword.operator.relational" $orange)
+        (_tc "keyword.operator.arithmetic" $orange)
+        (_tc "keyword.operator.assignment" $orange)
+        (_tc "keyword.operator.assignment.compound" $orange)
         (_tc "keyword.operator.quantifier.regexp" $orange)
         (_tc "keyword.operator.negation.regexp" $orange)
         (_tc "keyword.operator.arrow" $orange)
+        (_tc "punctuation.separator.key-value" $orange)
+        (_tc "variable.interpolation" $orange)
         (_tc "storage.type.function.arrow" $orange)
         (_tc "punctuation.accessor" $orange)
         (_tc "punctuation.separator.dot" $orange)
@@ -944,9 +1374,64 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.section.embedded" $orange)
         (_tc "punctuation.section.embedded.begin.php" $scheme.red)
         (_tc "punctuation.section.embedded.end.php" $scheme.red)
-        (_tc "punctuation.definition.list.begin.markdown" $orange)
+        # lang-specific operators
+        (_tc "keyword.operator.ternary" $orange)
+        (_tc "keyword.operator.optional" $orange)
+        (_tc "keyword.operator.spread" $orange)
+        (_tc "keyword.operator.rest" $orange)
+        (_tc "keyword.operator.macro.dollar.rust" $orange)
+        (_tc "keyword.operator.borrow.rust" $orange)
+        (_tc "keyword.operator.dereference.rust" $orange)
+        (_tc "keyword.operator.question_mark.rust" $orange)
+        (_tc "keyword.operator.range.rust" $orange)
+        (_tc "keyword.operator.pipe.shell" $orange)
+        (_tc "keyword.operator.redirect.shell" $orange)
+        (_tc "keyword.operator.logical.shell" $orange)
+        (_tc "keyword.operator.unpacking.parameter.python" $orange)
+        (_tc "keyword.operator.unpacking.arguments.python" $orange)
+        (_tc "keyword.operator.custom.prefix.swift" $orange)
+        (_tc "keyword.operator.custom.postfix.swift" $orange)
+        (_tc "keyword.operator.dart" $orange)
+        (_tc "keyword.operator.ternary.dart" $orange)
+        (_tc "keyword.operator.spread.dart" $orange)
+        (_tc "keyword.operator.cascade.dart" $orange)
+        (_tc "keyword.operator.assignment.r" $orange)
+        (_tc "keyword.operator.pipe.r" $orange)
+        (_tc "keyword.operator.arithmetic.r" $orange)
+        (_tc "keyword.operator.pipe.fsharp" $orange)
+        (_tc "keyword.operator.infix.fsharp" $orange)
+        (_tc "keyword.format.specifier.fsharp" $orange)
+        (_tc "keyword.operator.zig" $orange)
+        (_tc "keyword.operator.matlab" $orange)
+        (_tc "keyword.operator.flag.dockerfile" $orange)
+        (_tc "keyword.operator.string-format.powershell" $orange)
+        (_tc "storage.type.format.python" $orange)
+        (_tc "constant.language.import-export-all" $orange)
+        (_tc "punctuation.definition.interpolation.begin.cs" $orange)
+        (_tc "punctuation.definition.interpolation.end.cs" $orange)
+        (_tc "punctuation.definition.storage.type.objc" $orange)
+        (_tc "punctuation.separator.method.ruby" $orange)
+        (_tc "punctuation.separator.object.ruby" $orange)
+        (_tc "punctuation.separator.key-value.ini" $orange)
+        (_tc "punctuation.separator.key-value.makefile" $orange)
+        (_tc "punctuation.section.embedded.substatement.begin.powershell" $orange)
+        (_tc "punctuation.section.embedded.substatement.end.powershell" $orange)
+        (_tc "variable.parameter.attribute.powershell" $orange)
+        (_tc "meta.reader-macro.clojure" $orange)
+        (_tc "punctuation.reader-macro.clojure" $orange)
+        # YAML anchors/aliases — orange
+        (_tc "punctuation.definition.anchor.yaml" $orange)
+        (_tc "entity.name.type.anchor.yaml" $orange)
+        (_tc "punctuation.definition.alias.yaml" $orange)
+        (_tc "variable.other.alias.yaml" $orange)
+        # Rust lifetimes — orange
+        (_tc "entity.name.type.lifetime" $orange)
+        (_tc "punctuation.definition.lifetime" $orange)
+        # Assembly registers — orange
+        (_tc "variable.parameter.register.assembly" $orange)
+        (_tc "support.type.register.assembly" $orange)
 
-        # Regex
+        # ── Regex ──
         (_tc "support.other.parenthesis.regexp" $scheme.brightGreen)
         (_tc "punctuation.definition.group.regexp" $scheme.brightGreen)
         (_tc "punctuation.definition.group.assertion.regexp" $scheme.brightGreen)
@@ -960,21 +1445,77 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.operator.or.regexp" $scheme.yellow)
         (_tc "keyword.control.anchor.regexp" $scheme.yellow)
 
-        # Functions — yellow
+        # ── Functions — yellow ──
         (_tc "entity.name.function" $scheme.yellow)
         (_tc "entity.name.function.macro" $scheme.yellow)
         (_tc "entity.name.function.preprocessor" $scheme.red)
         (_tc "entity.name.function.support.builtin" $scheme.yellow)
         (_tc "entity.name.operator.custom-literal" $scheme.yellow)
         (_tc "entity.name.command" $scheme.yellow)
+        (_tc "variable.function" $scheme.yellow)
+        (_tc "meta.function-call" $scheme.yellow)
         (_tc "support.function" $scheme.yellow)
         (_tc "support.function.builtin" $scheme.yellow "bold")
         (_tc "support.function.library" $scheme.yellow "bold")
         (_tc "support.function.git-rebase" $scheme.yellow)
-        (_tc "support.constant.handlebars" $scheme.yellow)
         (_tc "source.powershell variable.other.member" $scheme.yellow)
+        # lang-specific functions
+        (_tc "entity.name.function.definition.special.constructor" $scheme.yellow)
+        (_tc "entity.name.function.definition.special.destructor" $scheme.yellow)
+        (_tc "entity.name.function.macro.rust" $scheme.yellow)
+        (_tc "support.function.std.rust" $scheme.yellow "bold")
+        (_tc "support.function.builtin.go" $scheme.yellow "bold")
+        (_tc "support.function.builtin.python" $scheme.yellow "bold")
+        (_tc "support.function.magic.python" $scheme.yellow)
+        (_tc "entity.name.function.decorator.python" $scheme.yellow)
+        (_tc "entity.name.command.shell" $scheme.yellow)
+        (_tc "entity.name.function.shell" $scheme.yellow)
+        (_tc "support.function.builtin.shell" $scheme.yellow "bold")
+        (_tc "support.function.construct.php" $scheme.yellow "bold")
+        (_tc "keyword.other.special-method.ruby" $scheme.yellow)
+        (_tc "support.function.kernel.ruby" $scheme.yellow "bold")
+        (_tc "support.function.swift" $scheme.yellow "bold")
+        (_tc "entity.name.function.clojure" $scheme.yellow)
+        (_tc "entity.name.function.lua" $scheme.yellow)
+        (_tc "support.function.lua" $scheme.yellow "bold")
+        (_tc "support.function.library.lua" $scheme.yellow "bold")
+        (_tc "entity.name.function.r" $scheme.yellow)
+        (_tc "support.function.r" $scheme.yellow)
+        (_tc "entity.name.function.perl" $scheme.yellow)
+        (_tc "support.function.perl" $scheme.yellow)
+        (_tc "entity.name.function.sql" $scheme.yellow)
+        (_tc "support.function.aggregate.sql" $scheme.yellow)
+        (_tc "support.function.scalar.sql" $scheme.yellow)
+        (_tc "support.function.string.sql" $scheme.yellow)
+        (_tc "support.function.datetime.sql" $scheme.yellow)
+        (_tc "support.function.analytic.sql" $scheme.yellow)
+        (_tc "support.function.mathematical.sql" $scheme.yellow)
+        (_tc "entity.name.fragment.graphql" $scheme.yellow)
+        (_tc "entity.name.function.zig" $scheme.yellow)
+        (_tc "support.function.zig" $scheme.yellow "bold")
+        (_tc "entity.name.function.assembly" $scheme.yellow)
+        (_tc "entity.name.function.fortran" $scheme.yellow)
+        (_tc "entity.name.function.ada" $scheme.yellow)
+        (_tc "entity.name.function.matlab" $scheme.yellow)
+        (_tc "entity.name.section.matlab" $scheme.yellow "bold")
+        (_tc "support.function.matlab" $scheme.yellow)
+        (_tc "entity.name.function.pascal" $scheme.yellow)
+        (_tc "entity.name.function.vb" $scheme.yellow)
+        (_tc "support.function.vb" $scheme.yellow)
+        (_tc "entity.name.function.package-manager.dockerfile" $scheme.yellow)
+        (_tc "entity.name.function.target.makefile" $scheme.yellow)
+        (_tc "support.function.target.PHONY.makefile" $scheme.yellow)
+        (_tc "support.function.latex" $scheme.yellow)
+        (_tc "entity.name.function.scss" $scheme.yellow)
+        (_tc "support.function.less" $scheme.yellow)
+        (_tc "support.function.scss" $scheme.yellow)
+        (_tc "support.function.misc.css" $scheme.yellow)
+        (_tc "support.function.misc.scss" $scheme.yellow)
+        # PowerShell functions
+        (_tc "support.function.powershell" $scheme.yellow)
+        (_tc "support.function.attribute.powershell" $scheme.yellow)
 
-        # Brackets
+        # ── Brackets — bracket color ──
         (_tc "punctuation.definition.block" $bracket)
         (_tc "punctuation.section" $bracket)
         (_tc "meta.brace" $bracket)
@@ -988,8 +1529,25 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.attribute" $bracket)
         (_tc "punctuation.definition.mapping.begin" $bracket)
         (_tc "punctuation.definition.mapping.end" $bracket)
+        # lang-specific brackets
+        (_tc "punctuation.section.scope.ruby" $bracket)
+        (_tc "punctuation.section.vector.begin.clojure" $bracket)
+        (_tc "punctuation.section.vector.end.clojure" $bracket)
+        (_tc "punctuation.section.map.begin.clojure" $bracket)
+        (_tc "punctuation.section.map.end.clojure" $bracket)
+        (_tc "punctuation.section.set.begin.clojure" $bracket)
+        (_tc "punctuation.section.set.end.clojure" $bracket)
+        (_tc "punctuation.definition.entity.ini" $bracket)
+        # PowerShell brackets
+        (_tc "punctuation.section.braces.begin.powershell" $bracket)
+        (_tc "punctuation.section.braces.end.powershell" $bracket)
+        (_tc "punctuation.section.bracket.begin.powershell" $bracket)
+        (_tc "punctuation.section.bracket.end.powershell" $bracket)
+        (_tc "punctuation.section.group.begin.powershell" $bracket)
+        (_tc "punctuation.section.group.end.powershell" $bracket)
+        (_tc "meta.attribute.powershell" $bracket)
 
-        # Types — green
+        # ── Types — green ──
         (_tc "entity.name.type" $scheme.green)
         (_tc "entity.name.class" $scheme.green)
         (_tc "entity.name.namespace" $scheme.green)
@@ -1009,10 +1567,17 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "meta.type.cast.expr" $scheme.green)
         (_tc "meta.type.new.expr" $scheme.green)
         (_tc "keyword.type" $scheme.green)
+        (_tc "keyword.other.type.php" $scheme.green)
+        # lang-specific types — C#
         (_tc "storage.type.cs" $scheme.green)
         (_tc "storage.type.generic.cs" $scheme.green)
         (_tc "storage.type.modifier.cs" $scheme.green)
         (_tc "storage.type.variable.cs" $scheme.green)
+        (_tc "entity.name.type.interface.cs" $scheme.green)
+        (_tc "entity.name.type.enum.cs" $scheme.green)
+        (_tc "entity.name.type.struct.cs" $scheme.green)
+        (_tc "entity.name.type.delegate.cs" $scheme.green)
+        # lang-specific types — Java
         (_tc "storage.type.annotation.java" $scheme.green)
         (_tc "storage.type.generic.java" $scheme.green)
         (_tc "storage.type.java" $scheme.green)
@@ -1020,6 +1585,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "storage.type.primitive.array.java" $scheme.green)
         (_tc "storage.type.primitive.java" $scheme.green)
         (_tc "storage.type.token.java" $scheme.green)
+        (_tc "entity.name.type.interface.java" $scheme.green)
+        (_tc "entity.name.type.enum.java" $scheme.green)
+        # lang-specific types — Groovy
         (_tc "storage.type.groovy" $scheme.green)
         (_tc "storage.type.annotation.groovy" $scheme.green)
         (_tc "storage.type.parameters.groovy" $scheme.green)
@@ -1027,6 +1595,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "storage.type.object.array.groovy" $scheme.green)
         (_tc "storage.type.primitive.array.groovy" $scheme.green)
         (_tc "storage.type.primitive.groovy" $scheme.green)
+        # lang-specific types — Go
         (_tc "storage.type.numeric.go" $scheme.green)
         (_tc "storage.type.byte.go" $scheme.green)
         (_tc "storage.type.boolean.go" $scheme.green)
@@ -1034,8 +1603,90 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "storage.type.uintptr.go" $scheme.green)
         (_tc "storage.type.error.go" $scheme.green)
         (_tc "storage.type.rune.go" $scheme.green)
+        # lang-specific types — Rust
+        (_tc "entity.name.type.trait.rust" $scheme.green)
+        (_tc "entity.name.type.struct.rust" $scheme.green)
+        (_tc "entity.name.type.enum.rust" $scheme.green)
+        (_tc "entity.name.type.union.rust" $scheme.green)
+        (_tc "entity.name.type.mod.rust" $scheme.green)
+        # lang-specific types — C/C++
+        (_tc "storage.type.built-in.c" $scheme.green)
+        (_tc "storage.type.built-in.cpp" $scheme.green)
+        # lang-specific types — TypeScript
+        (_tc "entity.name.type.interface.ts" $scheme.green)
+        (_tc "entity.name.type.enum.ts" $scheme.green)
+        (_tc "entity.name.type.alias.ts" $scheme.green)
+        (_tc "entity.name.type.module.ts" $scheme.green)
+        (_tc "support.type.builtin.ts" $scheme.green)
+        (_tc "support.type.primitive.ts" $scheme.green)
+        # lang-specific types — JSX/TSX components
+        (_tc "support.class.component.js" $scheme.green)
+        (_tc "support.class.component.ts" $scheme.green)
+        (_tc "entity.name.type.js.jsx" $scheme.green)
+        (_tc "entity.name.type.ts.tsx" $scheme.green)
+        # lang-specific types — Python
+        (_tc "support.type.python" $scheme.green)
+        (_tc "support.type.exception.python" $scheme.green)
+        # lang-specific types — PHP
+        (_tc "entity.name.type.class.php" $scheme.green)
+        (_tc "entity.name.type.interface.php" $scheme.green)
+        (_tc "entity.name.type.trait.php" $scheme.green)
+        (_tc "entity.name.type.namespace.php" $scheme.green)
+        (_tc "support.class.php" $scheme.green)
+        # lang-specific types — Ruby
+        (_tc "entity.name.type.class.ruby" $scheme.green)
+        (_tc "entity.name.type.module.ruby" $scheme.green)
+        # lang-specific types — Swift
+        (_tc "entity.name.type.protocol.swift" $scheme.green)
+        (_tc "entity.name.type.class.swift" $scheme.green)
+        (_tc "entity.name.type.struct.swift" $scheme.green)
+        (_tc "entity.name.type.enum.swift" $scheme.green)
+        (_tc "support.type.swift" $scheme.green)
+        # lang-specific types — Dart
+        (_tc "storage.type.primitive.dart" $scheme.green)
+        (_tc "entity.name.type.class.dart" $scheme.green)
+        (_tc "support.class.dart" $scheme.green)
+        # lang-specific types — Objective-C
+        (_tc "storage.type.objc" $scheme.green)
+        (_tc "entity.name.type.objc" $scheme.green)
+        (_tc "support.class.cocoa" $scheme.green)
+        (_tc "support.type.objc" $scheme.green)
+        # lang-specific types — F#
+        (_tc "storage.type.fsharp" $scheme.green)
+        (_tc "entity.name.type.fsharp" $scheme.green)
+        # lang-specific types — Clojure
+        (_tc "entity.name.type.clojure" $scheme.green)
+        # lang-specific types — SQL
+        (_tc "storage.type.sql" $scheme.green)
+        # lang-specific types — GraphQL
+        (_tc "support.type.graphql" $scheme.green)
+        (_tc "support.type.builtin.graphql" $scheme.green)
+        (_tc "entity.name.type.graphql" $scheme.green)
+        (_tc "entity.name.type.object.graphql" $scheme.green)
+        (_tc "entity.name.type.interface.graphql" $scheme.green)
+        (_tc "entity.name.type.input.graphql" $scheme.green)
+        (_tc "entity.name.type.enum.graphql" $scheme.green)
+        (_tc "entity.name.type.union.graphql" $scheme.green)
+        (_tc "entity.name.type.scalar.graphql" $scheme.green)
+        # lang-specific types — YAML
+        (_tc "storage.type.tag-handle.yaml" $scheme.green)
+        # lang-specific types — Zig
+        (_tc "storage.type.zig" $scheme.green)
+        (_tc "entity.name.type.zig" $scheme.green)
+        # lang-specific types — Fortran/Ada/Pascal/VB
+        (_tc "storage.type.fortran" $scheme.green)
+        (_tc "storage.type.ada" $scheme.green)
+        (_tc "entity.name.type.ada" $scheme.green)
+        (_tc "storage.type.pascal" $scheme.green)
+        (_tc "entity.name.type.pascal" $scheme.green)
+        (_tc "storage.type.vb" $scheme.green)
+        # lang-specific types — XML namespace
+        (_tc "entity.name.tag.namespace.xml" $scheme.green)
+        (_tc "entity.other.attribute-name.namespace.xml" $scheme.green)
+        # lang-specific types — LaTeX
+        (_tc "support.class.latex" $scheme.green)
 
-        # Variables — foreground
+        # ── Variables — foreground ──
         (_tc "variable" $fg)
         (_tc "variable.other" $fg)
         (_tc "variable.other.readwrite" $fg)
@@ -1046,39 +1697,78 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.variable" $fg)
         (_tc "entity.name.variable" $fg)
         (_tc "support.variable" $fg)
+        (_tc "support.variable.property" $fg)
         (_tc "meta.definition.variable.name" $fg)
-        (_tc "variable.language" $scheme.red)
+        (_tc "meta.property.object" $fg)
         (_tc "variable.legacy.builtin.python" $fg)
         (_tc "variable.language.wildcard.java" $fg)
-
-        # PowerShell-specific
-        (_tc "support.function.powershell" $scheme.yellow)
-        (_tc "support.function.attribute.powershell" $scheme.yellow)
-        (_tc "support.variable.automatic.powershell" $scheme.red)
+        # lang-specific variables — foreground
+        (_tc "variable.other.object.property.cs" $fg)
+        (_tc "variable.other.normal.shell" $fg)
+        (_tc "variable.other.bracket.shell" $fg)
+        (_tc "punctuation.definition.variable.shell" $fg)
+        (_tc "variable.other.php" $fg)
+        (_tc "punctuation.definition.variable.php" $fg)
+        (_tc "variable.other.readwrite.instance.ruby" $fg)
+        (_tc "variable.other.readwrite.class.ruby" $fg)
+        (_tc "variable.other.readwrite.global.ruby" $fg)
+        (_tc "punctuation.definition.variable.ruby" $fg)
+        (_tc "variable.other.readwrite.global.perl" $fg)
+        (_tc "punctuation.definition.variable.perl" $fg)
+        (_tc "variable.other.r" $fg)
+        (_tc "variable.graphql" $fg)
+        (_tc "variable.other.makefile" $fg)
+        (_tc "variable.other.fortran" $fg)
+        (_tc "variable.other.pascal" $fg)
+        (_tc "variable.parameter.function.latex" $fg)
+        (_tc "variable.parameter.handlebars" $fg)
+        (_tc "variable.scss" $fg)
+        (_tc "variable.less" $fg)
+        (_tc "variable.other.less" $fg)
+        (_tc "source.css variable" $fg)
+        (_tc "other.source.dart" $fg)
+        (_tc "entity.global.clojure" $fg)
+        (_tc "meta.symbol.clojure" $fg)
+        (_tc "meta.implementation.objc" $fg)
+        (_tc "constant.other.database-name.sql" $fg)
+        (_tc "constant.other.table-name.sql" $fg)
         (_tc "support.variable.drive.powershell" $fg)
-        (_tc "support.constant.variable.powershell" $scheme.purple)
-        (_tc "variable.other.member.powershell" $scheme.yellow)
-        (_tc "variable.parameter.attribute.powershell" $orange)
-        (_tc "storage.modifier.scope.powershell" $scheme.red)
-        (_tc "keyword.other.powershell" $scheme.red)
-        (_tc "keyword.other.array.begin.powershell" $scheme.yellow)
-        (_tc "keyword.other.hashtable.begin.powershell" $scheme.yellow)
-        (_tc "keyword.operator.string-format.powershell" $orange)
-        (_tc "punctuation.section.embedded.substatement.begin.powershell" $orange)
-        (_tc "punctuation.section.embedded.substatement.end.powershell" $orange)
-        (_tc "punctuation.section.braces.begin.powershell" $bracket)
-        (_tc "punctuation.section.braces.end.powershell" $bracket)
-        (_tc "punctuation.section.bracket.begin.powershell" $bracket)
-        (_tc "punctuation.section.bracket.end.powershell" $bracket)
-        (_tc "punctuation.section.group.begin.powershell" $bracket)
-        (_tc "punctuation.section.group.end.powershell" $bracket)
-        (_tc "meta.attribute.powershell" $bracket)
+        (_tc "source.coffee.embedded" $fg)
 
-        # Tags — yellow
+        # ── variable.language — red (self, this, super, etc.) ──
+        (_tc "variable.language" $scheme.red)
+        (_tc "variable.language.this" $scheme.red)
+        (_tc "variable.language.super" $scheme.red)
+        (_tc "variable.language.arguments" $scheme.red)
+        (_tc "variable.language.self.rust" $scheme.red)
+        (_tc "variable.language.self.ruby" $scheme.red)
+        (_tc "variable.language.self.lua" $scheme.red)
+        (_tc "variable.language.self.swift" $scheme.red)
+        (_tc "variable.language.dart" $scheme.red)
+        (_tc "variable.language.zig" $scheme.red)
+        (_tc "variable.language.makefile" $scheme.red)
+        (_tc "variable.parameter.function.language.special.self.python" $scheme.red)
+        (_tc "variable.parameter.function.language.special.cls.python" $scheme.red)
+        (_tc "variable.other.special.shell" $scheme.red)
+        (_tc "variable.other.positional.shell" $scheme.red)
+        (_tc "variable.other.predefined.perl" $scheme.red)
+        (_tc "support.variable.automatic.powershell" $scheme.red)
+
+        # ── Tags — yellow (tag names) / orange (attributes) / muted (punctuation) ──
         (_tc "entity.name.tag" $scheme.yellow)
         (_tc "entity.name.tag.css" $scheme.yellow)
         (_tc "entity.name.tag.less" $scheme.yellow)
         (_tc "entity.name.tag.yaml" $scheme.yellow)
+        (_tc "entity.name.tag.html" $scheme.yellow)
+        (_tc "entity.name.tag.xml" $scheme.yellow)
+        (_tc "entity.name.tag.js" $scheme.yellow)
+        (_tc "entity.name.tag.ts" $scheme.yellow)
+        (_tc "entity.name.tag.reference.scss" $scheme.yellow)
+        (_tc "entity.name.tag.template.vue" $scheme.yellow)
+        (_tc "entity.name.tag.script.vue" $scheme.yellow)
+        (_tc "entity.name.tag.style.vue" $scheme.yellow)
+        (_tc "entity.name.tag.handlebars" $scheme.yellow)
+        # tag attributes — orange
         (_tc "entity.other.attribute-name" $orange)
         (_tc "entity.other.attribute-name.class.css" $orange)
         (_tc "entity.other.attribute-name.id.css" $orange)
@@ -1086,43 +1776,70 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "entity.other.attribute-name.parent.less" $orange)
         (_tc "entity.other.attribute-name.pseudo-element.css" $orange)
         (_tc "entity.other.attribute-name.scss" $orange)
+        (_tc "entity.other.attribute-name.placeholder.scss" $orange)
+        (_tc "entity.name.tag.wildcard.scss" $orange)
         (_tc "source.css entity.other.attribute-name.class" $orange)
         (_tc "source.css entity.other.attribute-name.pseudo-class" $orange)
         (_tc "source.css.less entity.other.attribute-name.id" $orange)
+        (_tc "entity.other.attribute-name.html" $orange)
+        (_tc "entity.other.attribute-name.id.html" $orange)
+        (_tc "entity.other.attribute-name.class.html" $orange)
+        (_tc "entity.other.attribute-name.xml" $orange)
+        (_tc "entity.other.attribute-name.js" $orange)
+        (_tc "entity.other.attribute-name.ts" $orange)
+        (_tc "entity.other.attribute-name.vue" $orange)
+        # tag punctuation — muted
         (_tc "punctuation.definition.tag" $fgMuted)
+        (_tc "punctuation.definition.tag.begin.html" $fgMuted)
+        (_tc "punctuation.definition.tag.end.html" $fgMuted)
+        (_tc "punctuation.definition.tag.xml" $fgMuted)
+        (_tc "punctuation.definition.tag.begin.xml" $fgMuted)
+        (_tc "punctuation.definition.tag.end.xml" $fgMuted)
+        (_tc "punctuation.definition.tag.begin.js" $fgMuted)
+        (_tc "punctuation.definition.tag.end.js" $fgMuted)
+        (_tc "punctuation.definition.tag.begin.ts" $fgMuted)
+        (_tc "punctuation.definition.tag.end.ts" $fgMuted)
 
-        # CSS
+        # ── CSS / SCSS / Less — property names & values ──
         (_tc "support.type.vendored.property-name" $scheme.yellow)
         (_tc "support.type.property-name" $scheme.yellow)
+        (_tc "meta.property-name.scss" $scheme.yellow)
         (_tc "support.constant.property-value" $scheme.brightGreen)
+        (_tc "support.constant.property-value.css" $scheme.brightGreen)
         (_tc "support.constant.font-name" $scheme.brightGreen)
         (_tc "support.constant.media-type" $scheme.brightGreen)
         (_tc "support.constant.media" $scheme.brightGreen)
         (_tc "support.constant.color" $scheme.brightGreen)
-        (_tc "source.css variable" $fg)
-        (_tc "source.coffee.embedded" $fg)
 
-        # JSON/object keys
+        # ── JSON / object keys — yellow ──
         (_tc "meta.object-literal.key" $scheme.yellow)
         (_tc "support.type.property-name.json" $scheme.yellow)
+        (_tc "support.type.property-name.toml" $scheme.yellow)
         (_tc "meta.structure.dictionary.key.python" $scheme.yellow)
+        (_tc "keyword.key.toml" $scheme.yellow)
+        (_tc "keyword.other.definition.ini" $scheme.yellow)
+        (_tc "entity.name.section.group-title.ini" $scheme.yellow "bold")
+        (_tc "entity.other.attribute-name.table.toml" $scheme.yellow "bold")
+        (_tc "entity.other.attribute-name.table.array.toml" $scheme.yellow "bold")
+        (_tc "variable.other.readwrite.env" $scheme.yellow)
 
-        # Decorators
+        # ── Decorators & annotations — yellow ──
         (_tc "meta.decorator" $scheme.yellow)
         (_tc "entity.name.decorator" $scheme.yellow)
         (_tc "punctuation.decorator" $scheme.yellow)
         (_tc "punctuation.definition.decorator" $scheme.yellow)
         (_tc "punctuation.definition.annotation" $scheme.yellow)
         (_tc "meta.attribute" $scheme.yellow)
+        (_tc "meta.attribute.rust" $scheme.yellow)
+        (_tc "punctuation.definition.attribute.rust" $scheme.yellow)
+        (_tc "punctuation.definition.attribute.swift" $scheme.yellow)
+        (_tc "meta.directive.graphql" $scheme.yellow)
+        (_tc "support.constant.handlebars" $scheme.yellow)
+        (_tc "keyword.other.array.begin.powershell" $scheme.yellow)
+        (_tc "keyword.other.hashtable.begin.powershell" $scheme.yellow)
+        (_tc "variable.other.member.powershell" $scheme.yellow)
 
-        # Rust lifetimes
-        (_tc "entity.name.type.lifetime" $orange)
-        (_tc "punctuation.definition.lifetime" $orange)
-
-        # Preprocessor
-        (_tc "meta.preprocessor" $scheme.red)
-
-        # Resets — foreground
+        # ── Resets — foreground ──
         (_tc "meta.embedded" $fg)
         (_tc "source.groovy.embedded" $fg)
         (_tc "meta.template.expression" $fg)
@@ -1130,28 +1847,60 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "storage.modifier.import.java" $fg)
         (_tc "storage.modifier.package.java" $fg)
 
-        # Misc
+        # ── Misc ──
         (_tc "meta.diff.header" $scheme.yellow)
-        (_tc "punctuation.definition.quote.begin.markdown" $fgMuted)
-        (_tc "entity.other.document.begin" $fgMuted)
-        (_tc "entity.other.document.end" $fgMuted)
         (_tc "header" $scheme.yellow)
         (_tc "invalid" $scheme.red)
+        (_tc "invalid.illegal" $scheme.red)
+        (_tc "invalid.deprecated" $scheme.red "strikethrough")
+        (_tc "emphasis" $fg "italic")
+        (_tc "strong" $fg "bold")
+        (_tc "token.info-token" $scheme.blue)
+        (_tc "token.warn-token" $scheme.yellow)
+        (_tc "token.error-token" $scheme.red)
+        (_tc "token.debug-token" $scheme.purple)
+        (_tc "log.error" $scheme.red)
+        (_tc "log.warning" $scheme.yellow)
+        (_tc "entity.other.document.begin" $fgMuted)
+        (_tc "entity.other.document.end" $fgMuted)
+        (_tc "entity.other.document.begin.yaml" $fgMuted)
+        (_tc "entity.other.document.end.yaml" $fgMuted)
+        (_tc "string.unquoted.cdata.xml" $scheme.brightGreen)
+        (_tc "meta.separator.markdown" $fgMuted)
 
-        # Markup
+        # ── Markup ──
         (_tc "markup.heading" $scheme.yellow "bold")
+        (_tc "markup.heading.section.latex" $scheme.yellow "bold")
         (_tc "markup.bold" $fg "bold")
         (_tc "markup.italic" $fg "italic")
+        (_tc "markup.underline" $fg "underline")
+        (_tc "markup.strikethrough" $fgMuted "strikethrough")
         (_tc "markup.inserted" $scheme.green)
         (_tc "markup.deleted" $scheme.red)
         (_tc "markup.changed" $scheme.yellow)
         (_tc "markup.inline.raw" $scheme.brightGreen)
         (_tc "markup.underline.link" $scheme.blue "underline")
+        (_tc "markup.underline.link.image" $scheme.blue "underline")
         (_tc "markup.link" $scheme.blue "underline")
+        (_tc "string.other.link" $scheme.blue)
+        (_tc "string.other.link.title.markdown" $scheme.brightGreen)
+        (_tc "markup.fenced_code.block" $scheme.brightGreen)
+        (_tc "markup.raw.block" $scheme.brightGreen)
+        (_tc "markup.list.numbered" $orange)
+        (_tc "markup.list.unnumbered" $orange)
+        (_tc "markup.quote" $fgMuted "italic")
         (_tc "punctuation.definition.to-file.diff" $scheme.green)
         (_tc "punctuation.definition.from-file.diff" $scheme.red)
+        (_tc "punctuation.definition.quote.begin.markdown" $fgMuted)
+        (_tc "punctuation.definition.markdown" $fgMuted)
+        (_tc "punctuation.definition.heading.markdown" $scheme.yellow)
+        (_tc "punctuation.definition.bold.markdown" $fg)
+        (_tc "punctuation.definition.italic.markdown" $fg)
+        (_tc "punctuation.definition.raw.markdown" $scheme.brightGreen)
+        (_tc "punctuation.definition.list.begin.markdown" $orange)
+        (_tc "fenced_code.block.language" $scheme.green)
 
-        # Text
+        # ── Text ──
         (_tc "text" $fg)
     )
 
@@ -1219,6 +1968,38 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
             "namespace"                  = $fg
             "decorator"                  = $scheme.yellow
             "macro"                      = $scheme.yellow
+
+            # Declaration modifiers
+            "variable.declaration"       = $fg
+            "variable.readonly"          = $scheme.purple
+            "property.declaration"       = $fg
+            "property.readonly"          = $scheme.purple
+            "function.declaration"       = $scheme.yellow
+            "method.declaration"         = $scheme.yellow
+            "class.declaration"          = $scheme.green
+            "type.declaration"           = $scheme.green
+            "enum.declaration"           = $scheme.green
+            "interface.declaration"      = $scheme.green
+            "namespace.declaration"      = $fg
+            "*.deprecated"              = @{ foreground = $fgMuted; fontStyle = "strikethrough" }
+            "regexp"                     = $scheme.cyan
+
+            # Rust-specific semantic tokens
+            "lifetime"                   = $orange
+            "selfKeyword"                = $scheme.red
+            "builtinAttribute"           = $scheme.yellow
+            "attributeBracket"           = $scheme.yellow
+            "formatSpecifier"            = $orange
+            "unresolvedReference"        = $scheme.red
+            "escapeSequence"             = $orange
+
+            # Go semantic tokens
+            "module"                     = $fg
+
+            # General semantic refinements
+            "selfTypeKeyword"            = $scheme.red
+            "deriveHelper"               = $scheme.yellow
+            "generic"                    = $scheme.green
         }
     }
 
@@ -1545,13 +2326,14 @@ function Update-KarchyTheme([string]$themeName) {
 
     $lines = [System.Collections.Generic.List[string]](Get-Content $configPath)
 
-    # Find existing [theme] section and name key
+    # Find existing [theme] section and name key.
+    # [theme.prompt], [theme.terminal.*] are subsections — skip them.
     $themeIdx = -1
     $nameIdx = -1
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\[theme\]') { $themeIdx = $i }
+        if ($lines[$i] -match '^\[theme\]$') { $themeIdx = $i }
         elseif ($themeIdx -ge 0 -and $nameIdx -lt 0 -and $lines[$i] -match '^name\s*=') { $nameIdx = $i }
-        elseif ($themeIdx -ge 0 -and $i -gt $themeIdx -and $lines[$i] -match '^\[') { break }
+        elseif ($themeIdx -ge 0 -and $lines[$i] -match '^\[' -and $lines[$i] -notmatch '^\[theme\.') { break }
     }
 
     $nameLine = "name = `"$themeName`""
