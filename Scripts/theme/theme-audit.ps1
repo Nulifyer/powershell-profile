@@ -308,6 +308,19 @@ if (Test-Path $vsSettingsPath) {
         $fgDim = $scheme.white
         $fgMuted = $scheme.brightBlack
 
+        # Resolve per-theme vscode role colors
+        $ansiMap = @{
+            red = $scheme.red; green = $scheme.green; yellow = $scheme.yellow
+            blue = $scheme.blue; magenta = $scheme.purple; cyan = $scheme.cyan
+        }
+        $vsc = $scheme.vscode
+        if (-not $vsc) { $vsc = @{ accent = 'cyan'; link = 'green'; match = 'green'; find = 'yellow'; bracket = 'yellow' } }
+        $accent  = $ansiMap[$vsc.accent]
+        $link    = $ansiMap[$vsc.link]
+        $match   = $ansiMap[$vsc.match]
+        $find    = $ansiMap[$vsc.find]
+        $bracket = $ansiMap[$vsc.bracket]
+
         $vsExpected = [ordered]@{
             "foreground" = $fgDim
             "errorForeground" = $scheme.red
@@ -315,7 +328,7 @@ if (Test-Path $vsSettingsPath) {
             "selection.background" = $scheme.blue + "40"
             "descriptionForeground" = $fgDim
             "widget.shadow" = "#00000070"
-            "icon.foreground" = $scheme.yellow
+            "icon.foreground" = $accent
             "editor.background" = $bgBase
             "editor.foreground" = $fg
             "editorCursor.foreground" = $scheme.cursorColor
@@ -324,24 +337,24 @@ if (Test-Path $vsSettingsPath) {
             "editor.inactiveSelectionBackground" = $scheme.blue + "10"
             "editor.wordHighlightBackground" = $bgSurface + "58"
             "editor.wordHighlightStrongBackground" = $bgSurface + "B0"
-            "editor.findMatchBackground" = $scheme.yellow + "40"
-            "editor.findMatchHighlightBackground" = $scheme.green + "40"
-            "editor.findRangeHighlightBackground" = $scheme.green + "20"
+            "editor.findMatchBackground" = $find + "40"
+            "editor.findMatchHighlightBackground" = $match + "40"
+            "editor.findRangeHighlightBackground" = $match + "20"
             "editor.lineHighlightBackground" = $bgSurface + "90"
             "editor.lineHighlightBorder" = "#00000000"
             "editor.rangeHighlightBackground" = $bgSurface + "80"
             "editor.foldBackground" = $bgBorder + "80"
-            "editorLink.activeForeground" = $scheme.green
+            "editorLink.activeForeground" = $link
             "editorWhitespace.foreground" = $bgBorder
             "editorOverviewRuler.border" = "#00000000"
             "editorLineNumber.foreground" = $fgMuted
             "editorLineNumber.activeForeground" = $fg
-            "editorBracketHighlight.foreground1" = $scheme.yellow
-            "editorBracketHighlight.foreground2" = $scheme.yellow
-            "editorBracketHighlight.foreground3" = $scheme.yellow
-            "editorBracketHighlight.foreground4" = $scheme.yellow
-            "editorBracketHighlight.foreground5" = $scheme.yellow
-            "editorBracketHighlight.foreground6" = $scheme.yellow
+            "editorBracketHighlight.foreground1" = $bracket
+            "editorBracketHighlight.foreground2" = $bracket
+            "editorBracketHighlight.foreground3" = $bracket
+            "editorBracketHighlight.foreground4" = $bracket
+            "editorBracketHighlight.foreground5" = $bracket
+            "editorBracketHighlight.foreground6" = $bracket
             "editorBracketMatch.background" = $fgMuted + "80"
             "editorBracketMatch.border" = "#00000000"
             "editorError.foreground" = $scheme.red
@@ -362,7 +375,7 @@ if (Test-Path $vsSettingsPath) {
             "editorSuggestWidget.background" = $bgSurface
             "editorSuggestWidget.border" = $bgSurface
             "editorSuggestWidget.foreground" = $fg
-            "editorSuggestWidget.highlightForeground" = $scheme.green
+            "editorSuggestWidget.highlightForeground" = $match
             "editorSuggestWidget.selectedBackground" = $bgBorder
             "editorHoverWidget.background" = $bgSurface
             "editorHoverWidget.border" = $bgBorder
@@ -395,7 +408,7 @@ if (Test-Path $vsSettingsPath) {
             "activityBar.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
             "activityBar.border" = $bgMid
             "activityBar.activeBorder" = $fgMuted
-            "activityBarBadge.background" = $scheme.yellow
+            "activityBarBadge.background" = $accent
             "activityBarBadge.foreground" = $bgBase
             "panel.background" = $bgMid
             "panel.border" = $bgMid
@@ -440,7 +453,7 @@ if (Test-Path $vsSettingsPath) {
             "list.inactiveSelectionForeground" = $fg
             "list.hoverBackground" = $bgHover
             "list.hoverForeground" = $fg
-            "list.highlightForeground" = $scheme.green
+            "list.highlightForeground" = $match
             "list.errorForeground" = $scheme.red
             "list.warningForeground" = $scheme.yellow
             "tree.indentGuidesStroke" = $fgMuted
@@ -448,8 +461,8 @@ if (Test-Path $vsSettingsPath) {
             "input.border" = $fg + "40"
             "input.foreground" = $fg
             "input.placeholderForeground" = $fg + "80"
-            "inputOption.activeBorder" = $scheme.yellow
-            "inputOption.activeForeground" = $scheme.yellow
+            "inputOption.activeBorder" = $accent
+            "inputOption.activeForeground" = $accent
             "inputValidation.errorBackground" = $scheme.red
             "inputValidation.errorBorder" = $scheme.red
             "inputValidation.errorForeground" = $fg
@@ -459,16 +472,16 @@ if (Test-Path $vsSettingsPath) {
             "inputValidation.infoBackground" = $scheme.blue
             "inputValidation.infoBorder" = $scheme.blue
             "inputValidation.infoForeground" = $fg
-            "button.background" = $scheme.cyan
+            "button.background" = $accent
             "button.foreground" = $bgBase
-            "button.hoverBackground" = (Adjust-HexBrightness $scheme.cyan -15)
+            "button.hoverBackground" = (Adjust-HexBrightness $accent -15)
             "button.secondaryBackground" = $bgSurface
             "button.secondaryForeground" = $fg
             "button.secondaryHoverBackground" = $bgBorder
             "dropdown.background" = $bgBase
             "dropdown.border" = $bgBorder
             "dropdown.foreground" = $fgDim
-            "badge.background" = $scheme.yellow
+            "badge.background" = $accent
             "badge.foreground" = $bgBase
             "scrollbar.shadow" = "#00000070"
             "scrollbarSlider.background" = $fgMuted + "40"
@@ -477,19 +490,19 @@ if (Test-Path $vsSettingsPath) {
             "minimap.errorHighlight" = $scheme.red
             "minimap.warningHighlight" = $scheme.yellow
             "minimap.selectionHighlight" = $fgMuted + "80"
-            "minimap.findMatchHighlight" = $scheme.green + "D0"
+            "minimap.findMatchHighlight" = $match + "D0"
             "peekView.border" = $bgSurface
             "peekViewTitle.background" = $bgSurface
-            "peekViewTitleLabel.foreground" = $scheme.green
+            "peekViewTitleLabel.foreground" = $match
             "peekViewTitleDescription.foreground" = $fg
             "peekViewEditor.background" = $bgSurface
-            "peekViewEditor.matchHighlightBackground" = $scheme.yellow + "50"
+            "peekViewEditor.matchHighlightBackground" = $find + "50"
             "peekViewEditorGutter.background" = $bgSurface
             "peekViewResult.background" = $bgSurface
             "peekViewResult.fileForeground" = $fg
             "peekViewResult.lineForeground" = $fgMuted
-            "peekViewResult.matchHighlightBackground" = $scheme.yellow + "50"
-            "peekViewResult.selectionBackground" = $scheme.green + "50"
+            "peekViewResult.matchHighlightBackground" = $find + "50"
+            "peekViewResult.selectionBackground" = $match + "50"
             "diffEditor.insertedTextBackground" = $scheme.green + "40"
             "diffEditor.removedTextBackground" = $scheme.red + "40"
             "diffEditor.diagonalFill" = $bgBorder
@@ -500,8 +513,8 @@ if (Test-Path $vsSettingsPath) {
             "notificationsErrorIcon.foreground" = $scheme.red
             "notificationsWarningIcon.foreground" = $scheme.yellow
             "notificationsInfoIcon.foreground" = $scheme.blue
-            "notificationLink.foreground" = $scheme.green
-            "progressBar.background" = $scheme.yellow
+            "notificationLink.foreground" = $link
+            "progressBar.background" = $accent
             "gitDecoration.addedResourceForeground" = $scheme.green + "A0"
             "gitDecoration.modifiedResourceForeground" = $scheme.blue + "A0"
             "gitDecoration.deletedResourceForeground" = $scheme.red + "A0"
@@ -514,9 +527,9 @@ if (Test-Path $vsSettingsPath) {
             "quickInputTitle.background" = $bgSurface
             "pickerGroup.foreground" = $fg
             "pickerGroup.border" = $fg + "1A"
-            "textLink.foreground" = $scheme.green
-            "textLink.activeForeground" = (Adjust-HexBrightness $scheme.green -15)
-            "textPreformat.foreground" = $scheme.yellow
+            "textLink.foreground" = $link
+            "textLink.activeForeground" = (Adjust-HexBrightness $link -15)
+            "textPreformat.foreground" = $accent
             "textBlockQuote.background" = $bgSurface
             "textBlockQuote.border" = $fgMuted
             "textCodeBlock.background" = $bgSurface
@@ -539,11 +552,11 @@ if (Test-Path $vsSettingsPath) {
             "terminal.ansiBrightMagenta" = $scheme.brightPurple
             "terminal.ansiBrightCyan" = $scheme.brightCyan
             "terminal.ansiBrightWhite" = $scheme.brightWhite
-            "debugIcon.startForeground" = $scheme.cyan
+            "debugIcon.startForeground" = $scheme.green
             "debugIcon.pauseForeground" = $scheme.yellow
             "debugIcon.stopForeground" = $scheme.red
-            "debugIcon.restartForeground" = $scheme.cyan
-            "debugIcon.breakpointForeground" = $scheme.yellow
+            "debugIcon.restartForeground" = $scheme.green
+            "debugIcon.breakpointForeground" = $scheme.red
             "debugConsole.errorForeground" = $scheme.red
             "debugConsole.warningForeground" = $scheme.yellow
             "debugConsole.infoForeground" = $scheme.green
@@ -555,11 +568,11 @@ if (Test-Path $vsSettingsPath) {
             "debugTokenExpression.name" = $scheme.blue
             "testing.iconFailed" = $scheme.red
             "testing.iconErrored" = $scheme.red
-            "testing.iconPassed" = $scheme.cyan
+            "testing.iconPassed" = $scheme.green
             "testing.iconQueued" = $scheme.blue
             "testing.iconSkipped" = $scheme.purple
             "testing.iconUnset" = $scheme.yellow
-            "testing.runAction" = $scheme.cyan
+            "testing.runAction" = $accent
             "charts.red" = $scheme.red
             "charts.orange" = $scheme.brightRed
             "charts.yellow" = $scheme.yellow
@@ -651,13 +664,13 @@ if (Test-Path $vsSettingsPath) {
             "support.function.builtin","support.function.library","support.function.git-rebase",
             "support.constant.handlebars","source.powershell variable.other.member")) { $tcExpected[$s] = $scheme.yellow }
         $tcExpected["entity.name.function.preprocessor"] = $scheme.red
-        # Brackets -> yellow
+        # Brackets
         foreach ($s in @("punctuation.definition.block","punctuation.section","meta.brace",
             "punctuation.squarebracket","punctuation.curlybrace","punctuation.parenthesis",
             "punctuation.definition.parameters","punctuation.definition.arguments",
             "punctuation.definition.begin.bracket","punctuation.definition.end.bracket",
             "punctuation.definition.attribute","punctuation.definition.mapping.begin",
-            "punctuation.definition.mapping.end")) { $tcExpected[$s] = $scheme.yellow }
+            "punctuation.definition.mapping.end")) { $tcExpected[$s] = $bracket }
         # Types -> green
         foreach ($s in @("entity.name.type","entity.name.class","entity.name.namespace","entity.name.module",
             "entity.name.scope-resolution","entity.other.attribute","entity.other.inherited-class",
@@ -694,7 +707,7 @@ if (Test-Path $vsSettingsPath) {
         foreach ($s in @("punctuation.section.braces.begin.powershell","punctuation.section.braces.end.powershell",
             "punctuation.section.bracket.begin.powershell","punctuation.section.bracket.end.powershell",
             "punctuation.section.group.begin.powershell","punctuation.section.group.end.powershell",
-            "meta.attribute.powershell")) { $tcExpected[$s] = $scheme.yellow }
+            "meta.attribute.powershell")) { $tcExpected[$s] = $bracket }
         # Tags
         foreach ($s in @("entity.name.tag","entity.name.tag.css","entity.name.tag.less",
             "entity.name.tag.yaml")) { $tcExpected[$s] = $scheme.yellow }
@@ -800,7 +813,7 @@ if (Test-Path $vsSettingsPath) {
             "enumMember" = $scheme.purple
             "const" = $scheme.purple
             "operator" = $orange
-            "punctuation" = $scheme.yellow
+            "punctuation" = $bracket
             "comment" = $fgMuted
             "newOperator" = $scheme.red
             "stringLiteral" = $scheme.brightGreen
