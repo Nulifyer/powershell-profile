@@ -5,7 +5,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "ayu-dark",
     "prompt": {
-      "os": "565B66",
+      "os": "5E636F",
       "user": "FFB454",
       "path": "FF8F40",
       "git": "B8CC52",
@@ -124,7 +124,7 @@
         "white": "#DFDFE0"
       },
       "bright": {
-        "black": "#525253",
+        "black": "#646465",
         "red": "#F16DA6",
         "green": "#46C880",
         "yellow": "#2DC7C4",
@@ -172,7 +172,7 @@
         "white": "#B5BFE2"
       },
       "bright": {
-        "black": "#626880",
+        "black": "#838BA7",
         "red": "#E78284",
         "green": "#A6D189",
         "yellow": "#E5C890",
@@ -196,10 +196,10 @@
     "bat_theme": "Catppuccin Latte",
     "lutgen_palette": "catppuccin-latte",
     "prompt": {
-      "os": "ACB0BE",
+      "os": "7C7F93",
       "user": "1e66f5",
-      "path": "ea76cb",
-      "git": "7287FD",
+      "path": "C965AF",
+      "git": "6C80F0",
       "ok": "40A02B",
       "err": "D20F39",
       "duration": "DF8E1D"
@@ -217,7 +217,7 @@
         "blue": "#1E66F5",
         "magenta": "#EA76CB",
         "cyan": "#179299",
-        "white": "#ACB0BE"
+        "white": "#7C7F93"
       },
       "bright": {
         "black": "#6C6F85",
@@ -268,7 +268,7 @@
         "white": "#B8C0E0"
       },
       "bright": {
-        "black": "#5B6078",
+        "black": "#6E738D",
         "red": "#ED8796",
         "green": "#A6DA95",
         "yellow": "#EED49F",
@@ -316,7 +316,7 @@
         "white": "#BAC2DE"
       },
       "bright": {
-        "black": "#585B70",
+        "black": "#6C7086",
         "red": "#F38BA8",
         "green": "#A6E3A1",
         "yellow": "#F9E2AF",
@@ -340,7 +340,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "challengerdeep",
     "prompt": {
-      "os": "565575",
+      "os": "68678E",
       "user": "65B2FF",
       "path": "C991E1",
       "git": "62D196",
@@ -364,7 +364,7 @@
         "white": "#CBE3E7"
       },
       "bright": {
-        "black": "#565575",
+        "black": "#68678E",
         "red": "#FF8080",
         "green": "#95FFA4",
         "yellow": "#FFE9AA",
@@ -388,7 +388,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "dracula",
     "prompt": {
-      "os": "626483",
+      "os": "707295",
       "user": "F1FA8C",
       "path": "FF79C6",
       "git": "50FA7B",
@@ -412,7 +412,7 @@
         "white": "#F8F8F2"
       },
       "bright": {
-        "black": "#626483",
+        "black": "#707295",
         "red": "#FF6E6E",
         "green": "#69FF94",
         "yellow": "#FFFFA5",
@@ -460,7 +460,7 @@
         "white": "#D3C6AA"
       },
       "bright": {
-        "black": "#475258",
+        "black": "#7A8478",
         "red": "#E67E80",
         "green": "#A7C080",
         "yellow": "#DBBC7F",
@@ -485,9 +485,9 @@
     "lutgen_palette": "everforest-light-medium",
     "prompt": {
       "os": "829181",
-      "user": "DFA000",
-      "path": "E67E80",
-      "git": "8DA101",
+      "user": "B78300",
+      "path": "CF7173",
+      "git": "839601",
       "ok": "8DA101",
       "err": "F85552",
       "duration": "DFA000"
@@ -508,7 +508,7 @@
         "white": "#5C6A72"
       },
       "bright": {
-        "black": "#939F91",
+        "black": "#829181",
         "red": "#F85552",
         "green": "#8DA101",
         "yellow": "#DFA000",
@@ -532,7 +532,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "flexoki-dark",
     "prompt": {
-      "os": "575653",
+      "os": "696864",
       "user": "4385BE",
       "path": "CE5D97",
       "git": "879A39",
@@ -556,7 +556,7 @@
         "white": "#CECDC3"
       },
       "bright": {
-        "black": "#575653",
+        "black": "#696864",
         "red": "#D14D41",
         "green": "#879A39",
         "yellow": "#D0A215",
@@ -601,7 +601,7 @@
         "blue": "#205EA6",
         "magenta": "#A02F6F",
         "cyan": "#24837B",
-        "white": "#CECDC3"
+        "white": "#909088"
       },
       "bright": {
         "black": "#575653",
@@ -676,7 +676,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "gruvbox-material-dark-hard",
     "prompt": {
-      "os": "5A524C",
+      "os": "746A62",
       "user": "D8A657",
       "path": "E78A4E",
       "git": "A9B665",
@@ -700,7 +700,7 @@
         "white": "#DDC7A1"
       },
       "bright": {
-        "black": "#5A524C",
+        "black": "#746A62",
         "red": "#EA6962",
         "green": "#A9B665",
         "yellow": "#D8A657",
@@ -868,7 +868,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "iceberg-light",
     "prompt": {
-      "os": "8389A3",
+      "os": "7E849C",
       "user": "2D539E",
       "path": "CC517A",
       "git": "668E3D",
@@ -892,7 +892,7 @@
         "white": "#33374C"
       },
       "bright": {
-        "black": "#8389A3",
+        "black": "#7E849C",
         "red": "#CC3768",
         "green": "#598030",
         "yellow": "#B6662D",
@@ -987,7 +987,7 @@
         "white": "#D8D0E4"
       },
       "bright": {
-        "black": "#302C42",
+        "black": "#645C89",
         "red": "#E8B4A0",
         "green": "#A0D4A8",
         "yellow": "#C4B080",
@@ -1011,7 +1011,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "material-darker",
     "prompt": {
-      "os": "4A4A4A",
+      "os": "6C6C6C",
       "user": "82AAFF",
       "path": "C792EA",
       "git": "C3E88D",
@@ -1035,7 +1035,7 @@
         "white": "#EEFFFF"
       },
       "bright": {
-        "black": "#4A4A4A",
+        "black": "#6C6C6C",
         "red": "#F07178",
         "green": "#C3E88D",
         "yellow": "#FFCB6B",
@@ -1082,7 +1082,7 @@
         "white": "#C1C0D4"
       },
       "bright": {
-        "black": "#353539",
+        "black": "#64646B",
         "red": "#FFAE9F",
         "green": "#9DC6AC",
         "yellow": "#F0C5A9",
@@ -1225,7 +1225,7 @@
         "white": "#DFDFE0"
       },
       "bright": {
-        "black": "#575860",
+        "black": "#6C6D77",
         "red": "#D16983",
         "green": "#8EBAA4",
         "yellow": "#E0C989",
@@ -1273,7 +1273,7 @@
         "white": "#E5E9F0"
       },
       "bright": {
-        "black": "#4C566A",
+        "black": "#6F7E9B",
         "red": "#BF616A",
         "green": "#A3BE8C",
         "yellow": "#EBCB8B",
@@ -1321,7 +1321,7 @@
         "white": "#ABB2BF"
       },
       "bright": {
-        "black": "#545862",
+        "black": "#717683",
         "red": "#BE5046",
         "green": "#98C379",
         "yellow": "#D19A66",
@@ -1345,7 +1345,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "oxocarbon-dark",
     "prompt": {
-      "os": "525252",
+      "os": "646464",
       "user": "78A9FF",
       "path": "EE5396",
       "git": "42BE65",
@@ -1369,7 +1369,7 @@
         "white": "#DDE1E6"
       },
       "bright": {
-        "black": "#525252",
+        "black": "#646464",
         "red": "#FF7EB6",
         "green": "#42BE65",
         "yellow": "#3DDBD9",
@@ -1414,7 +1414,7 @@
         "blue": "#0F62FE",
         "magenta": "#673AB7",
         "cyan": "#08BDBA",
-        "white": "#DDE1E6"
+        "white": "#898C8F"
       },
       "bright": {
         "black": "#525252",
@@ -1441,7 +1441,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "material-palenight",
     "prompt": {
-      "os": "676E95",
+      "os": "8796B0",
       "user": "FFCB6B",
       "path": "C792EA",
       "git": "C3E88D",
@@ -1465,7 +1465,7 @@
         "white": "#959DCB"
       },
       "bright": {
-        "black": "#676E95",
+        "black": "#8796B0",
         "red": "#FF5370",
         "green": "#C3E88D",
         "yellow": "#FFCB6B",
@@ -1512,7 +1512,7 @@
         "white": "#E4F0FB"
       },
       "bright": {
-        "black": "#506477",
+        "black": "#566C81",
         "red": "#FCC5E9",
         "green": "#5DE4C7",
         "yellow": "#FFFAC2",
@@ -1587,10 +1587,10 @@
       "os": "797593",
       "user": "56949F",
       "path": "B4637A",
-      "git": "EA9D34",
+      "git": "BE7F2A",
       "ok": "56949F",
       "err": "B4637A",
-      "duration": "EA9D34"
+      "duration": "BE7F2A"
     },
     "terminal": {
       "bg": "#FAF4ED",
@@ -1608,7 +1608,7 @@
         "white": "#575279"
       },
       "bright": {
-        "black": "#9893A5",
+        "black": "#907AA9",
         "red": "#B4637A",
         "green": "#56949F",
         "yellow": "#EA9D34",
@@ -1656,7 +1656,7 @@
         "white": "#EEE8D5"
       },
       "bright": {
-        "black": "#586E75",
+        "black": "#657B83",
         "red": "#CB4B16",
         "green": "#586E75",
         "yellow": "#657B83",
@@ -1728,7 +1728,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "tokyo-night-terminal-dark",
     "prompt": {
-      "os": "444B6A",
+      "os": "787C99",
       "user": "7AA2F7",
       "path": "FF966C",
       "git": "9ECE6A",
@@ -1752,7 +1752,7 @@
         "white": "#A9B1D6"
       },
       "bright": {
-        "black": "#444B6A",
+        "black": "#787C99",
         "red": "#F7768E",
         "green": "#9ECE6A",
         "yellow": "#E0AF68",
@@ -1800,7 +1800,7 @@
         "white": "#343B58"
       },
       "bright": {
-        "black": "#9699A3",
+        "black": "#75777F",
         "red": "#8C4351",
         "green": "#485E30",
         "yellow": "#965027",
@@ -1872,7 +1872,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "zenburn",
     "prompt": {
-      "os": "606060",
+      "os": "709080",
       "user": "DCA3A3",
       "path": "F0DFAF",
       "git": "709080",
@@ -1896,7 +1896,7 @@
         "white": "#DCDCCC"
       },
       "bright": {
-        "black": "#606060",
+        "black": "#709080",
         "red": "#DCA3A3",
         "green": "#C3BF9F",
         "yellow": "#F0DFAF",

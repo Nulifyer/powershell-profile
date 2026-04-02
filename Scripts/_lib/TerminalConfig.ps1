@@ -799,7 +799,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "peekViewEditorGutter.background" = $bgSurface
         "peekViewResult.background" = $bgSurface
         "peekViewResult.fileForeground" = $fg
-        "peekViewResult.lineForeground" = $fgMuted
+        "peekViewResult.lineForeground" = $fgDim
         "peekViewResult.matchHighlightBackground" = $find + "50"
         "peekViewResult.selectionBackground" = $match + "50"
         "diffEditor.insertedTextBackground" = $scheme.green + "40"
