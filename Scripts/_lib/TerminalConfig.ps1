@@ -1,7 +1,7 @@
 # Shared terminal configuration helpers for theme.ps1 and font.ps1
 # Supports: Windows Terminal, Alacritty, Kitty, Ghostty, WezTerm, VS Code, Windows System
 
-# ── Color utility helpers ───────────────────────────────────────────────────
+# -- Color utility helpers ---------------------------------------------------
 
 function Adjust-HexBrightness([string]$hex, [int]$percent) {
     $r = [Convert]::ToInt32($hex.Substring(1,2),16)
@@ -34,7 +34,7 @@ function _Is-LightTheme([string]$themeName) {
     return $themeName -match '_light|_dawn|_latte'
 }
 
-# ── P/Invoke for Windows theming + wallpaper ────────────────────────────────
+# -- P/Invoke for Windows theming + wallpaper --------------------------------
 
 if (-not ([System.Management.Automation.PSTypeName]'NativeMethods').Type) {
     Add-Type @"
@@ -106,7 +106,7 @@ Add-Type -AssemblyName System.Runtime.WindowsRuntime
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $script 2>$null
 }
 
-# ── Terminal config ─────────────────────────────────────────────────────────
+# -- Terminal config ---------------------------------------------------------
 
 # Windows Terminal — check Store, scoop, and winget install locations
 $script:WT_SETTINGS = $null
@@ -170,7 +170,7 @@ $script:WEZTERM_SCHEMES = @{
     "One Dark"             = "One Dark (Gogh)"
 }
 
-# ── Config file paths per terminal ───────────────────────────────────────────
+# -- Config file paths per terminal -------------------------------------------
 
 function _Get-TerminalConfigs {
     $configs = @{}
@@ -201,7 +201,7 @@ function _Get-TerminalConfigs {
     return $configs
 }
 
-# ── Font updates ─────────────────────────────────────────────────────────────
+# -- Font updates -------------------------------------------------------------
 
 function Update-TerminalFont([string]$FontName) {
     $configs = _Get-TerminalConfigs
@@ -285,14 +285,14 @@ function Update-TerminalFont([string]$FontName) {
     return $updated
 }
 
-# ── Theme/color updates ──────────────────────────────────────────────────────
+# -- Theme/color updates ------------------------------------------------------
 
 function Update-TerminalColors([hashtable]$scheme) {
     $configs = _Get-TerminalConfigs
     $updated = @()
     $schemeName = $scheme.name
 
-    # ── Windows Terminal — settings.json (creates profile + sets default if needed)
+    # -- Windows Terminal — settings.json (creates profile + sets default if needed)
 
     if ($configs.wt) {
         try {
@@ -321,7 +321,7 @@ function Update-TerminalColors([hashtable]$scheme) {
         } catch {}
     }
 
-    # ── Alacritty — TOML [colors.*] sections ─────────────────────────────────
+    # -- Alacritty — TOML [colors.*] sections ---------------------------------
 
     if ($configs.alacritty) {
         try {
@@ -379,7 +379,7 @@ white   = "$($scheme.brightWhite)"
         } catch {}
     }
 
-    # ── Kitty — space-delimited key value ────────────────────────────────────
+    # -- Kitty — space-delimited key value ------------------------------------
 
     if ($configs.kitty) {
         try {
@@ -425,7 +425,7 @@ white   = "$($scheme.brightWhite)"
         } catch {}
     }
 
-    # ── Ghostty — key = value, palette = N=#hex ──────────────────────────────
+    # -- Ghostty — key = value, palette = N=#hex ------------------------------
 
     if ($configs.ghostty) {
         try {
@@ -468,7 +468,7 @@ white   = "$($scheme.brightWhite)"
         } catch {}
     }
 
-    # ── WezTerm — Lua config.color_scheme ────────────────────────────────────
+    # -- WezTerm — Lua config.color_scheme ------------------------------------
 
     if ($configs.wezterm) {
         try {
@@ -488,7 +488,7 @@ white   = "$($scheme.brightWhite)"
     return $updated
 }
 
-# ── VS Code theme generation ───────────────────────────────────────────────
+# -- VS Code theme generation -----------------------------------------------
 # Uses a local Nulifyer extension with file watcher for live reload.
 # The extension source lives in Scripts/theme/vscode-extension/ and is
 # synced to ~/.vscode/extensions/nulifyer-theme/ on theme switch.
@@ -543,25 +543,9 @@ function _Register-VSCodeExtension {
     } catch {}
 }
 
-function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
-    _Sync-VSCodeExtension
-    $themeFile = "$script:VS_EXT_DEST\themes\nulifyer.json"
-    if (-not (Test-Path (Split-Path $themeFile))) { return }
-
-    # Check VSCode, VSCode Insiders, and VSCodium
-    $vsSettingsPath = $null
-    foreach ($p in @(
-        "$env:APPDATA\Code\User\settings.json"
-        "$env:APPDATA\Code - Insiders\User\settings.json"
-        "$env:APPDATA\VSCodium\User\settings.json"
-    )) {
-        if (Test-Path $p) { $vsSettingsPath = $p; break }
-    }
-    if (-not $vsSettingsPath) { return }
-
+function Get-VSCodeThemeContext([hashtable]$scheme, [string]$themeName) {
     $isLight = _Is-LightTheme $themeName
 
-    # Background tiers
     $bgBase = $scheme.background
     $bgMid = Adjust-HexBrightness $bgBase $(if ($isLight) { 5 } else { -15 })
     $bgDarkest = Adjust-HexBrightness $bgBase $(if ($isLight) { 10 } else { -30 })
@@ -570,33 +554,160 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     $bgBorder = Adjust-HexBrightness $bgBase $(if ($isLight) { -8 } else { 12 })
 
     $fg = $scheme.foreground
-    $fgDim = $scheme.white           # ANSI white — readable UI text (sidebar, statusbar, menus)
-    $fgMuted = $scheme.brightBlack   # comments, line numbers, inlay hints
+    $fgDim = $scheme.white
+    $fgMuted = $scheme.brightBlack
     $cursor = $scheme.cursorColor
 
-    # Resolve per-theme vscode role colors (accent, link, match, find, bracket)
-    $ansiMap = @{
-        red = $scheme.red; green = $scheme.green; yellow = $scheme.yellow
-        blue = $scheme.blue; magenta = $scheme.purple; cyan = $scheme.cyan
+    $palette = @{
+        red = $scheme.red
+        green = $scheme.green
+        yellow = $scheme.yellow
+        blue = $scheme.blue
+        magenta = $scheme.purple
+        purple = $scheme.purple
+        cyan = $scheme.cyan
+        black = $scheme.black
+        white = $scheme.white
+        brightBlack = $scheme.brightBlack
+        brightRed = $scheme.brightRed
+        brightGreen = $scheme.brightGreen
+        brightYellow = $scheme.brightYellow
+        brightBlue = $scheme.brightBlue
+        brightMagenta = $scheme.brightPurple
+        brightPurple = $scheme.brightPurple
+        brightCyan = $scheme.brightCyan
+        brightWhite = $scheme.brightWhite
+        foreground = $fg
+        fg = $fg
+        fgDim = $fgDim
+        fgMuted = $fgMuted
+        background = $bgBase
+        bgBase = $bgBase
+        bgMid = $bgMid
+        bgDarkest = $bgDarkest
+        bgSurface = $bgSurface
+        bgBorder = $bgBorder
+        cursor = $cursor
     }
-    $vsc = $scheme.vscode
-    if (-not $vsc) { $vsc = @{ accent = 'cyan'; link = 'green'; match = 'green'; find = 'yellow'; bracket = 'yellow' } }
-    $validRoles = $ansiMap.Keys
-    foreach ($role in @('accent','link','match','find','bracket')) {
-        if ($vsc[$role] -and $vsc[$role] -notin $validRoles) {
-            Write-Warning "Theme vscode.$role = '$($vsc[$role])' is not valid (expected: $($validRoles -join ', '))"
-        }
-    }
-    $accent  = $ansiMap[$vsc.accent]
-    $link    = $ansiMap[$vsc.link]
-    $match   = $ansiMap[$vsc.match]
-    $find    = $ansiMap[$vsc.find]
-    $bracket = $ansiMap[$vsc.bracket]
 
-    # Build colors object
-    $colors = [ordered]@{
+    $spec = if ($scheme.vscode -is [hashtable]) { $scheme.vscode } else { @{} }
+    $defaults = [ordered]@{
+        accent = 'cyan'
+        link = 'green'
+        match = 'green'
+        find = 'yellow'
+        bracket = 'yellow'
+        success = 'green'
+        warning = 'yellow'
+        error = 'red'
+        info = 'blue'
+        conflict = 'magenta'
+        gitAdded = 'success'
+        gitModified = 'warning'
+        gitDeleted = 'error'
+        gitUntracked = 'success'
+        gitIgnored = 'fgMuted'
+        gitConflict = 'conflict'
+        gitStageModified = 'success'
+        gitStageDeleted = 'error'
+        gitRenamed = 'info'
+        gitSubmodule = 'cyan'
+    }
+
+    $resolved = @{}
+    function _Resolve-VSCodeRole([string]$role, [string[]]$stack = @()) {
+        if ($resolved.ContainsKey($role)) { return $resolved[$role] }
+        if ($stack -contains $role) {
+            Write-Warning "Theme vscode.$role has a circular reference: $(@($stack + $role) -join ' -> ')"
+            return $null
+        }
+
+        $token = if ($spec.ContainsKey($role)) { [string]$spec[$role] } else { [string]$defaults[$role] }
+        if (-not $token) { return $null }
+
+        if ($token -match '^#[0-9A-Fa-f]{6}$') {
+            $resolved[$role] = $token.ToUpperInvariant()
+            return $resolved[$role]
+        }
+
+        if ($palette.ContainsKey($token)) {
+            $resolved[$role] = $palette[$token]
+            return $resolved[$role]
+        }
+
+        if ($defaults.Contains($token)) {
+            $resolved[$role] = _Resolve-VSCodeRole $token ($stack + $role)
+            return $resolved[$role]
+        }
+
+        Write-Warning "Theme vscode.$role = '$token' is not valid"
+        $fallbackToken = [string]$defaults[$role]
+        if ($fallbackToken -and $fallbackToken -ne $token) {
+            $resolved[$role] = _Resolve-VSCodeRole $fallbackToken ($stack + $role)
+            return $resolved[$role]
+        }
+
+        return $null
+    }
+
+    foreach ($role in $defaults.Keys) {
+        $null = _Resolve-VSCodeRole $role
+    }
+
+    return @{
+        isLight = $isLight
+        bgBase = $bgBase
+        bgMid = $bgMid
+        bgDarkest = $bgDarkest
+        bgSurface = $bgSurface
+        bgHover = $bgHover
+        bgBorder = $bgBorder
+        fg = $fg
+        fgDim = $fgDim
+        fgMuted = $fgMuted
+        cursor = $cursor
+        roles = $resolved
+    }
+}
+
+function Get-VSCodeColorCustomizations([hashtable]$scheme, [string]$themeName) {
+    $ctx = Get-VSCodeThemeContext $scheme $themeName
+
+    $bgBase = $ctx.bgBase
+    $bgMid = $ctx.bgMid
+    $bgDarkest = $ctx.bgDarkest
+    $bgSurface = $ctx.bgSurface
+    $bgHover = $ctx.bgHover
+    $bgBorder = $ctx.bgBorder
+    $fg = $ctx.fg
+    $fgDim = $ctx.fgDim
+    $fgMuted = $ctx.fgMuted
+    $cursor = $ctx.cursor
+
+    $accent = $ctx.roles.accent
+    $link = $ctx.roles.link
+    $match = $ctx.roles.match
+    $find = $ctx.roles.find
+    $bracket = $ctx.roles.bracket
+    $success = $ctx.roles.success
+    $warning = $ctx.roles.warning
+    $error = $ctx.roles.error
+    $info = $ctx.roles.info
+    $conflict = $ctx.roles.conflict
+    $gitAdded = $ctx.roles.gitAdded
+    $gitModified = $ctx.roles.gitModified
+    $gitDeleted = $ctx.roles.gitDeleted
+    $gitUntracked = $ctx.roles.gitUntracked
+    $gitIgnored = $ctx.roles.gitIgnored
+    $gitConflict = $ctx.roles.gitConflict
+    $gitStageModified = $ctx.roles.gitStageModified
+    $gitStageDeleted = $ctx.roles.gitStageDeleted
+    $gitRenamed = $ctx.roles.gitRenamed
+    $gitSubmodule = $ctx.roles.gitSubmodule
+
+    return [ordered]@{
         "foreground" = $fgDim
-        "errorForeground" = $scheme.red
+        "errorForeground" = $error
         "focusBorder" = "#00000000"
         "selection.background" = $scheme.blue + "40"
         "descriptionForeground" = $fgDim
@@ -621,12 +732,12 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "editorWhitespace.foreground" = $bgBorder
         "editorOverviewRuler.border" = "#00000000"
         "editorOverviewRuler.findMatchForeground" = $match + "A0"
-        "editorOverviewRuler.errorForeground" = $scheme.red
-        "editorOverviewRuler.warningForeground" = $scheme.yellow
-        "editorOverviewRuler.infoForeground" = $scheme.blue
-        "editorOverviewRuler.modifiedForeground" = $scheme.blue + "A0"
-        "editorOverviewRuler.addedForeground" = $scheme.green + "A0"
-        "editorOverviewRuler.deletedForeground" = $scheme.red + "A0"
+        "editorOverviewRuler.errorForeground" = $error
+        "editorOverviewRuler.warningForeground" = $warning
+        "editorOverviewRuler.infoForeground" = $info
+        "editorOverviewRuler.modifiedForeground" = $gitModified + "A0"
+        "editorOverviewRuler.addedForeground" = $gitAdded + "A0"
+        "editorOverviewRuler.deletedForeground" = $gitDeleted + "A0"
         "editorRuler.foreground" = $bgBorder
         "editorIndentGuide.background1" = $bgBorder
         "editorIndentGuide.activeBackground1" = $fgMuted
@@ -643,17 +754,17 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "editorBracketHighlight.foreground6" = $bracket
         "editorBracketMatch.background" = $fgMuted + "80"
         "editorBracketMatch.border" = "#00000000"
-        "editorError.foreground" = $scheme.red
-        "editorError.background" = $scheme.red + "20"
-        "editorWarning.foreground" = $scheme.yellow
-        "editorWarning.background" = $scheme.yellow + "20"
-        "editorInfo.foreground" = $scheme.blue
-        "editorInfo.background" = $scheme.blue + "20"
-        "editorHint.foreground" = $scheme.purple
+        "editorError.foreground" = $error
+        "editorError.background" = $error + "20"
+        "editorWarning.foreground" = $warning
+        "editorWarning.background" = $warning + "20"
+        "editorInfo.foreground" = $info
+        "editorInfo.background" = $info + "20"
+        "editorHint.foreground" = $conflict
         "editorGutter.background" = "#00000000"
-        "editorGutter.addedBackground" = $scheme.green + "A0"
-        "editorGutter.modifiedBackground" = $scheme.blue + "A0"
-        "editorGutter.deletedBackground" = $scheme.red + "A0"
+        "editorGutter.addedBackground" = $gitAdded + "A0"
+        "editorGutter.modifiedBackground" = $gitModified + "A0"
+        "editorGutter.deletedBackground" = $gitDeleted + "A0"
         "editorGutter.commentRangeForeground" = $fgMuted
         "editorInlayHint.foreground" = $fgMuted + "A0"
         "editorInlayHint.background" = "#00000000"
@@ -681,7 +792,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "tab.hoverBackground" = $bgBase
         "tab.hoverForeground" = $fg
         "tab.activeBorderTop" = "#00000000"
-        "tab.activeModifiedBorder" = $accent
+        "tab.activeModifiedBorder" = $gitModified
         "tab.inactiveModifiedBorder" = $fgMuted
         "tab.lastPinnedBorder" = $fgMuted
         "tab.unfocusedActiveBorder" = $fgMuted
@@ -716,7 +827,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "statusBar.foreground" = $fgDim
         "statusBar.border" = $bgDarkest
         "statusBar.debuggingBackground" = $bgDarkest
-        "statusBar.debuggingForeground" = $scheme.yellow
+        "statusBar.debuggingForeground" = $warning
         "statusBar.noFolderBackground" = $bgDarkest
         "statusBar.noFolderForeground" = $fgDim
         "statusBar.noFolderBorder" = $bgDarkest
@@ -725,9 +836,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "statusBarItem.remoteBackground" = $bgDarkest
         "statusBarItem.remoteForeground" = $fgDim
         "statusBarItem.errorBackground" = $bgDarkest
-        "statusBarItem.errorForeground" = $scheme.red
+        "statusBarItem.errorForeground" = $error
         "statusBarItem.warningBackground" = $bgDarkest
-        "statusBarItem.warningForeground" = $scheme.yellow
+        "statusBarItem.warningForeground" = $warning
         "titleBar.activeBackground" = $bgDarkest
         "titleBar.activeForeground" = $fgDim
         "titleBar.inactiveBackground" = $bgDarkest
@@ -753,8 +864,8 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "list.hoverBackground" = $bgHover
         "list.hoverForeground" = $fg
         "list.highlightForeground" = $match
-        "list.errorForeground" = $scheme.red
-        "list.warningForeground" = $scheme.yellow
+        "list.errorForeground" = $error
+        "list.warningForeground" = $warning
         "tree.indentGuidesStroke" = $fgMuted
         "input.background" = "#00000000"
         "input.border" = $fg + "40"
@@ -762,14 +873,14 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "input.placeholderForeground" = $fg + "80"
         "inputOption.activeBorder" = $accent
         "inputOption.activeForeground" = $accent
-        "inputValidation.errorBackground" = $scheme.red
-        "inputValidation.errorBorder" = $scheme.red
+        "inputValidation.errorBackground" = $error
+        "inputValidation.errorBorder" = $error
         "inputValidation.errorForeground" = $fg
-        "inputValidation.warningBackground" = $scheme.yellow
-        "inputValidation.warningBorder" = $scheme.yellow
+        "inputValidation.warningBackground" = $warning
+        "inputValidation.warningBorder" = $warning
         "inputValidation.warningForeground" = $fg
-        "inputValidation.infoBackground" = $scheme.blue
-        "inputValidation.infoBorder" = $scheme.blue
+        "inputValidation.infoBackground" = $info
+        "inputValidation.infoBorder" = $info
         "inputValidation.infoForeground" = $fg
         "button.background" = $accent
         "button.foreground" = $bgBase
@@ -786,8 +897,8 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "scrollbarSlider.background" = $fgMuted + "40"
         "scrollbarSlider.hoverBackground" = $fgMuted + "60"
         "scrollbarSlider.activeBackground" = $fgMuted + "80"
-        "minimap.errorHighlight" = $scheme.red
-        "minimap.warningHighlight" = $scheme.yellow
+        "minimap.errorHighlight" = $error
+        "minimap.warningHighlight" = $warning
         "minimap.selectionHighlight" = $fgMuted + "80"
         "minimap.findMatchHighlight" = $match + "D0"
         "peekView.border" = $bgSurface
@@ -802,20 +913,20 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "peekViewResult.lineForeground" = $fgDim
         "peekViewResult.matchHighlightBackground" = $find + "50"
         "peekViewResult.selectionBackground" = $match + "50"
-        "diffEditor.insertedTextBackground" = $scheme.green + "40"
-        "diffEditor.insertedLineBackground" = $scheme.green + "15"
-        "diffEditor.removedTextBackground" = $scheme.red + "40"
-        "diffEditor.removedLineBackground" = $scheme.red + "15"
+        "diffEditor.insertedTextBackground" = $success + "40"
+        "diffEditor.insertedLineBackground" = $success + "15"
+        "diffEditor.removedTextBackground" = $error + "40"
+        "diffEditor.removedLineBackground" = $error + "15"
         "diffEditor.border" = $bgBorder
         "diffEditor.diagonalFill" = $bgBorder
-        "diffEditorGutter.insertedLineBackground" = $scheme.green + "30"
-        "diffEditorGutter.removedLineBackground" = $scheme.red + "30"
-        "diffEditorOverview.insertedForeground" = $scheme.green + "A0"
-        "diffEditorOverview.removedForeground" = $scheme.red + "A0"
-        "merge.currentHeaderBackground" = $scheme.green + "40"
-        "merge.currentContentBackground" = $scheme.green + "15"
-        "merge.incomingHeaderBackground" = $scheme.blue + "40"
-        "merge.incomingContentBackground" = $scheme.blue + "15"
+        "diffEditorGutter.insertedLineBackground" = $success + "30"
+        "diffEditorGutter.removedLineBackground" = $error + "30"
+        "diffEditorOverview.insertedForeground" = $success + "A0"
+        "diffEditorOverview.removedForeground" = $error + "A0"
+        "merge.currentHeaderBackground" = $success + "40"
+        "merge.currentContentBackground" = $success + "15"
+        "merge.incomingHeaderBackground" = $info + "40"
+        "merge.incomingContentBackground" = $info + "15"
         "merge.commonHeaderBackground" = $fgMuted + "40"
         "merge.commonContentBackground" = $fgMuted + "15"
         "notificationCenterHeader.background" = $bgBorder
@@ -823,21 +934,21 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "notifications.background" = $bgBase
         "notifications.foreground" = $fg
         "notifications.border" = $bgBorder
-        "notificationsErrorIcon.foreground" = $scheme.red
-        "notificationsWarningIcon.foreground" = $scheme.yellow
-        "notificationsInfoIcon.foreground" = $scheme.blue
+        "notificationsErrorIcon.foreground" = $error
+        "notificationsWarningIcon.foreground" = $warning
+        "notificationsInfoIcon.foreground" = $info
         "notificationLink.foreground" = $link
         "progressBar.background" = $accent
-        "gitDecoration.addedResourceForeground" = $scheme.green + "A0"
-        "gitDecoration.modifiedResourceForeground" = $scheme.blue + "A0"
-        "gitDecoration.deletedResourceForeground" = $scheme.red + "A0"
-        "gitDecoration.untrackedResourceForeground" = $scheme.yellow + "A0"
-        "gitDecoration.ignoredResourceForeground" = (Adjust-HexBrightness $fgMuted -30)
-        "gitDecoration.conflictingResourceForeground" = $scheme.purple + "A0"
-        "gitDecoration.stageModifiedResourceForeground" = $scheme.cyan + "A0"
-        "gitDecoration.stageDeletedResourceForeground" = $scheme.cyan + "A0"
-        "gitDecoration.renamedResourceForeground" = $scheme.cyan + "A0"
-        "gitDecoration.submoduleResourceForeground" = $scheme.yellow + "A0"
+        "gitDecoration.addedResourceForeground" = $gitAdded + "A0"
+        "gitDecoration.modifiedResourceForeground" = $gitModified + "A0"
+        "gitDecoration.deletedResourceForeground" = $gitDeleted + "A0"
+        "gitDecoration.untrackedResourceForeground" = $gitUntracked + "A0"
+        "gitDecoration.ignoredResourceForeground" = (Adjust-HexBrightness $gitIgnored -30)
+        "gitDecoration.conflictingResourceForeground" = $gitConflict + "A0"
+        "gitDecoration.stageModifiedResourceForeground" = $gitStageModified + "A0"
+        "gitDecoration.stageDeletedResourceForeground" = $gitStageDeleted + "A0"
+        "gitDecoration.renamedResourceForeground" = $gitRenamed + "A0"
+        "gitDecoration.submoduleResourceForeground" = $gitSubmodule + "A0"
         "quickInput.background" = $bgSurface
         "quickInput.foreground" = $fg
         "quickInputList.focusBackground" = $bgHover
@@ -863,8 +974,8 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "terminal.tab.activeBorder" = $fgMuted
         "terminalCursor.foreground" = $fg
         "terminalCommandDecoration.defaultBackground" = $fgMuted
-        "terminalCommandDecoration.successBackground" = $fgMuted
-        "terminalCommandDecoration.errorBackground" = $scheme.red
+        "terminalCommandDecoration.successBackground" = $success
+        "terminalCommandDecoration.errorBackground" = $error
         "terminal.ansiBlack" = $scheme.black
         "terminal.ansiRed" = $scheme.red
         "terminal.ansiGreen" = $scheme.green
@@ -881,54 +992,54 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "terminal.ansiBrightMagenta" = $scheme.brightPurple
         "terminal.ansiBrightCyan" = $scheme.brightCyan
         "terminal.ansiBrightWhite" = $scheme.brightWhite
-        "debugIcon.startForeground" = $scheme.green
-        "debugIcon.pauseForeground" = $scheme.yellow
-        "debugIcon.stopForeground" = $scheme.red
-        "debugIcon.restartForeground" = $scheme.green
-        "debugIcon.breakpointForeground" = $scheme.red
-        "debugConsole.errorForeground" = $scheme.red
-        "debugConsole.warningForeground" = $scheme.yellow
-        "debugConsole.infoForeground" = $scheme.green
-        "debugTokenExpression.error" = $scheme.red
-        "debugTokenExpression.value" = $scheme.green
-        "debugTokenExpression.string" = $scheme.yellow
-        "debugTokenExpression.boolean" = $scheme.purple
-        "debugTokenExpression.number" = $scheme.purple
-        "debugTokenExpression.name" = $scheme.blue
-        "testing.iconFailed" = $scheme.red
-        "testing.iconErrored" = $scheme.red
-        "testing.iconPassed" = $scheme.green
-        "testing.iconQueued" = $scheme.blue
-        "testing.iconSkipped" = $scheme.purple
-        "testing.iconUnset" = $scheme.yellow
+        "debugIcon.startForeground" = $success
+        "debugIcon.pauseForeground" = $warning
+        "debugIcon.stopForeground" = $error
+        "debugIcon.restartForeground" = $success
+        "debugIcon.breakpointForeground" = $error
+        "debugConsole.errorForeground" = $error
+        "debugConsole.warningForeground" = $warning
+        "debugConsole.infoForeground" = $success
+        "debugTokenExpression.error" = $error
+        "debugTokenExpression.value" = $success
+        "debugTokenExpression.string" = $warning
+        "debugTokenExpression.boolean" = $conflict
+        "debugTokenExpression.number" = $conflict
+        "debugTokenExpression.name" = $info
+        "testing.iconFailed" = $error
+        "testing.iconErrored" = $error
+        "testing.iconPassed" = $success
+        "testing.iconQueued" = $info
+        "testing.iconSkipped" = $conflict
+        "testing.iconUnset" = $warning
         "testing.runAction" = $accent
-        "charts.red" = $scheme.red
+        "charts.red" = $error
         "charts.orange" = $scheme.brightRed
-        "charts.yellow" = $scheme.yellow
-        "charts.green" = $scheme.green
-        "charts.blue" = $scheme.blue
-        "charts.purple" = $scheme.purple
+        "charts.yellow" = $warning
+        "charts.green" = $success
+        "charts.blue" = $info
+        "charts.purple" = $conflict
         "charts.foreground" = $fg
-        "problemsErrorIcon.foreground" = $scheme.red
-        "problemsWarningIcon.foreground" = $scheme.yellow
-        "problemsInfoIcon.foreground" = $scheme.blue
+        "problemsErrorIcon.foreground" = $error
+        "problemsWarningIcon.foreground" = $warning
+        "problemsInfoIcon.foreground" = $info
         "minimap.background" = $bgBase
         "minimapSlider.background" = $fgMuted + "20"
         "minimapSlider.hoverBackground" = $fgMuted + "40"
         "minimapSlider.activeBackground" = $fgMuted + "50"
-        "minimapGutter.addedBackground" = $scheme.green + "A0"
-        "minimapGutter.modifiedBackground" = $scheme.blue + "A0"
-        "minimapGutter.deletedBackground" = $scheme.red + "A0"
+        "minimapGutter.addedBackground" = $gitAdded + "A0"
+        "minimapGutter.modifiedBackground" = $gitModified + "A0"
+        "minimapGutter.deletedBackground" = $gitDeleted + "A0"
         "editorMarkerNavigation.background" = $bgSurface
-        "editorMarkerNavigationError.background" = $scheme.red + "20"
-        "editorMarkerNavigationWarning.background" = $scheme.yellow + "20"
-        "editorMarkerNavigationInfo.background" = $scheme.blue + "20"
+        "editorMarkerNavigationError.background" = $error + "20"
+        "editorMarkerNavigationWarning.background" = $warning + "20"
+        "editorMarkerNavigationInfo.background" = $info + "20"
         "breadcrumb.foreground" = $fgDim
         "breadcrumb.focusForeground" = $fg
         "breadcrumb.activeSelectionForeground" = $fg
         "breadcrumbPicker.background" = $bgSurface
         "settings.headerForeground" = $fgDim
-        "settings.modifiedItemIndicator" = $fgMuted
+        "settings.modifiedItemIndicator" = $gitModified
         "settings.focusedRowBackground" = $bgSurface
         "settings.rowHoverBackground" = $bgSurface
         "settings.checkboxBackground" = $bgBase
@@ -961,9 +1072,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "extensionButton.separator" = $bgBase + "40"
         "extensionBadge.remoteBackground" = $accent
         "extensionBadge.remoteForeground" = $bgBase
-        "extensionIcon.starForeground" = $scheme.yellow
+        "extensionIcon.starForeground" = $warning
         "extensionIcon.verifiedForeground" = $accent
-        "extensionIcon.preReleaseForeground" = $scheme.yellow
+        "extensionIcon.preReleaseForeground" = $warning
         "checkbox.background" = $bgBase
         "checkbox.foreground" = $fg
         "checkbox.border" = $bgBorder
@@ -1002,12 +1113,31 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         "inlineChat.foreground" = $fg
         "inlineChatInput.background" = $bgBase
         "inlineChatInput.border" = $bgBorder
-        "scmGraph.foreground1" = $scheme.green
-        "scmGraph.foreground2" = $scheme.blue
-        "scmGraph.foreground3" = $scheme.yellow
-        "scmGraph.foreground4" = $scheme.purple
-        "scmGraph.foreground5" = $scheme.cyan
+        "scmGraph.foreground1" = $gitAdded
+        "scmGraph.foreground2" = $gitModified
+        "scmGraph.foreground3" = $info
+        "scmGraph.foreground4" = $conflict
+        "scmGraph.foreground5" = $gitRenamed
     }
+}
+
+function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
+    _Sync-VSCodeExtension
+    $themeFile = "$script:VS_EXT_DEST\themes\nulifyer.json"
+    if (-not (Test-Path (Split-Path $themeFile))) { return }
+
+    # Check VSCode, VSCode Insiders, and VSCodium
+    $vsSettingsPath = $null
+    foreach ($p in @(
+        "$env:APPDATA\Code\User\settings.json"
+        "$env:APPDATA\Code - Insiders\User\settings.json"
+        "$env:APPDATA\VSCodium\User\settings.json"
+    )) {
+        if (Test-Path $p) { $vsSettingsPath = $p; break }
+    }
+    if (-not $vsSettingsPath) { return }
+
+    $colors = Get-VSCodeColorCustomizations $scheme $themeName
 
     # Token color mapping — one rule per scope to ensure specificity over base theme
     $orange = $scheme.brightRed   # brightRed is typically the orange slot in most themes
@@ -1020,9 +1150,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     }
 
     $tokenColors = @(
-        # ── Standalone rules grouped by semantic role (prevents Dark VS/Dark+ color leaks) ──
+        # -- Standalone rules grouped by semantic role (prevents Dark VS/Dark+ color leaks) --
 
-        # ── Comments — muted ──
+        # -- Comments — muted --
         (_tc "comment" $fgMuted)
         (_tc "punctuation.definition.comment" $fgMuted)
         (_tc "punctuation.definition.comment.zig" $fgMuted)
@@ -1033,7 +1163,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "string.quoted.docstring.multi" $fgMuted)
         (_tc "meta.shebang" $fgMuted)
 
-        # ── Strings — brightGreen (regexp → cyan) ──
+        # -- Strings — brightGreen (regexp → cyan) --
         (_tc "string" $scheme.brightGreen)
         (_tc "string.tag" $scheme.brightGreen)
         (_tc "string.value" $scheme.brightGreen)
@@ -1066,7 +1196,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.string.end.ruby" $scheme.brightGreen)
         (_tc "variable.parameter.url.scss" $scheme.brightGreen)
 
-        # ── Constants — purple ──
+        # -- Constants — purple --
         (_tc "constant" $scheme.purple)
         (_tc "constant.language" $scheme.purple)
         (_tc "constant.language.null" $scheme.purple)
@@ -1121,7 +1251,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.other.unit.less" $scheme.purple)
         (_tc "support.constant.variable.powershell" $scheme.purple)
 
-        # ── Format placeholders & escapes — orange ──
+        # -- Format placeholders & escapes — orange --
         (_tc "constant.other.placeholder" $orange)
         (_tc "constant.character.format.placeholder" $orange)
         (_tc "constant.character.escape" $orange)
@@ -1129,7 +1259,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "constant.other.color.rgb-value" $scheme.brightGreen)
         (_tc "constant.other.rgb-value" $scheme.brightGreen)
 
-        # ── Keywords & storage — red ──
+        # -- Keywords & storage — red --
         (_tc "keyword" $scheme.red)
         (_tc "keyword.control" $scheme.red)
         (_tc "keyword.other.using" $scheme.red)
@@ -1344,10 +1474,10 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "storage.modifier.scope.powershell" $scheme.red)
         (_tc "keyword.other.powershell" $scheme.red)
 
-        # ── Storage type — green (type declarations, not keywords) ──
+        # -- Storage type — green (type declarations, not keywords) --
         (_tc "storage.type" $scheme.green)
 
-        # ── Word-like operators — red ──
+        # -- Word-like operators — red --
         (_tc "keyword.operator.expression" $scheme.red)
         (_tc "keyword.operator.new" $scheme.red)
         (_tc "keyword.operator.delete" $scheme.red)
@@ -1368,7 +1498,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.operator.expression.of" $scheme.red)
         (_tc "keyword.operator.expression.keyof" $scheme.red)
 
-        # ── Symbolic operators — orange ──
+        # -- Symbolic operators — orange --
         (_tc "keyword.operator" $orange)
         (_tc "keyword.operator.logical" $orange)
         (_tc "keyword.operator.bitwise" $orange)
@@ -1450,7 +1580,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "variable.parameter.register.assembly" $orange)
         (_tc "support.type.register.assembly" $orange)
 
-        # ── Regex ──
+        # -- Regex --
         (_tc "support.other.parenthesis.regexp" $scheme.brightGreen)
         (_tc "punctuation.definition.group.regexp" $scheme.brightGreen)
         (_tc "punctuation.definition.group.assertion.regexp" $scheme.brightGreen)
@@ -1464,7 +1594,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.operator.or.regexp" $scheme.yellow)
         (_tc "keyword.control.anchor.regexp" $scheme.yellow)
 
-        # ── Functions — yellow ──
+        # -- Functions — yellow --
         (_tc "entity.name.function" $scheme.yellow)
         (_tc "entity.name.function.macro" $scheme.yellow)
         (_tc "entity.name.function.preprocessor" $scheme.red)
@@ -1534,7 +1664,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "support.function.powershell" $scheme.yellow)
         (_tc "support.function.attribute.powershell" $scheme.yellow)
 
-        # ── Brackets — bracket color ──
+        # -- Brackets — bracket color --
         (_tc "punctuation.definition.block" $bracket)
         (_tc "punctuation.section" $bracket)
         (_tc "meta.brace" $bracket)
@@ -1566,7 +1696,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.section.group.end.powershell" $bracket)
         (_tc "meta.attribute.powershell" $bracket)
 
-        # ── Types — green ──
+        # -- Types — green --
         (_tc "entity.name.type" $scheme.green)
         (_tc "entity.name.class" $scheme.green)
         (_tc "entity.name.namespace" $scheme.green)
@@ -1705,7 +1835,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         # lang-specific types — LaTeX
         (_tc "support.class.latex" $scheme.green)
 
-        # ── Variables — foreground ──
+        # -- Variables — foreground --
         (_tc "variable" $fg)
         (_tc "variable.other" $fg)
         (_tc "variable.other.readwrite" $fg)
@@ -1754,7 +1884,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "support.variable.drive.powershell" $fg)
         (_tc "source.coffee.embedded" $fg)
 
-        # ── variable.language — red (self, this, super, etc.) ──
+        # -- variable.language — red (self, this, super, etc.) --
         (_tc "variable.language" $scheme.red)
         (_tc "variable.language.this" $scheme.red)
         (_tc "variable.language.super" $scheme.red)
@@ -1773,7 +1903,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "variable.other.predefined.perl" $scheme.red)
         (_tc "support.variable.automatic.powershell" $scheme.red)
 
-        # ── Tags — yellow (tag names) / orange (attributes) / muted (punctuation) ──
+        # -- Tags — yellow (tag names) / orange (attributes) / muted (punctuation) --
         (_tc "entity.name.tag" $scheme.yellow)
         (_tc "entity.name.tag.css" $scheme.yellow)
         (_tc "entity.name.tag.less" $scheme.yellow)
@@ -1819,7 +1949,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.tag.begin.ts" $fgMuted)
         (_tc "punctuation.definition.tag.end.ts" $fgMuted)
 
-        # ── CSS / SCSS / Less — property names & values ──
+        # -- CSS / SCSS / Less — property names & values --
         (_tc "support.type.vendored.property-name" $scheme.yellow)
         (_tc "support.type.property-name" $scheme.yellow)
         (_tc "meta.property-name.scss" $scheme.yellow)
@@ -1830,7 +1960,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "support.constant.media" $scheme.brightGreen)
         (_tc "support.constant.color" $scheme.brightGreen)
 
-        # ── JSON / object keys — yellow ──
+        # -- JSON / object keys — yellow --
         (_tc "meta.object-literal.key" $scheme.yellow)
         (_tc "support.type.property-name.json" $scheme.yellow)
         (_tc "support.type.property-name.toml" $scheme.yellow)
@@ -1842,7 +1972,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "entity.other.attribute-name.table.array.toml" $scheme.yellow "bold")
         (_tc "variable.other.readwrite.env" $scheme.yellow)
 
-        # ── Decorators & annotations — yellow ──
+        # -- Decorators & annotations — yellow --
         (_tc "meta.decorator" $scheme.yellow)
         (_tc "entity.name.decorator" $scheme.yellow)
         (_tc "punctuation.decorator" $scheme.yellow)
@@ -1858,7 +1988,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "keyword.other.hashtable.begin.powershell" $scheme.yellow)
         (_tc "variable.other.member.powershell" $scheme.yellow)
 
-        # ── Resets — foreground ──
+        # -- Resets — foreground --
         (_tc "meta.embedded" $fg)
         (_tc "source.groovy.embedded" $fg)
         (_tc "meta.template.expression" $fg)
@@ -1866,7 +1996,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "storage.modifier.import.java" $fg)
         (_tc "storage.modifier.package.java" $fg)
 
-        # ── Misc ──
+        # -- Misc --
         (_tc "meta.diff.header" $scheme.yellow)
         (_tc "header" $scheme.yellow)
         (_tc "invalid" $scheme.red)
@@ -1887,7 +2017,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "string.unquoted.cdata.xml" $scheme.brightGreen)
         (_tc "meta.separator.markdown" $fgMuted)
 
-        # ── Markup ──
+        # -- Markup --
         (_tc "markup.heading" $scheme.yellow "bold")
         (_tc "markup.heading.section.latex" $scheme.yellow "bold")
         (_tc "markup.bold" $fg "bold")
@@ -1919,7 +2049,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.list.begin.markdown" $orange)
         (_tc "fenced_code.block.language" $scheme.green)
 
-        # ── Text ──
+        # -- Text --
         (_tc "text" $fg)
     )
 
@@ -2060,7 +2190,7 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     }
 }
 
-# ── File Pilot theming ─────────────────────────────────────────────────────
+# -- File Pilot theming -----------------------------------------------------
 
 function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
     $configPath = "$env:APPDATA\Voidstar\FilePilot\FPilot-Config.json"
@@ -2195,7 +2325,7 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
     } catch { return $false }
 }
 
-# ── Browser theming (Chromium-based) ───────────────────────────────────────
+# -- Browser theming (Chromium-based) ---------------------------------------
 # Uses BrowserThemeColor managed policy via registry. Works on stock browsers.
 
 function Update-BrowserTheme([hashtable]$scheme) {
@@ -2226,7 +2356,7 @@ function Update-BrowserTheme([hashtable]$scheme) {
     return $updated
 }
 
-# ── Windows system theming ─────────────────────────────────────────────────
+# -- Windows system theming -------------------------------------------------
 
 function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) { return }
@@ -2275,7 +2405,7 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     try { [NativeMethods]::BroadcastSettingChange() } catch {}
 }
 
-# ── Wallpaper theming ──────────────────────────────────────────────────────
+# -- Wallpaper theming ------------------------------------------------------
 
 $script:WP_ORIGINALS = "$env:USERPROFILE\.config\wallpapers\originals"
 $script:WP_CACHE = "$env:USERPROFILE\.config\wallpapers\cache"

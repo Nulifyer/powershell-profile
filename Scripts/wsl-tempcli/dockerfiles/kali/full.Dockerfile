@@ -1,11 +1,11 @@
 FROM ghcr.io/nulifyer/wsl-tempcli:kali-slim
 
-# ── Dev packages ───────────────────────────────────────────────────────────────
+# -- Dev packages ---------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3 nmap dnsutils iproute2 iputils-ping iotop \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Language runtimes ──────────────────────────────────────────────────────────
+# -- Language runtimes ----------------------------------------------------------
 
 # Go
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -
@@ -25,7 +25,7 @@ ENV PATH="$DOTNET_ROOT:$PATH"
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
 
-# ── Update runtime user ───────────────────────────────────────────────────────
+# -- Update runtime user -------------------------------------------------------
 RUN cp /root/.zshrc /home/$RUNTIME_USER/.zshrc && \
     chown $RUNTIME_USER:$RUNTIME_GROUP /home/$RUNTIME_USER/.zshrc
 

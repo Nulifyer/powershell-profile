@@ -20,14 +20,14 @@
 
 $c = Get-Colors
 
-# ── Configuration ──────────────────────────────────────────────────────────
+# -- Configuration ----------------------------------------------------------
 # WCAG contrast ratio threshold.  Common targets:
 #   4.5  = WCAG AA normal text
 #   3.0  = WCAG AA large text / UI components
 #   7.0  = WCAG AAA normal text
 $script:RequiredRatio = 4.5
 
-# ── Color math ─────────────────────────────────────────────────────────────
+# -- Color math -------------------------------------------------------------
 
 function _HexToRgb([string]$hex) {
     $hex = $hex.TrimStart('#')
@@ -69,7 +69,7 @@ function _Swatch([string]$hex) {
     "$([char]27)[48;2;$($rgb[0]);$($rgb[1]);$($rgb[2])m  $([char]27)[0m"
 }
 
-# ── Pair testing ───────────────────────────────────────────────────────────
+# -- Pair testing -----------------------------------------------------------
 
 $script:passCount = 0
 $script:failCount = 0
@@ -97,7 +97,7 @@ function _TestPair([string]$context, [string]$label, [string]$fgHex, [string]$bg
     }
 }
 
-# ── Build pairs for a theme ────────────────────────────────────────────────
+# -- Build pairs for a theme ------------------------------------------------
 
 function _AuditTheme([string]$themeName) {
     $theme = Get-Theme $themeName
@@ -120,7 +120,7 @@ function _AuditTheme([string]$themeName) {
     $fgDim    = $scheme.white
     $fgMuted  = $scheme.brightBlack
 
-    # ── Terminal ───────────────────────────────────────────────────────────
+    # -- Terminal -----------------------------------------------------------
     _TestPair "terminal" "foreground on background"       $fg       $bgBase
     _TestPair "terminal" "cursor on background"           $scheme.cursorColor $bgBase
 
@@ -136,48 +136,48 @@ function _AuditTheme([string]$themeName) {
         _TestPair "terminal" "$col on background"         $hex $bgBase
     }
 
-    # ── VS Code: editor ───────────────────────────────────────────────────
+    # -- VS Code: editor ---------------------------------------------------
     _TestPair "vscode" "editor.foreground on editor.background"     $fg      $bgBase
     _TestPair "vscode" "fgDim on editor.background"                 $fgDim   $bgBase
     _TestPair "vscode" "fgMuted on editor.background"               $fgMuted $bgBase
 
-    # ── VS Code: sidebar / activity bar ────────────────────────────────────
+    # -- VS Code: sidebar / activity bar ------------------------------------
     _TestPair "vscode" "sideBar.foreground on sideBar.background"   $fgDim   $bgMid
     _TestPair "vscode" "activityBar.foreground on activityBar.bg"   $fgDim   $bgMid
     _TestPair "vscode" "activityBar.inactive on activityBar.bg"     $fgMuted $bgMid
 
-    # ── VS Code: status bar ────────────────────────────────────────────────
+    # -- VS Code: status bar ------------------------------------------------
     _TestPair "vscode" "statusBar.foreground on statusBar.bg"       $fgDim   $bgDarkest
     _TestPair "vscode" "statusBar.debugFg on statusBar.bg"          $scheme.yellow $bgDarkest
     _TestPair "vscode" "statusBar.errorFg on statusBar.bg"          $scheme.red    $bgDarkest
     _TestPair "vscode" "statusBar.warningFg on statusBar.bg"        $scheme.yellow $bgDarkest
 
-    # ── VS Code: title bar ─────────────────────────────────────────────────
+    # -- VS Code: title bar -------------------------------------------------
     _TestPair "vscode" "titleBar.activeFg on titleBar.bg"           $fgDim   $bgDarkest
     _TestPair "vscode" "titleBar.inactiveFg on titleBar.bg"         $fgMuted $bgDarkest
 
-    # ── VS Code: menu ──────────────────────────────────────────────────────
+    # -- VS Code: menu ------------------------------------------------------
     _TestPair "vscode" "menu.foreground on menu.background"         $fgDim   $bgDarkest
     _TestPair "vscode" "menu.selectionFg on menu.selectionBg"       $fg      $bgBase
 
-    # ── VS Code: tabs ──────────────────────────────────────────────────────
+    # -- VS Code: tabs ------------------------------------------------------
     _TestPair "vscode" "tab.activeFg on tab.activeBg"               $fg      $bgBase
     _TestPair "vscode" "tab.inactiveFg on tab.inactiveBg"           $fgDim   $bgBase
 
-    # ── VS Code: panel ─────────────────────────────────────────────────────
+    # -- VS Code: panel -----------------------------------------------------
     _TestPair "vscode" "panelTitle.activeFg on panel.bg"            $fgDim   $bgMid
     _TestPair "vscode" "panelTitle.inactiveFg on panel.bg"          $fgMuted $bgMid
 
-    # ── VS Code: inputs / widgets ──────────────────────────────────────────
+    # -- VS Code: inputs / widgets ------------------------------------------
     _TestPair "vscode" "input.foreground on editor.bg"              $fg      $bgBase
     _TestPair "vscode" "quickInput.fg on quickInput.bg"             $fg      $bgSurface
     _TestPair "vscode" "editorWidget.fg on editorWidget.bg"         $fg      $bgBase
     _TestPair "vscode" "editorSuggest.fg on editorSuggest.bg"       $fg      $bgSurface
 
-    # ── VS Code: notifications ─────────────────────────────────────────────
+    # -- VS Code: notifications ---------------------------------------------
     _TestPair "vscode" "notifications.fg on notifications.bg"       $fg      $bgBase
 
-    # ── VS Code: button ────────────────────────────────────────────────────
+    # -- VS Code: button ----------------------------------------------------
     $accentName = $theme.vscode.accent   # e.g. "yellow", "blue" — a color role name
     $accent = $scheme."$accentName"
     if ($accent) {
@@ -187,30 +187,30 @@ function _AuditTheme([string]$themeName) {
     }
     _TestPair "vscode" "button.secondaryFg on button.secondaryBg"  $fg      $bgSurface
 
-    # ── VS Code: peek view ─────────────────────────────────────────────────
+    # -- VS Code: peek view -------------------------------------------------
     _TestPair "vscode" "peekViewResult.fileFg on peekView.bg"       $fg      $bgSurface
     _TestPair "vscode" "peekViewResult.lineFg on peekView.bg"       $fgDim   $bgSurface
 
-    # ── VS Code: breadcrumb / links ────────────────────────────────────────
+    # -- VS Code: breadcrumb / links ----------------------------------------
     $linkName = $theme.vscode.link
     $link = $scheme."$linkName"
     if (-not $link) { $link = $scheme.blue }
     _TestPair "vscode" "textLink on editor.bg"                      $link    $bgBase
 
-    # ── VS Code: terminal inside editor ────────────────────────────────────
+    # -- VS Code: terminal inside editor ------------------------------------
     _TestPair "vscode" "terminal.foreground on terminal.bg"         $fg      $bgBase
 
-    # ── VS Code: editor special colors ─────────────────────────────────────
+    # -- VS Code: editor special colors -------------------------------------
     _TestPair "vscode" "editorLineNumber on editor.bg"              $fgMuted $bgBase
     _TestPair "vscode" "editorCodeLens on editor.bg"                $fgMuted $bgBase
     _TestPair "vscode" "editorGhostText on editor.bg"               $fgMuted $bgBase
 
-    # ── VS Code: git decorations ───────────────────────────────────────────
+    # -- VS Code: git decorations -------------------------------------------
     _TestPair "vscode" "git modified on sideBar.bg"                 $scheme.blue    $bgMid
     _TestPair "vscode" "git deleted on sideBar.bg"                  $scheme.red     $bgMid
     _TestPair "vscode" "git untracked on sideBar.bg"                $scheme.yellow  $bgMid
 
-    # ── File Pilot ─────────────────────────────────────────────────────────
+    # -- File Pilot ---------------------------------------------------------
     $fpBg    = $bgBase
     $fpSurf  = Adjust-HexBrightness $bgBase -15
     $fpBgDk  = Adjust-HexBrightness $bgBase -30
@@ -226,7 +226,7 @@ function _AuditTheme([string]$themeName) {
     _TestPair "filepilot" "Secondary on Caption"            $fgMuted  $fpBgDk
     _TestPair "filepilot" "IconTint on Background"          $scheme.cyan    $fpBg
 
-    # ── Prompt ─────────────────────────────────────────────────────────────
+    # -- Prompt -------------------------------------------------------------
     # Prompt colors are top-level on the theme object with # prefix
     $promptMap = @{
         "os"       = $theme.muted
@@ -241,7 +241,7 @@ function _AuditTheme([string]$themeName) {
     }
 }
 
-# ── Main ───────────────────────────────────────────────────────────────────
+# -- Main -------------------------------------------------------------------
 
 $parsed = Parse-Args $args @{
     "all"   = @{ Type = "switch"; Aliases = @("all", "a") }
@@ -297,7 +297,7 @@ foreach ($tn in $themeNames) {
     $totalFail += $script:failCount
 }
 
-# ── Summary ────────────────────────────────────────────────────────────────
+# -- Summary ----------------------------------------------------------------
 
 Write-Host "  $($c.bold)Summary$($c.reset)  $($c.green)$totalPass pass$($c.reset)  $(if ($totalFail -gt 0) { "$($c.red)$totalFail fail$($c.reset)" } else { "$($c.dim)0 fail$($c.reset)" })"
 

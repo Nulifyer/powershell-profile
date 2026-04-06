@@ -115,7 +115,7 @@ $blue = "$esc[34m"
 
 Write-Host ""
 Write-Host "$bold$cyan󰀄  AD Groups for $yellow$Username$reset  $dim($($groupObjects.Count) groups)$reset"
-Write-Host "$dim$("─" * 80)$reset"
+Write-Host "$dim$("-" * 80)$reset"
 
 $byOU = $groupObjects | Group-Object OrganizationalUnit | Sort-Object Name
 
@@ -150,5 +150,5 @@ foreach ($ouGroup in $byOU) {
 }
 
 Write-Host ""
-Write-Host "$dim$("─" * 80)$reset"
+Write-Host "$dim$("-" * 80)$reset"
 Write-Host ""

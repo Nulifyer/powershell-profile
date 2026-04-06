@@ -19,7 +19,7 @@
 
 $c = Get-Colors
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# -- Helpers -----------------------------------------------------------------
 
 function _Set-SelectedWallpaper([string]$originalPath, [string]$displayName) {
     Set-ScriptConfig "wallpaper" "name" ([System.IO.Path]::GetFileName($originalPath))
@@ -207,7 +207,7 @@ function _Browse-Wallhaven {
     _Set-SelectedWallpaper $localPath ([System.IO.Path]::GetFileName($localPath))
 }
 
-# ── Args ────────────────────────────────────────────────────────────────────
+# -- Args --------------------------------------------------------------------
 
 $parsed = Parse-Args $args @{
     clear   = @{ Aliases = @('clear');                   Type = 'switch' }
@@ -221,7 +221,7 @@ if ($parsed._help) { Show-Help; exit 0 }
 
 $subcommand = $parsed._positional | Select-Object -First 1
 
-# ── --current ──────────────────────────────────────────────────────────────
+# -- --current --------------------------------------------------------------
 
 if ($parsed.current) {
     $wpName = Get-ScriptConfig "wallpaper" "name"
@@ -229,7 +229,7 @@ if ($parsed.current) {
     exit 0
 }
 
-# ── --clear ────────────────────────────────────────────────────────────────
+# -- --clear ----------------------------------------------------------------
 
 if ($parsed.clear) {
     Set-ScriptConfig "wallpaper" "name" ""
@@ -237,7 +237,7 @@ if ($parsed.clear) {
     exit 0
 }
 
-# ── Browse ──────────────────────────────────────────────────────────────────
+# -- Browse ------------------------------------------------------------------
 
 if ($subcommand -eq 'browse') {
     $browseQuery = ($parsed._positional | Select-Object -Skip 1) -join ' '
@@ -255,7 +255,7 @@ if ($subcommand -eq 'browse') {
     exit 0
 }
 
-# ── Local picker / direct set ──────────────────────────────────────────────
+# -- Local picker / direct set ----------------------------------------------
 
 $choice = $subcommand
 

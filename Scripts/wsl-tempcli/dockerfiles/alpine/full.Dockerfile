@@ -1,10 +1,10 @@
 FROM ghcr.io/nulifyer/wsl-tempcli:alpine-slim
 
-# ── Dev packages ───────────────────────────────────────────────────────────────
+# -- Dev packages ---------------------------------------------------------------
 RUN apk add --no-cache \
     build-base python3 nmap bind-tools iproute2 iputils-ping iotop
 
-# ── Language runtimes ──────────────────────────────────────────────────────────
+# -- Language runtimes ----------------------------------------------------------
 
 # Go
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -

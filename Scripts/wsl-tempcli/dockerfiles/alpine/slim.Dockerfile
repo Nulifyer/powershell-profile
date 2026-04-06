@@ -1,6 +1,6 @@
 FROM docker.io/library/alpine:3
 
-# ── System packages ────────────────────────────────────────────────────────────
+# -- System packages ------------------------------------------------------------
 RUN apk update && apk upgrade && apk add --no-cache \
     # Archive & Compression
     bzip2 gzip tar unzip xz zip \
@@ -17,7 +17,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     # Version Control
     git
 
-# ── Shell environment ──────────────────────────────────────────────────────────
+# -- Shell environment ----------------------------------------------------------
 ENV RUNTIME_SHELL=/bin/zsh
 
 RUN curl -fsSL https://ohmyposh.dev/install.sh | sh -s

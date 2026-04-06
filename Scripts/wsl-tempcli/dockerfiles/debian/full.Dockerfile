@@ -1,11 +1,11 @@
 FROM ghcr.io/nulifyer/wsl-tempcli:debian-slim
 
-# ── Dev packages ───────────────────────────────────────────────────────────────
+# -- Dev packages ---------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3 nmap dnsutils iproute2 iputils-ping iotop \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Language runtimes ──────────────────────────────────────────────────────────
+# -- Language runtimes ----------------------------------------------------------
 
 # Go
 RUN curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -

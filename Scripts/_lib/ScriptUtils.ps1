@@ -233,7 +233,7 @@ function Show-ScriptHelp {
     }
 }
 
-# ── Show-Help (#.HELP convention) ────────────────────────────────────────────
+# -- Show-Help (#.HELP convention) --------------------------------------------
 # Reads #.HELP lines from the calling script and displays them.
 # Usage: add #.HELP lines at the top of your script, then call Show-Help.
 
@@ -252,7 +252,7 @@ function Show-Help {
     }
 }
 
-# ── Script Config ─────────────────────────────────────────────────────────────
+# -- Script Config -------------------------------------------------------------
 # Shared JSON config at ~/.config/scriptutils/config.json, keyed by script name.
 
 $script:ConfigPath = Join-Path $env:USERPROFILE '.config\scriptutils\config.json'

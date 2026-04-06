@@ -140,7 +140,7 @@ if ($NoColor) {
 foreach ($grp in $allGroups) {
     Write-Host ""
     Write-Host "$bold$cyan󰡉  Group: $yellow$($grp.GroupName)$reset"
-    Write-Host "$dim$("─" * 70)$reset"
+    Write-Host "$dim$("-" * 70)$reset"
     Write-Host "  $blue  Members: $bold$($grp.MemberCount)$reset"
     
     if ($grp.Members.Count -gt 0) {
@@ -153,7 +153,7 @@ foreach ($grp in $allGroups) {
         
         # Header
         Write-Host "    $dim$("Username".PadRight($maxUser))  $("Display Name".PadRight($maxName))  Email$reset"
-        Write-Host "    $dim$("─" * $maxUser)  $("─" * $maxName)  $("─" * 40)$reset"
+        Write-Host "    $dim$("-" * $maxUser)  $("-" * $maxName)  $("-" * 40)$reset"
         
         foreach ($member in $grp.Members | Sort-Object Username) {
             $user = $member.Username.PadRight($maxUser)
@@ -168,6 +168,6 @@ foreach ($grp in $allGroups) {
     }
     
     Write-Host ""
-    Write-Host "$dim$("─" * 70)$reset"
+    Write-Host "$dim$("-" * 70)$reset"
     Write-Host ""
 }

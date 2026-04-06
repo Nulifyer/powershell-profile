@@ -58,14 +58,14 @@ $script:c = Get-Colors -Disabled:$parsed.NoColor
 # Migrate data from old per-script JSON files into shared config
 Migrate-SqltoolsData
 
-# ─── Manage Bookmarks ─────────────────────────────────────────────────────────
+# --- Manage Bookmarks ---------------------------------------------------------
 
 if ($parsed.Manage) {
     Show-ManageBookmarks
     exit 0
 }
 
-# ─── Resolve Connection ───────────────────────────────────────────────────────
+# --- Resolve Connection -------------------------------------------------------
 
 $Server = $parsed.Server
 $Database = $parsed.Database
@@ -115,7 +115,7 @@ $script:activeDsn = $null
 
 Resolve-Connection
 
-# ─── Non-Interactive Modes ────────────────────────────────────────────────────
+# --- Non-Interactive Modes ----------------------------------------------------
 
 # Run a .sql file
 if ($parsed.File) {
@@ -157,7 +157,7 @@ if ($parsed.Query) {
     exit 0
 }
 
-# ─── Interactive TUI ──────────────────────────────────────────────────────────
+# --- Interactive TUI ----------------------------------------------------------
 
 Require-Fzf
 Enter-AltScreen

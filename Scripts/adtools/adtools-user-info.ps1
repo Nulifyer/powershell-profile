@@ -248,7 +248,7 @@ $office = "{0} - {1}" -f (Get-Prop 'physicalDeliveryOfficeName'), (Get-Prop 'str
 
 # Header card
 Write-Host ""
-Write-Host "$bold$cyan╭─────────────────────────────────────────────────────────────────╮$reset"
+Write-Host "$bold$cyan╭-----------------------------------------------------------------╮$reset"
 Write-Host "$bold$cyan│$reset  $bold󰀄  $yellow$displayName$reset"
 Write-Host "$bold$cyan│$reset     $dim@$Username$reset"
 if ($title -or $department) {
@@ -256,13 +256,13 @@ if ($title -or $department) {
     Write-Host "$bold$cyan│$reset     $titleDept"
 }
 if ($company) { Write-Host "$bold$cyan│$reset     $dim$company$reset" }
-Write-Host "$bold$cyan╰─────────────────────────────────────────────────────────────────╯$reset"
+Write-Host "$bold$cyan╰-----------------------------------------------------------------╯$reset"
 
 # Section helper
 function Write-Section($title, $icon) {
     Write-Host ""
     Write-Host "  $bold$magenta$icon  $title$reset"
-    Write-Host "  $dim$("─" * 50)$reset"
+    Write-Host "  $dim$("-" * 50)$reset"
 }
 
 function Write-Field($label, $value, $labelWidth = 20) {
@@ -376,7 +376,7 @@ if ($DirectReports) {
         Write-Host ""
         $header = "    $bold$("Username".PadRight($colUser))  $("Name".PadRight($colName))  $("Title".PadRight($colTitle))  Email$reset"
         Write-Host $header
-        Write-Host "    $dim$("─" * $colUser)  $("─" * $colName)  $("─" * $colTitle)  $("─" * 30)$reset"
+        Write-Host "    $dim$("-" * $colUser)  $("-" * $colName)  $("-" * $colTitle)  $("-" * 30)$reset"
         
         # Rows
         foreach ($r in $reports | Sort-Object DisplayName) {

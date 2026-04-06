@@ -19,7 +19,7 @@
 
 $c = Get-Colors
 
-# ── Determine target theme ──────────────────────────────────────────────────
+# -- Determine target theme --------------------------------------------------
 
 $parsed = Parse-Args $args @{}
 $themeName = $parsed._positional | Select-Object -First 1
@@ -38,7 +38,7 @@ if (-not $theme) {
 $scheme = $theme
 $palette = $theme
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# -- Helpers -----------------------------------------------------------------
 
 $script:passCount = 0
 $script:failCount = 0
@@ -76,7 +76,7 @@ function _SectionResult([string]$name, [int]$checks, [int]$fails) {
     }
 }
 
-# ── Windows Terminal ────────────────────────────────────────────────────────
+# -- Windows Terminal --------------------------------------------------------
 
 $wtSettings = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
 
@@ -113,7 +113,7 @@ if (Test-Path $wtSettings) {
 }
 _SectionResult "Windows Terminal" ($script:passCount + $script:failCount) ($script:failCount - $preFail)
 
-# ── Alacritty ───────────────────────────────────────────────────────────────
+# -- Alacritty ---------------------------------------------------------------
 
 _Section "Alacritty"
 $preFail = $script:failCount
@@ -168,7 +168,7 @@ if ($alacrittyPath) {
 }
 _SectionResult "Alacritty" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Kitty ───────────────────────────────────────────────────────────────────
+# -- Kitty -------------------------------------------------------------------
 
 _Section "Kitty"
 $preFail = $script:failCount
@@ -204,7 +204,7 @@ if ($kittyPath) {
 }
 _SectionResult "Kitty" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Ghostty ─────────────────────────────────────────────────────────────────
+# -- Ghostty -----------------------------------------------------------------
 
 _Section "Ghostty"
 $preFail = $script:failCount
@@ -248,7 +248,7 @@ if ($ghosttyPath) {
 }
 _SectionResult "Ghostty" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── WezTerm ─────────────────────────────────────────────────────────────────
+# -- WezTerm -----------------------------------------------------------------
 
 _Section "WezTerm"
 $preFail = $script:failCount
@@ -275,7 +275,7 @@ if ($weztermPath) {
 }
 _SectionResult "WezTerm" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── VS Code ─────────────────────────────────────────────────────────────────
+# -- VS Code -----------------------------------------------------------------
 
 _Section "VS Code"
 $preFail = $script:failCount
@@ -294,309 +294,10 @@ if (Test-Path $vsSettingsPath) {
         _Skip "colorTheme" "not set in settings"
     }
 
-    # Regenerate full expected color map (mirrors Update-VSCodeTheme logic)
+    # Regenerate full expected color map from the shared VS Code generator
     $cc = $vs.'workbench.colorCustomizations'
     if ($cc) {
-        $isLight = _Is-LightTheme $themeName
-        $bgBase = $scheme.background
-        $bgMid = Adjust-HexBrightness $bgBase $(if ($isLight) { 5 } else { -15 })
-        $bgDarkest = Adjust-HexBrightness $bgBase $(if ($isLight) { 10 } else { -30 })
-        $bgSurface = Adjust-HexBrightness $bgBase $(if ($isLight) { -5 } else { 8 })
-        $bgHover = $scheme.foreground + "15"
-        $bgBorder = Adjust-HexBrightness $bgBase $(if ($isLight) { -8 } else { 12 })
-        $fg = $scheme.foreground
-        $fgDim = $scheme.white
-        $fgMuted = $scheme.brightBlack
-
-        # Resolve per-theme vscode role colors
-        $ansiMap = @{
-            red = $scheme.red; green = $scheme.green; yellow = $scheme.yellow
-            blue = $scheme.blue; magenta = $scheme.purple; cyan = $scheme.cyan
-        }
-        $vsc = $scheme.vscode
-        if (-not $vsc) { $vsc = @{ accent = 'cyan'; link = 'green'; match = 'green'; find = 'yellow'; bracket = 'yellow' } }
-        $validRoles = $ansiMap.Keys
-        foreach ($role in @('accent','link','match','find','bracket')) {
-            if ($vsc[$role] -and $vsc[$role] -notin $validRoles) {
-                Write-Warning "Theme vscode.$role = '$($vsc[$role])' is not valid (expected: $($validRoles -join ', '))"
-            }
-        }
-        $accent  = $ansiMap[$vsc.accent]
-        $link    = $ansiMap[$vsc.link]
-        $match   = $ansiMap[$vsc.match]
-        $find    = $ansiMap[$vsc.find]
-        $bracket = $ansiMap[$vsc.bracket]
-
-        $vsExpected = [ordered]@{
-            "foreground" = $fgDim
-            "errorForeground" = $scheme.red
-            "focusBorder" = "#00000000"
-            "selection.background" = $scheme.blue + "40"
-            "descriptionForeground" = $fgDim
-            "widget.shadow" = "#00000070"
-            "icon.foreground" = $accent
-            "editor.background" = $bgBase
-            "editor.foreground" = $fg
-            "editorCursor.foreground" = $scheme.cursorColor
-            "editor.selectionBackground" = $scheme.blue + "40"
-            "editor.selectionHighlightBackground" = $scheme.blue + "18"
-            "editor.inactiveSelectionBackground" = $scheme.blue + "10"
-            "editor.wordHighlightBackground" = $bgSurface + "58"
-            "editor.wordHighlightStrongBackground" = $bgSurface + "B0"
-            "editor.findMatchBackground" = $find + "40"
-            "editor.findMatchHighlightBackground" = $match + "40"
-            "editor.findRangeHighlightBackground" = $match + "20"
-            "editor.lineHighlightBackground" = $bgSurface + "90"
-            "editor.lineHighlightBorder" = "#00000000"
-            "editor.rangeHighlightBackground" = $bgSurface + "80"
-            "editor.foldBackground" = $bgBorder + "80"
-            "editorLink.activeForeground" = $link
-            "editorWhitespace.foreground" = $bgBorder
-            "editorOverviewRuler.border" = "#00000000"
-            "editorLineNumber.foreground" = $fgMuted
-            "editorLineNumber.activeForeground" = $fg
-            "editorBracketHighlight.foreground1" = $bracket
-            "editorBracketHighlight.foreground2" = $bracket
-            "editorBracketHighlight.foreground3" = $bracket
-            "editorBracketHighlight.foreground4" = $bracket
-            "editorBracketHighlight.foreground5" = $bracket
-            "editorBracketHighlight.foreground6" = $bracket
-            "editorBracketMatch.background" = $fgMuted + "80"
-            "editorBracketMatch.border" = "#00000000"
-            "editorError.foreground" = $scheme.red
-            "editorError.background" = $scheme.red + "20"
-            "editorWarning.foreground" = $scheme.yellow
-            "editorWarning.background" = $scheme.yellow + "20"
-            "editorInfo.foreground" = $scheme.blue
-            "editorInfo.background" = $scheme.blue + "20"
-            "editorHint.foreground" = $scheme.purple
-            "editorGutter.background" = "#00000000"
-            "editorGutter.addedBackground" = $scheme.green + "A0"
-            "editorGutter.modifiedBackground" = $scheme.blue + "A0"
-            "editorGutter.deletedBackground" = $scheme.red + "A0"
-            "editorGutter.commentRangeForeground" = $fgMuted
-            "editorInlayHint.foreground" = $fgMuted + "A0"
-            "editorInlayHint.background" = "#00000000"
-            "editorCodeLens.foreground" = $fgMuted
-            "editorSuggestWidget.background" = $bgSurface
-            "editorSuggestWidget.border" = $bgSurface
-            "editorSuggestWidget.foreground" = $fg
-            "editorSuggestWidget.highlightForeground" = $match
-            "editorSuggestWidget.selectedBackground" = $bgBorder
-            "editorHoverWidget.background" = $bgSurface
-            "editorHoverWidget.border" = $bgBorder
-            "editorWidget.background" = $bgBase
-            "editorWidget.foreground" = $fg
-            "editorWidget.border" = $fgMuted
-            "editorGhostText.foreground" = $fgMuted
-            "editorGroup.border" = $bgDarkest
-            "editorGroupHeader.tabsBackground" = $bgBase
-            "editorGroupHeader.noTabsBackground" = $bgBase
-            "tab.activeBackground" = $bgBase
-            "tab.activeForeground" = $fg
-            "tab.activeBorder" = $fgMuted
-            "tab.inactiveBackground" = $bgBase
-            "tab.inactiveForeground" = $fgDim
-            "tab.border" = $bgBase
-            "tab.hoverBackground" = $bgBase
-            "tab.hoverForeground" = $fg
-            "tab.lastPinnedBorder" = $fgMuted
-            "tab.unfocusedActiveBorder" = $fgMuted
-            "tab.unfocusedActiveForeground" = $fgDim
-            "tab.unfocusedInactiveForeground" = $fgMuted
-            "sideBar.background" = $bgMid
-            "sideBar.foreground" = $fgDim
-            "sideBarTitle.foreground" = $fgDim
-            "sideBarSectionHeader.background" = "#00000000"
-            "sideBarSectionHeader.foreground" = $fgDim
-            "activityBar.background" = $bgMid
-            "activityBar.foreground" = $fgDim
-            "activityBar.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
-            "activityBar.border" = $bgMid
-            "activityBar.activeBorder" = $fgMuted
-            "activityBarBadge.background" = $accent
-            "activityBarBadge.foreground" = $bgBase
-            "panel.background" = $bgMid
-            "panel.border" = $bgMid
-            "panelTitle.activeForeground" = $fgDim
-            "panelTitle.activeBorder" = $fgDim
-            "panelTitle.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
-            "panelSectionHeader.background" = $bgSurface
-            "statusBar.background" = $bgDarkest
-            "statusBar.foreground" = $fgDim
-            "statusBar.border" = $bgDarkest
-            "statusBar.debuggingBackground" = $bgDarkest
-            "statusBar.debuggingForeground" = $scheme.yellow
-            "statusBar.noFolderBackground" = $bgDarkest
-            "statusBar.noFolderForeground" = $fgDim
-            "statusBar.noFolderBorder" = $bgDarkest
-            "statusBarItem.hoverBackground" = $bgSurface
-            "statusBarItem.activeBackground" = $bgSurface + "A0"
-            "statusBarItem.remoteBackground" = $bgDarkest
-            "statusBarItem.remoteForeground" = $fgDim
-            "statusBarItem.errorBackground" = $bgDarkest
-            "statusBarItem.errorForeground" = $scheme.red
-            "statusBarItem.warningBackground" = $bgDarkest
-            "statusBarItem.warningForeground" = $scheme.yellow
-            "titleBar.activeBackground" = $bgDarkest
-            "titleBar.activeForeground" = $fgDim
-            "titleBar.inactiveBackground" = $bgDarkest
-            "titleBar.inactiveForeground" = (Adjust-HexBrightness $fgMuted -30)
-            "titleBar.border" = $bgDarkest
-            "menu.background" = $bgDarkest
-            "menu.foreground" = $fgDim
-            "menu.selectionBackground" = $bgBase
-            "menu.selectionForeground" = $fg
-            "menubar.selectionBackground" = $bgBase
-            "menubar.selectionBorder" = $bgBase
-            "list.focusBackground" = $bgHover
-            "list.focusForeground" = $fg
-            "list.focusOutline" = "#00000000"
-            "list.activeSelectionBackground" = $scheme.foreground + "10"
-            "list.activeSelectionForeground" = $fg
-            "list.focusAndSelectionOutline" = $fg + "80"
-            "list.inactiveSelectionBackground" = $bgBase
-            "list.inactiveSelectionForeground" = $fg
-            "list.hoverBackground" = $bgHover
-            "list.hoverForeground" = $fg
-            "list.highlightForeground" = $match
-            "list.errorForeground" = $scheme.red
-            "list.warningForeground" = $scheme.yellow
-            "tree.indentGuidesStroke" = $fgMuted
-            "input.background" = "#00000000"
-            "input.border" = $fg + "40"
-            "input.foreground" = $fg
-            "input.placeholderForeground" = $fg + "80"
-            "inputOption.activeBorder" = $accent
-            "inputOption.activeForeground" = $accent
-            "inputValidation.errorBackground" = $scheme.red
-            "inputValidation.errorBorder" = $scheme.red
-            "inputValidation.errorForeground" = $fg
-            "inputValidation.warningBackground" = $scheme.yellow
-            "inputValidation.warningBorder" = $scheme.yellow
-            "inputValidation.warningForeground" = $fg
-            "inputValidation.infoBackground" = $scheme.blue
-            "inputValidation.infoBorder" = $scheme.blue
-            "inputValidation.infoForeground" = $fg
-            "button.background" = $accent
-            "button.foreground" = $bgBase
-            "button.hoverBackground" = (Adjust-HexBrightness $accent -15)
-            "button.secondaryBackground" = $bgSurface
-            "button.secondaryForeground" = $fg
-            "button.secondaryHoverBackground" = $bgBorder
-            "dropdown.background" = $bgBase
-            "dropdown.border" = $bgBorder
-            "dropdown.foreground" = $fgDim
-            "badge.background" = $accent
-            "badge.foreground" = $bgBase
-            "scrollbar.shadow" = "#00000070"
-            "scrollbarSlider.background" = $fgMuted + "40"
-            "scrollbarSlider.hoverBackground" = $fgMuted + "60"
-            "scrollbarSlider.activeBackground" = $fgMuted + "80"
-            "minimap.errorHighlight" = $scheme.red
-            "minimap.warningHighlight" = $scheme.yellow
-            "minimap.selectionHighlight" = $fgMuted + "80"
-            "minimap.findMatchHighlight" = $match + "D0"
-            "peekView.border" = $bgSurface
-            "peekViewTitle.background" = $bgSurface
-            "peekViewTitleLabel.foreground" = $match
-            "peekViewTitleDescription.foreground" = $fg
-            "peekViewEditor.background" = $bgSurface
-            "peekViewEditor.matchHighlightBackground" = $find + "50"
-            "peekViewEditorGutter.background" = $bgSurface
-            "peekViewResult.background" = $bgSurface
-            "peekViewResult.fileForeground" = $fg
-            "peekViewResult.lineForeground" = $fgMuted
-            "peekViewResult.matchHighlightBackground" = $find + "50"
-            "peekViewResult.selectionBackground" = $match + "50"
-            "diffEditor.insertedTextBackground" = $scheme.green + "40"
-            "diffEditor.removedTextBackground" = $scheme.red + "40"
-            "diffEditor.diagonalFill" = $bgBorder
-            "notificationCenterHeader.background" = $bgBorder
-            "notificationCenterHeader.foreground" = $fg
-            "notifications.background" = $bgBase
-            "notifications.foreground" = $fg
-            "notificationsErrorIcon.foreground" = $scheme.red
-            "notificationsWarningIcon.foreground" = $scheme.yellow
-            "notificationsInfoIcon.foreground" = $scheme.blue
-            "notificationLink.foreground" = $link
-            "progressBar.background" = $accent
-            "gitDecoration.addedResourceForeground" = $scheme.green + "A0"
-            "gitDecoration.modifiedResourceForeground" = $scheme.blue + "A0"
-            "gitDecoration.deletedResourceForeground" = $scheme.red + "A0"
-            "gitDecoration.untrackedResourceForeground" = $scheme.yellow + "A0"
-            "gitDecoration.ignoredResourceForeground" = (Adjust-HexBrightness $fgMuted -30)
-            "gitDecoration.conflictingResourceForeground" = $scheme.purple + "A0"
-            "gitDecoration.stageModifiedResourceForeground" = $scheme.cyan + "A0"
-            "gitDecoration.stageDeletedResourceForeground" = $scheme.cyan + "A0"
-            "gitDecoration.submoduleResourceForeground" = $scheme.yellow + "A0"
-            "quickInputTitle.background" = $bgSurface
-            "pickerGroup.foreground" = $fg
-            "pickerGroup.border" = $fg + "1A"
-            "textLink.foreground" = $link
-            "textLink.activeForeground" = (Adjust-HexBrightness $link -15)
-            "textPreformat.foreground" = $accent
-            "textBlockQuote.background" = $bgSurface
-            "textBlockQuote.border" = $fgMuted
-            "textCodeBlock.background" = $bgSurface
-            "terminal.background" = $bgBase
-            "terminal.foreground" = $fg
-            "terminalCursor.foreground" = $fg
-            "terminal.ansiBlack" = $scheme.black
-            "terminal.ansiRed" = $scheme.red
-            "terminal.ansiGreen" = $scheme.green
-            "terminal.ansiYellow" = $scheme.yellow
-            "terminal.ansiBlue" = $scheme.blue
-            "terminal.ansiMagenta" = $scheme.purple
-            "terminal.ansiCyan" = $scheme.cyan
-            "terminal.ansiWhite" = $scheme.white
-            "terminal.ansiBrightBlack" = $scheme.brightBlack
-            "terminal.ansiBrightRed" = $scheme.brightRed
-            "terminal.ansiBrightGreen" = $scheme.brightGreen
-            "terminal.ansiBrightYellow" = $scheme.brightYellow
-            "terminal.ansiBrightBlue" = $scheme.brightBlue
-            "terminal.ansiBrightMagenta" = $scheme.brightPurple
-            "terminal.ansiBrightCyan" = $scheme.brightCyan
-            "terminal.ansiBrightWhite" = $scheme.brightWhite
-            "debugIcon.startForeground" = $scheme.green
-            "debugIcon.pauseForeground" = $scheme.yellow
-            "debugIcon.stopForeground" = $scheme.red
-            "debugIcon.restartForeground" = $scheme.green
-            "debugIcon.breakpointForeground" = $scheme.red
-            "debugConsole.errorForeground" = $scheme.red
-            "debugConsole.warningForeground" = $scheme.yellow
-            "debugConsole.infoForeground" = $scheme.green
-            "debugTokenExpression.error" = $scheme.red
-            "debugTokenExpression.value" = $scheme.green
-            "debugTokenExpression.string" = $scheme.yellow
-            "debugTokenExpression.boolean" = $scheme.purple
-            "debugTokenExpression.number" = $scheme.purple
-            "debugTokenExpression.name" = $scheme.blue
-            "testing.iconFailed" = $scheme.red
-            "testing.iconErrored" = $scheme.red
-            "testing.iconPassed" = $scheme.green
-            "testing.iconQueued" = $scheme.blue
-            "testing.iconSkipped" = $scheme.purple
-            "testing.iconUnset" = $scheme.yellow
-            "testing.runAction" = $accent
-            "charts.red" = $scheme.red
-            "charts.orange" = $scheme.brightRed
-            "charts.yellow" = $scheme.yellow
-            "charts.green" = $scheme.green
-            "charts.blue" = $scheme.blue
-            "charts.purple" = $scheme.purple
-            "charts.foreground" = $fg
-            "problemsErrorIcon.foreground" = $scheme.red
-            "problemsWarningIcon.foreground" = $scheme.yellow
-            "problemsInfoIcon.foreground" = $scheme.blue
-            "breadcrumb.foreground" = $fgDim
-            "breadcrumb.focusForeground" = $fg
-            "breadcrumb.activeSelectionForeground" = $fg
-            "settings.headerForeground" = $fgDim
-            "settings.modifiedItemIndicator" = $fgMuted
-            "settings.focusedRowBackground" = $bgSurface
-            "settings.rowHoverBackground" = $bgSurface
-        }
+        $vsExpected = Get-VSCodeColorCustomizations $scheme $themeName
 
         foreach ($prop in $vsExpected.Keys) {
             $actual = $cc.$prop
@@ -854,7 +555,7 @@ if (Test-Path $vsSettingsPath) {
 }
 _SectionResult "VS Code" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── File Pilot ──────────────────────────────────────────────────────────────
+# -- File Pilot --------------------------------------------------------------
 
 _Section "File Pilot"
 $preFail = $script:failCount
@@ -902,7 +603,7 @@ if (Test-Path $fpConfigPath) {
 }
 _SectionResult "File Pilot" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Browsers ────────────────────────────────────────────────────────────────
+# -- Browsers ----------------------------------------------------------------
 
 _Section "Browsers"
 $preFail = $script:failCount
@@ -935,7 +636,7 @@ if ($script:passCount -eq $prePass -and $script:failCount -eq $preFail) {
 }
 _SectionResult "Browsers" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Windows System ──────────────────────────────────────────────────────────
+# -- Windows System ----------------------------------------------------------
 
 _Section "Windows System"
 $preFail = $script:failCount
@@ -990,7 +691,7 @@ if ($null -ne $actualMenu) {
 
 _SectionResult "Windows System" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Karchy ──────────────────────────────────────────────────────────────────
+# -- Karchy ------------------------------------------------------------------
 
 _Section "Karchy"
 $preFail = $script:failCount
@@ -1011,7 +712,7 @@ if (Test-Path $karchyPath) {
 }
 _SectionResult "Karchy" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Saved Config ────────────────────────────────────────────────────────────
+# -- Saved Config ------------------------------------------------------------
 
 _Section "Saved Config"
 $preFail = $script:failCount
@@ -1025,7 +726,7 @@ if ($savedTheme) {
 }
 _SectionResult "Saved Config" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Lutgen Palette ──────────────────────────────────────────────────────────
+# -- Lutgen Palette ----------------------------------------------------------
 
 _Section "Lutgen Palette"
 $preFail = $script:failCount
@@ -1069,7 +770,7 @@ if ($lutgenName) {
 }
 _SectionResult "Lutgen Palette" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Theme Data Integrity ───────────────────────────────────────────────────
+# -- Theme Data Integrity ---------------------------------------------------
 
 _Section "Theme Data"
 $preFail = $script:failCount
@@ -1105,7 +806,7 @@ foreach ($key in $requiredKeys) {
 
 _SectionResult "Theme Data" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
-# ── Summary ─────────────────────────────────────────────────────────────────
+# -- Summary -----------------------------------------------------------------
 
 Write-Host ""
 Write-Host "  $($c.bold)Theme: $themeName$($c.reset)"

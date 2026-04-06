@@ -43,7 +43,7 @@ function _Build-Theme([string]$key, [hashtable]$t) {
         brightPurple        = $term.bright.magenta
         brightCyan          = $term.bright.cyan
         brightWhite         = $term.bright.white
-        # Per-theme vscode role map (accent, link, match, find, bracket)
+        # Per-theme vscode role map. Values may be palette names, semantic role names, or hex.
         vscode              = $t.vscode
     }
 }

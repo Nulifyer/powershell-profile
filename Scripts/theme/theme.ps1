@@ -11,7 +11,7 @@
 . "$PSScriptRoot\..\_lib\TerminalConfig.ps1"
 . "$PSScriptRoot\..\_lib\ThemeData.ps1"
 
-# ── Config ───────────────────────────────────────────────────────────────────
+# -- Config -------------------------------------------------------------------
 
 $configKey = "theme"
 $currentTheme = Get-ScriptConfig $configKey "palette"
@@ -25,7 +25,7 @@ $choice = $parsed._positional | Select-Object -First 1
 
 if ($parsed._help) { Show-Help; exit 0 }
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# -- Helpers -----------------------------------------------------------------
 
 function _hex2rgb([string]$hex) {
     $r = [Convert]::ToInt32($hex.Substring(1,2),16)
@@ -39,7 +39,7 @@ function _swatch([hashtable]$t) {
     return "`e[38;2;${uh}m●`e[0m `e[38;2;${pa}m●`e[0m `e[38;2;${g}m●`e[0m"
 }
 
-# ── --list ───────────────────────────────────────────────────────────────────
+# -- --list -------------------------------------------------------------------
 
 if ($parsed.List) {
     $themes = Get-Themes
@@ -54,14 +54,14 @@ if ($parsed.List) {
     exit 0
 }
 
-# ── --current ────────────────────────────────────────────────────────────────
+# -- --current ----------------------------------------------------------------
 
 if ($parsed.Current) {
     Write-Host $currentTheme
     exit 0
 }
 
-# ── No args: fzf picker ─────────────────────────────────────────────────────
+# -- No args: fzf picker -----------------------------------------------------
 
 if (-not $choice) {
     $themes = Get-Themes
@@ -116,7 +116,7 @@ if (-not $choice) {
         # Fallback: plain list
         Write-Host ""
         Write-Host "  Prompt Palette" -ForegroundColor Cyan
-        Write-Host "  $("─" * 40)" -ForegroundColor DarkGray
+        Write-Host "  $("-" * 40)" -ForegroundColor DarkGray
         foreach ($name in $themes.Keys) {
             $swatch = _swatch $themes[$name]
             $marker = if ($name -eq $currentTheme) { "*" } else { " " }
@@ -124,7 +124,7 @@ if (-not $choice) {
             Write-Host "  $marker $swatch " -NoNewline
             Write-Host "$name" -ForegroundColor $color
         }
-        Write-Host "  $("─" * 40)" -ForegroundColor DarkGray
+        Write-Host "  $("-" * 40)" -ForegroundColor DarkGray
         Write-Host "  Current: $currentTheme" -ForegroundColor DarkGray
         Write-Host "  Usage:   theme <name>" -ForegroundColor DarkGray
         Write-Host ""
@@ -132,7 +132,7 @@ if (-not $choice) {
     }
 }
 
-# ── Set palette ──────────────────────────────────────────────────────────────
+# -- Set palette --------------------------------------------------------------
 
 $theme = Get-Theme $choice
 if (-not $theme) {
@@ -144,7 +144,7 @@ if (-not $theme) {
 # Save choice
 Set-ScriptConfig $configKey "palette" $choice
 
-# ── Update everything ───────────────────────────────────────────────────────
+# -- Update everything -------------------------------------------------------
 
 $updated = @()
 

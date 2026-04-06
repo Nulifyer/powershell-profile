@@ -1,6 +1,6 @@
 FROM docker.io/library/debian:13-slim
 
-# ── System packages ────────────────────────────────────────────────────────────
+# -- System packages ------------------------------------------------------------
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     # Archive & Compression
     bzip2 gzip tar unzip xz-utils zip \
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Shell environment ──────────────────────────────────────────────────────────
+# -- Shell environment ----------------------------------------------------------
 ENV RUNTIME_SHELL=/bin/zsh
 
 RUN curl -fsSL https://ohmyposh.dev/install.sh | sh -s

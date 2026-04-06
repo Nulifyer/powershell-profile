@@ -1,14 +1,37 @@
-#═══════════════════════════════════════════════════════════════════════════════
+#===============================================================================
 # PowerShell Profile Configuration
-#═══════════════════════════════════════════════════════════════════════════════
+#===============================================================================
 
+$profileStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $profileLoadStart = Get-Date
 $profileCache = "$env:TEMP\pwsh-profile"
 if (-not (Test-Path $profileCache)) { New-Item -ItemType Directory -Path $profileCache -Force | Out-Null }
 
-#───────────────────────────────────────────────────────────────────────────────
+$script:ProfileTimingEnabled = @('1', 'true', 'yes', 'on') -contains "$env:PWSH_PROFILE_TIMING".ToLowerInvariant()
+
+function _tm([string]$Label) {
+    if (-not $script:ProfileTimingEnabled) { return }
+    $elapsed = [math]::Round($profileStopwatch.Elapsed.TotalMilliseconds, 1)
+    Write-Host ("[tm +{0,7:N1} ms] {1}" -f $elapsed, $Label) -ForegroundColor DarkGray
+}
+
+function Test-InteractiveShell {
+    try {
+        if (-not [Environment]::UserInteractive) { return $false }
+        if ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected) { return $false }
+        $null = $Host.UI.RawUI
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+$script:IsInteractiveShell = Test-InteractiveShell
+_tm "startup"
+
+#-------------------------------------------------------------------------------
 # UPDATE CHECKS (PowerShell version + profile repo, once per week)
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 $updateCheckFile = "$PSScriptRoot\LastUpdateCheck.txt"
 $updateInterval = 7 # days
@@ -77,7 +100,7 @@ function _Check-ProfileUpdates {
     }
 }
 
-if ($runUpdateCheck) {
+if ($script:IsInteractiveShell -and $runUpdateCheck) {
     # Test GitHub connectivity (1s timeout)
     $canConnect = try {
         if ($PSVersionTable.PSEdition -eq "Core") {
@@ -94,12 +117,13 @@ if ($runUpdateCheck) {
         (Get-Date -Format 'yyyy-MM-dd') | Set-Content $updateCheckFile
     }
 }
+_tm "update checks"
 
 
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # ENVIRONMENT & PATHS
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 # UTF-8 output (no BOM) — required for Nerd Font glyphs in the prompt
 $_utf8NoBom = [System.Text.UTF8Encoding]::new($false)
@@ -118,10 +142,16 @@ try {
         Write-Warning "PROFILE: Could not load user PATH from registry"
     }
 
-    # Merge, deduplicate (case-insensitive), and filter empty entries
-    $mergedPath = ($systemPath + ";" + $userPath) -split ";" |
-        Where-Object { $_ -ne "" } |
-        Sort-Object -Unique -Property { $_.ToLower() }
+    # Merge and deduplicate case-insensitively while preserving PATH order.
+    $seenPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $mergedPath = foreach ($entry in (($systemPath + ";" + $userPath) -split ";")) {
+        if (-not [string]::IsNullOrWhiteSpace($entry)) {
+            $normalized = $entry.Trim()
+            if ($seenPaths.Add($normalized)) {
+                $normalized
+            }
+        }
+    }
 
     $env:PATH = $mergedPath -join ";"
 } catch {
@@ -138,6 +168,23 @@ function Add-PathEntry([string]$Dir) {
     if ($Dir -and (Test-Path $Dir) -and ($env:PATH -split ';' | ForEach-Object { $_.TrimEnd('\') }) -notcontains $Dir.TrimEnd('\')) {
         $env:PATH += ";$Dir"
     }
+}
+
+function Ensure-CompletionLoaded {
+    param(
+        [Parameter(Mandatory)][string]$StateName,
+        [Parameter(Mandatory)][string]$Path
+    )
+
+    if (Get-Variable -Scope Script -Name $StateName -ValueOnly -ErrorAction SilentlyContinue) {
+        return
+    }
+
+    if (Test-Path $Path) {
+        . $Path
+    }
+
+    Set-Variable -Scope Script -Name $StateName -Value $true
 }
 
 # Git binaries path (for Unix utilities)
@@ -157,6 +204,7 @@ if (Test-Path $WinGetPackages) {
         @{
             'sharkdp.fd'            = 'fd.exe'
             'BurntSushi.ripgrep'    = 'rg.exe'
+            'BurntSushi.ripgrep.MSVC' = 'rg.exe'
             'junegunn.fzf'          = 'fzf.exe'
             'eza-community.eza'     = 'eza.exe'
             'sharkdp.bat'           = 'bat.exe'
@@ -166,6 +214,7 @@ if (Test-Path $WinGetPackages) {
             'sharkdp.hyperfine'     = 'hyperfine.exe'
             'XAMPPRocky.tokei'      = 'tokei.exe'
             'aristocratos.btop4win' = 'btop4win.exe'
+            'hpjansson.Chafa'       = 'chafa.exe'
             'charmbracelet.glow'    = 'glow.exe'
             'jqlang.jq'             = 'jq.exe'
             'SQLite.SQLite'         = 'sqlite3.exe'
@@ -182,9 +231,10 @@ if (Test-Path $WinGetPackages) {
         $resolvedPaths | Set-Content $wingetCacheFile
     }
 }
-#───────────────────────────────────────────────────────────────────────────────
+_tm "environment and paths"
+#-------------------------------------------------------------------------------
 # LOAD SCRIPTS AS ALIASES
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 $scriptsFolder = "$HOME\Documents\PowerShell\Scripts"
 if (Test-Path $scriptsFolder) {
@@ -204,9 +254,10 @@ if (Test-Path $scriptsFolder) {
         }
     }
 }
-#───────────────────────────────────────────────────────────────────────────────
+_tm "script aliases"
+#-------------------------------------------------------------------------------
 # PROMPT (uses palette truecolors from active theme)
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 $_e = [char]27
 $global:_c = @{
@@ -305,69 +356,73 @@ function prompt {
 
     return "${os}${uh}${pathStr}${gitStr}$($c.muted)`u{f105}$($c.reset) "
 }
+_tm "prompt and theme"
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # PSREADLINE CONFIGURATION
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
-# Emacs-style keybindings (Ctrl+A, Ctrl+E, Ctrl+K, etc.)
-Set-PSReadLineOption -EditMode Emacs
+if ($script:IsInteractiveShell) {
+    # Emacs-style keybindings (Ctrl+A, Ctrl+E, Ctrl+K, etc.)
+    Set-PSReadLineOption -EditMode Emacs
 
-# Enable predictive IntelliSense (like zsh autosuggestions)
-Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-Set-PSReadLineOption -PredictionViewStyle ListView
+    # Enable predictive IntelliSense (like zsh autosuggestions)
+    Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+    Set-PSReadLineOption -PredictionViewStyle ListView
 
-# Colors for predictions (uses terminal bright black — follows theme)
-Set-PSReadLineOption -Colors @{
-    InlinePrediction = $_c.muted
-}
+    # Colors for predictions (uses terminal bright black — follows theme)
+    Set-PSReadLineOption -Colors @{
+        InlinePrediction = $_c.muted
+    }
 
-# Accept suggestion with Right Arrow or End key
-Set-PSReadLineKeyHandler -Key RightArrow -Function ForwardWord
-Set-PSReadLineKeyHandler -Key End -Function AcceptSuggestion
+    # Accept suggestion with Right Arrow or End key
+    Set-PSReadLineKeyHandler -Key RightArrow -Function ForwardWord
+    Set-PSReadLineKeyHandler -Key End -Function AcceptSuggestion
 
-# Tab completion menu like zsh
-Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+    # Tab completion menu like zsh
+    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 
-# Paste behavior - multiline without auto-execution
-$pasteBlock = {
-    Add-Type -AssemblyName System.Windows.Forms
-    $text = [System.Windows.Forms.Clipboard]::GetText()
-    if ($text) {
-        # Normalize line endings: remove \r, keep only \n
-        $text = $text -replace "`r`n", "`n" -replace "`r", "`n"
-        [Microsoft.PowerShell.PSConsoleReadLine]::Insert($text)
+    # Paste behavior - multiline without auto-execution
+    $pasteBlock = {
+        Add-Type -AssemblyName System.Windows.Forms
+        $text = [System.Windows.Forms.Clipboard]::GetText()
+        if ($text) {
+            # Normalize line endings: remove \r, keep only \n
+            $text = $text -replace "`r`n", "`n" -replace "`r", "`n"
+            [Microsoft.PowerShell.PSConsoleReadLine]::Insert($text)
+        }
+    }
+    Set-PSReadLineKeyHandler -Key Ctrl+v -ScriptBlock $pasteBlock
+    Set-PSReadLineKeyHandler -Key Ctrl+Shift+v -ScriptBlock $pasteBlock
+
+    # Linux-style keybindings
+    Set-PSReadLineKeyHandler -Key Ctrl+l -Function ClearScreen
+    Set-PSReadLineKeyHandler -Key Ctrl+d -Function DeleteCharOrExit
+    Set-PSReadLineKeyHandler -Key Ctrl+u -Function BackwardDeleteLine
+    Set-PSReadLineKeyHandler -Key Ctrl+w -Function BackwardDeleteWord
+
+    # Word-by-word navigation with Ctrl+Left/Right
+    Set-PSReadLineKeyHandler -Key Ctrl+LeftArrow  -Function BackwardWord
+    Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
+    Set-PSReadLineKeyHandler -Key Ctrl+Delete     -Function DeleteWord
+    Set-PSReadLineKeyHandler -Key Ctrl+Backspace  -Function BackwardDeleteWord
+
+    # Undo
+    Set-PSReadLineKeyHandler -Key Ctrl+z -Function Undo
+
+    # Transient prompt: collapse previous prompt to just ❯ on Enter
+    Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+        $global:_transientPrompt = $true
+        [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+        [Console]::Write("`e[J")
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
     }
 }
-Set-PSReadLineKeyHandler -Key Ctrl+v -ScriptBlock $pasteBlock
-Set-PSReadLineKeyHandler -Key Ctrl+Shift+v -ScriptBlock $pasteBlock
+_tm "psreadline"
 
-# Linux-style keybindings
-Set-PSReadLineKeyHandler -Key Ctrl+l -Function ClearScreen
-Set-PSReadLineKeyHandler -Key Ctrl+d -Function DeleteCharOrExit
-Set-PSReadLineKeyHandler -Key Ctrl+u -Function BackwardDeleteLine
-Set-PSReadLineKeyHandler -Key Ctrl+w -Function BackwardDeleteWord
-
-# Word-by-word navigation with Ctrl+Left/Right
-Set-PSReadLineKeyHandler -Key Ctrl+LeftArrow  -Function BackwardWord
-Set-PSReadLineKeyHandler -Key Ctrl+RightArrow -Function ForwardWord
-Set-PSReadLineKeyHandler -Key Ctrl+Delete     -Function DeleteWord
-Set-PSReadLineKeyHandler -Key Ctrl+Backspace  -Function BackwardDeleteWord
-
-# Undo
-Set-PSReadLineKeyHandler -Key Ctrl+z -Function Undo
-
-# Transient prompt: collapse previous prompt to just ❯ on Enter
-Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
-    $global:_transientPrompt = $true
-    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
-    [Console]::Write("`e[J")
-    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
-}
-
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # ALIASES - Unix Utilities (from Git)
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 # Remove conflicting built-in aliases
 Remove-Alias -Name pwd -Force -ErrorAction SilentlyContinue
@@ -375,77 +430,78 @@ Remove-Alias -Name curl -Force -ErrorAction SilentlyContinue
 Remove-Alias -Name sort -Force -ErrorAction SilentlyContinue
 Remove-Alias -Name diff -Force -ErrorAction SilentlyContinue
 
-# Core utilities
-Set-Alias -Name grep        -Value "$GitUsrBin\grep.exe"
-Set-Alias -Name awk         -Value "$GitUsrBin\awk.exe"
-Set-Alias -Name sed         -Value "$GitUsrBin\sed.exe"
-Set-Alias -Name sort        -Value "$GitUsrBin\sort.exe"
-Set-Alias -Name diff        -Value "$GitUsrBin\diff.exe"
-Set-Alias -Name tr          -Value "$GitUsrBin\tr.exe"
+if (Test-Path $GitUsrBin) {
+    # Core utilities
+    Set-Alias -Name grep        -Value "$GitUsrBin\grep.exe"
+    Set-Alias -Name awk         -Value "$GitUsrBin\awk.exe"
+    Set-Alias -Name sed         -Value "$GitUsrBin\sed.exe"
+    Set-Alias -Name sort        -Value "$GitUsrBin\sort.exe"
+    Set-Alias -Name diff        -Value "$GitUsrBin\diff.exe"
+    Set-Alias -Name tr          -Value "$GitUsrBin\tr.exe"
 
-# Text processing
-Set-Alias -Name head        -Value "$GitUsrBin\head.exe"
-Set-Alias -Name tail        -Value "$GitUsrBin\tail.exe"
-Set-Alias -Name wc          -Value "$GitUsrBin\wc.exe"
-Set-Alias -Name cut         -Value "$GitUsrBin\cut.exe"
-Set-Alias -Name uniq        -Value "$GitUsrBin\uniq.exe"
-Set-Alias -Name xargs       -Value "$GitUsrBin\xargs.exe"
+    # Text processing
+    Set-Alias -Name head        -Value "$GitUsrBin\head.exe"
+    Set-Alias -Name tail        -Value "$GitUsrBin\tail.exe"
+    Set-Alias -Name wc          -Value "$GitUsrBin\wc.exe"
+    Set-Alias -Name cut         -Value "$GitUsrBin\cut.exe"
+    Set-Alias -Name uniq        -Value "$GitUsrBin\uniq.exe"
+    Set-Alias -Name xargs       -Value "$GitUsrBin\xargs.exe"
 
-# Editors & pagers
-Set-Alias -Name vim         -Value "$GitUsrBin\vim.exe"
-Set-Alias -Name nano        -Value "$GitUsrBin\nano.exe"
-Set-Alias -Name less        -Value "$GitUsrBin\less.exe"
+    # Editors & pagers
+    Set-Alias -Name vim         -Value "$GitUsrBin\vim.exe"
+    Set-Alias -Name nano        -Value "$GitUsrBin\nano.exe"
+    Set-Alias -Name less        -Value "$GitUsrBin\less.exe"
 
-# SSH
-Set-Alias -Name ssh-keygen  -Value "$GitUsrBin\ssh-keygen.exe"
-Set-Alias -Name ssh         -Value "$GitUsrBin\ssh.exe"
+    # SSH
+    Set-Alias -Name ssh-keygen  -Value "$GitUsrBin\ssh-keygen.exe"
+    Set-Alias -Name ssh         -Value "$GitUsrBin\ssh.exe"
+}
+_tm "git aliases"
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # ALIASES - General
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 Set-Alias -Name which       -Value Get-Command
-Set-Alias -Name docker      -Value podman
+$podmanCmd = Get-Command podman -ErrorAction SilentlyContinue
+$dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+if (-not $dockerCmd -and $podmanCmd) {
+    Set-Alias -Name docker -Value podman
+}
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # PODMAN/DOCKER TAB COMPLETION
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
-if (Get-Command podman -ErrorAction SilentlyContinue) {
+$podmanExe = if ($podmanCmd -and $podmanCmd.CommandType -eq 'Application') { $podmanCmd.Source } else { $null }
+if ($podmanExe) {
     $podmanCompletion = "$HOME\Documents\PowerShell\Completions\podman-completion.ps1"
     $parentDir = Split-Path $podmanCompletion
     if (-not (Test-Path $parentDir)) {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
     }
-    if (-not (Test-Path $podmanCompletion)) {
-        podman completion powershell > $podmanCompletion | Out-Null
-    }
-    if (Test-Path $podmanCompletion) {
-        . $podmanCompletion
-    }
+    $script:PodmanCompletionLoaded = $false
+    function podman { Ensure-CompletionLoaded -StateName 'PodmanCompletionLoaded' -Path $podmanCompletion; & $podmanExe @args }
 }
-$dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
-if ($dockerCmd -and $dockerCmd.CommandType -ne 'Alias') {
+$dockerExe = if ($dockerCmd -and $dockerCmd.CommandType -eq 'Application') { $dockerCmd.Source } else { $null }
+if ($dockerExe) {
     $dockerCompletion = "$HOME\Documents\PowerShell\Completions\docker-completion.ps1"
     $parentDir = Split-Path $dockerCompletion
     if (-not (Test-Path $parentDir)) {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
     }
-    if (-not (Test-Path $dockerCompletion)) {
-        docker completion powershell > $dockerCompletion | Out-Null
-    }
-    if (Test-Path $dockerCompletion) {
-        . $dockerCompletion
-    }
+    $script:DockerCompletionLoaded = $false
+    function docker { Ensure-CompletionLoaded -StateName 'DockerCompletionLoaded' -Path $dockerCompletion; & $dockerExe @args }
 }
 
 # Theme name tab completion
 $themeCompletion = "$HOME\Documents\PowerShell\Completions\theme-completion.ps1"
 if (Test-Path $themeCompletion) { . $themeCompletion }
+_tm "completions"
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # ENHANCED TOOLS (eza, bat)
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 # ls with colors (using eza if installed, fallback to Get-ChildItem)
 if (Get-Command eza -ErrorAction SilentlyContinue) {
@@ -466,9 +522,13 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
     function cat { bat --paging=never @args }
 }
 
-#───────────────────────────────────────────────────────────────────────────────
+if (Get-Command btop4win -ErrorAction SilentlyContinue) {
+    Set-Alias -Name btop -Value btop4win -Scope Global
+}
+
+#-------------------------------------------------------------------------------
 # FZF INTEGRATION
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 if (Get-Command fzf -ErrorAction SilentlyContinue) {
     # Ctrl+R: fuzzy history search
@@ -499,9 +559,9 @@ if (Get-Command fzf -ErrorAction SilentlyContinue) {
     }
 }
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # FUNCTIONS - File Operations
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 function pwd {
     (Get-Location).Path
@@ -548,17 +608,17 @@ function open {
     Start-Process $Path
 }
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # FUNCTIONS - Navigation
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 function ..   { Set-Location .. }
 function ...  { Set-Location ..\.. }
 function .... { Set-Location ..\..\.. }
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # FUNCTIONS - System Info
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 function df {
     Get-PSDrive -PSProvider FileSystem |
@@ -571,9 +631,9 @@ function df {
 
 Set-Alias -Name du -Value "$GitUsrBin\du.exe"
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # FUNCTIONS - Process Management
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 function psl {
     Get-Process | Select-Object Id, ProcessName, CPU,
@@ -586,13 +646,43 @@ function pkill {
     Get-Process -Name $Name -ErrorAction SilentlyContinue | Stop-Process -Force
 }
 
-function sudo {
-    Start-Process pwsh -Verb RunAs -ArgumentList "-NoExit", "-Command", ($args -join ' ')
+function Format-CommandInvocation {
+    param([object[]]$Tokens)
+
+    if (-not $Tokens -or $Tokens.Count -eq 0) { return $null }
+
+    $quoted = foreach ($token in $Tokens) {
+        [System.Management.Automation.Language.CodeGeneration]::QuoteArgument([string]$token)
+    }
+
+    return '& ' + ($quoted -join ' ')
 }
 
-#───────────────────────────────────────────────────────────────────────────────
+function Invoke-ArgumentCommand {
+    param([object[]]$CommandTokens)
+
+    if (-not $CommandTokens -or $CommandTokens.Count -eq 0) {
+        throw "No command provided."
+    }
+
+    $commandName = [string]$CommandTokens[0]
+    $commandArgs = @($CommandTokens | Select-Object -Skip 1)
+    & $commandName @commandArgs
+}
+
+function sudo {
+    if (-not $args -or $args.Count -eq 0) {
+        Start-Process pwsh -Verb RunAs
+        return
+    }
+
+    $commandText = Format-CommandInvocation $args
+    Start-Process pwsh -Verb RunAs -ArgumentList "-NoExit", "-Command", $commandText
+}
+
+#-------------------------------------------------------------------------------
 # FUNCTIONS - Shell Utilities
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 function h { Get-History | Select-Object -Last 50 }
 
@@ -613,23 +703,43 @@ function watch {
         $Command = @($Command | Select-Object -Skip 2)
     }
     if (-not $Interval) { $Interval = 2 }
-    $cmdStr = $Command -join ' '
+    $cmdStr = Format-CommandInvocation $Command
     if (-not $cmdStr) { Write-Host "Usage: watch [-n secs] <command>"; return }
     while ($true) {
         Clear-Host
         $now = Get-Date -Format "HH:mm:ss"
         Write-Host "Every ${Interval}.0s: $cmdStr    $now" -ForegroundColor DarkGray
         Write-Host ""
-        try { Invoke-Expression $cmdStr } catch { Write-Host $_.Exception.Message -ForegroundColor Red }
+        try { Invoke-ArgumentCommand $Command } catch { Write-Host $_.Exception.Message -ForegroundColor Red }
         Start-Sleep -Seconds $Interval
     }
 }
+_tm "enhanced tools"
 
-Set-Alias -Name file -Value "$GitUsrBin\file.exe"
+function time {
+    param([Parameter(ValueFromRemainingArguments)]$Command)
 
-#───────────────────────────────────────────────────────────────────────────────
+    if (-not $Command -or $Command.Count -eq 0) {
+        Write-Host "Usage: time <command>" -ForegroundColor Yellow
+        return
+    }
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        Invoke-ArgumentCommand $Command
+    } finally {
+        $stopwatch.Stop()
+        Write-Host ("`nreal {0:mm\:ss\.fff}" -f $stopwatch.Elapsed) -ForegroundColor DarkGray
+    }
+}
+
+if (Test-Path $GitUsrBin) {
+    Set-Alias -Name file -Value "$GitUsrBin\file.exe"
+}
+
+#-------------------------------------------------------------------------------
 # FUNCTIONS - Profile Update
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 function profile-update {
     Write-Host "Checking for PowerShell updates..." -ForegroundColor Cyan
@@ -642,10 +752,13 @@ function profile-update {
     (Get-Date -Format 'yyyy-MM-dd') | Set-Content "$PSScriptRoot\LastUpdateCheck.txt"
 }
 Set-Alias -Name pu -Value profile-update
+_tm "functions and aliases"
 
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 # PROFILE LOAD TIME
-#───────────────────────────────────────────────────────────────────────────────
+#-------------------------------------------------------------------------------
 
 $profileLoadTime = (Get-Date) - $profileLoadStart
-Write-Host "Profile loaded in $([math]::Round($profileLoadTime.TotalMilliseconds))ms" -ForegroundColor DarkGray
+if ($script:IsInteractiveShell) {
+    Write-Host "Profile loaded in $([math]::Round($profileLoadTime.TotalMilliseconds))ms" -ForegroundColor DarkGray
+}
