@@ -57,6 +57,14 @@ function Invoke-SqlQueryToFile {
         try {
             if ($Csv) {
                 $writer.WriteLine(($colNames | ForEach-Object { Quote-CsvField $_ }) -join ',')
+                while ($reader.Read()) {
+                    if ($MaxRows -gt 0 -and $rowCount -ge $MaxRows) { break }
+                    $fields = foreach ($i in 0..($colCount - 1)) {
+                        if ($reader.IsDBNull($i)) { '' } else { Quote-CsvField ([string]$reader.GetValue($i)) }
+                    }
+                    $writer.WriteLine(($fields -join ','))
+                    $rowCount++
+                }
             } else {
                 # First pass: read up to 100 rows to calculate widths
                 $buffer = [System.Collections.Generic.List[object[]]]::new()
@@ -78,7 +86,7 @@ function Invoke-SqlQueryToFile {
                 # Write header
                 $header = ($colNames | ForEach-Object { $_.PadRight($colWidths[$_]) }) -join "  "
                 $writer.WriteLine("  $header")
-                $sep = ($colNames | ForEach-Object { [string]::new([char]0x2500, $colWidths[$_]) }) -join "  "
+                $sep = ($colNames | ForEach-Object { '-' * $colWidths[$_] }) -join "  "
                 $writer.WriteLine("  $sep")
 
                 # Write buffered rows

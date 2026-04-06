@@ -27,7 +27,7 @@ function Show-SelectBuilder {
             $typeStr += "($($_.NUMERIC_PRECISION),$($_.NUMERIC_SCALE))"
         }
         $nullable = if ($_.IS_NULLABLE -eq 'YES') { "NULL" } else { "NOT NULL" }
-        "$pk$($_.COLUMN_NAME.PadRight(30)) $($typeStr.PadRight(20)) $nullable"
+        "$($_.COLUMN_NAME)`t$pk$($_.COLUMN_NAME.PadRight(30)) $($typeStr.PadRight(20)) $nullable"
     }
 
     # Step 3: Pick columns (multi-select)
@@ -36,7 +36,7 @@ function Show-SelectBuilder {
 
     # Parse selected column names
     $selectedNames = @($selectedCols) | ForEach-Object {
-        ($_ -replace '^\[(PK|  )\]\s*', '').Trim() -replace '\s+.*$', ''
+        ($_ -split "`t", 2)[0]
     }
 
     # Step 4: TOP N
@@ -54,23 +54,21 @@ function Show-SelectBuilder {
     if ($orderCol -and $orderCol -ne "(none)") {
         $orderDir = Invoke-Fzf -Items @("ASC", "DESC") -Header "Direction" -Prompt "> " -HeightPercent 20
         if (-not $orderDir) { $orderDir = "ASC" }
-        $orderBy = "$orderCol $orderDir"
+        $orderBy = "$(Quote-SqlIdentifierPart -Name $orderCol -Driver $script:activeDriver) $orderDir"
     }
 
     # Step 7: Build query
-    $quote = if ($script:activeDriver -eq 'sqlite') { '"' } else { '' }
-    $quoteL = if ($script:activeDriver -ne 'sqlite') { '[' } else { '"' }
-    $quoteR = if ($script:activeDriver -ne 'sqlite') { ']' } else { '"' }
-    $colList = ($selectedNames | ForEach-Object { "${quoteL}${_}${quoteR}" }) -join ", "
+    $colList = ($selectedNames | ForEach-Object { Quote-SqlIdentifierPart -Name $_ -Driver $script:activeDriver }) -join ", "
+    $tableRef = Format-SqlIdentifier -Name $tableName -Driver $script:activeDriver
     $query = "SELECT"
     if ($script:activeDriver -eq 'sqlite') {
-        $query += " $colList FROM $tableName"
+        $query += " $colList FROM $tableRef"
         if ($where) { $query += " WHERE $where" }
         if ($orderBy) { $query += " ORDER BY $orderBy" }
         if ($topN) { $query += " LIMIT $topN" }
     } else {
         if ($topN) { $query += " TOP $topN" }
-        $query += " $colList FROM $tableName"
+        $query += " $colList FROM $tableRef"
         if ($where) { $query += " WHERE $where" }
         if ($orderBy) { $query += " ORDER BY $orderBy" }
     }

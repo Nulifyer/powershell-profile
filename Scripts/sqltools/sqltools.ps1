@@ -73,23 +73,45 @@ $User = $parsed.User
 $Password = $parsed.Password
 
 function Resolve-Connection {
-    if ($script:Server -and $script:Database) {
-        Save-Bookmark -Server $script:Server -Database $script:Database -User $script:User -Password $script:Password -Driver $script:activeDriver -OdbcDriver $script:activeOdbcDriver -Port $script:activePort -Dsn $script:activeDsn -SavePassword:([bool]$script:Password)
-        return
+    param(
+        [string]$Server,
+        [string]$Database,
+        [string]$User,
+        [string]$Password
+    )
+
+    $resolved = @{
+        Server = $Server
+        Database = $Database
+        User = $User
+        Password = $Password
+        Driver = $script:activeDriver
+        OdbcDriver = $script:activeOdbcDriver
+        Port = $script:activePort
+        Dsn = $script:activeDsn
+    }
+
+    if ($resolved.Server -and $resolved.Database) {
+        Save-Bookmark -Server $resolved.Server -Database $resolved.Database -User $resolved.User -Password $resolved.Password -Driver $resolved.Driver -OdbcDriver $resolved.OdbcDriver -Port $resolved.Port -Dsn $resolved.Dsn -SavePassword:([bool]$resolved.Password)
+        return $resolved
     }
     # Try last bookmark for -q mode
     if ($parsed.Query -or $parsed.File) {
         $bookmarks = @(Get-Bookmarks)
         if ($bookmarks.Count -gt 0) {
             $last = $bookmarks[-1]
-            if (-not $script:Server) { $script:Server = $last.Server }
-            if (-not $script:Database) { $script:Database = $last.Database }
-            if (-not $script:User -and $last.User) {
-                $script:User = $last.User
-                $script:Password = Decrypt-Password $last.EncryptedPassword
-                if (-not $script:Password) { $script:Password = Read-Host "Password for $($script:User)" }
+            if (-not $resolved.Server) { $resolved.Server = $last.Server }
+            if (-not $resolved.Database) { $resolved.Database = $last.Database }
+            if (-not $resolved.User -and $last.User) {
+                $resolved.User = $last.User
+                $resolved.Password = Decrypt-Password $last.EncryptedPassword
+                if (-not $resolved.Password) { $resolved.Password = Read-Host "Password for $($resolved.User)" }
             }
-            return
+            $resolved.Driver = if ($last.Driver) { $last.Driver } else { 'mssql' }
+            $resolved.OdbcDriver = $last.OdbcDriver
+            $resolved.Port = $last.Port
+            $resolved.Dsn = $last.Dsn
+            return $resolved
         }
         Write-Host "No server/database specified and no saved connections." -ForegroundColor Red
         exit 1
@@ -97,14 +119,16 @@ function Resolve-Connection {
     # Interactive picker
     $conn = Show-ConnectionPicker
     if (-not $conn) { exit 0 }
-    $script:Server = $conn.Server
-    $script:Database = $conn.Database
-    $script:User = $conn.User
-    $script:Password = $conn.Password
-    $script:activeDriver = if ($conn.Driver) { $conn.Driver } else { 'mssql' }
-    $script:activeOdbcDriver = $conn.OdbcDriver
-    $script:activePort = $conn.Port
-    $script:activeDsn = $conn.Dsn
+    return @{
+        Server = $conn.Server
+        Database = $conn.Database
+        User = $conn.User
+        Password = $conn.Password
+        Driver = if ($conn.Driver) { $conn.Driver } else { 'mssql' }
+        OdbcDriver = $conn.OdbcDriver
+        Port = $conn.Port
+        Dsn = $conn.Dsn
+    }
 }
 
 # Initialize driver defaults
@@ -113,7 +137,35 @@ $script:activeOdbcDriver = $null
 $script:activePort = 0
 $script:activeDsn = $null
 
-Resolve-Connection
+$resolvedConnection = Resolve-Connection -Server $Server -Database $Database -User $User -Password $Password
+$Server = $resolvedConnection.Server
+$Database = $resolvedConnection.Database
+$User = $resolvedConnection.User
+$Password = $resolvedConnection.Password
+$script:activeDriver = $resolvedConnection.Driver
+$script:activeOdbcDriver = $resolvedConnection.OdbcDriver
+$script:activePort = $resolvedConnection.Port
+$script:activeDsn = $resolvedConnection.Dsn
+
+function Invoke-InteractiveQueryFlow {
+    param([string]$Query)
+
+    if (-not $Query) { return }
+
+    try {
+        Write-Host "  $($c.dim)Executing...$($c.reset)"
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $Query -User $User -Password $Password
+        $sw.Stop()
+        $rowCount = ($tables | ForEach-Object { $_.Rows.Count } | Measure-Object -Sum).Sum
+        Add-QueryHistory -Query $Query -Server $Server -Database $Database -RowCount $rowCount -DurationMs $sw.ElapsedMilliseconds
+        Show-ResultsInLess -Tables $tables -Query $Query
+        Show-PostResultActions -Tables $tables
+    } catch {
+        Write-Host "  $($c.red)Error: $_$($c.reset)"
+        Read-Host "  Press Enter"
+    }
+}
 
 # --- Non-Interactive Modes ----------------------------------------------------
 
@@ -121,8 +173,7 @@ Resolve-Connection
 if ($parsed.File) {
     if (-not (Test-Path $parsed.File)) { Write-Error "File not found: $($parsed.File)"; exit 1 }
     $sql = Get-Content $parsed.File -Raw
-    # Split on GO batch separator (SQL Server only)
-    $batches = if ($script:activeDriver -eq 'sqlite') { @($sql) } else { $sql -split '(?mi)^\s*GO\s*$' | Where-Object { $_.Trim() } }
+    $batches = Split-SqlBatches -Sql $sql -Driver $script:activeDriver
     foreach ($batch in $batches) {
         $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $batch -User $User -Password $Password
         if ($parsed.Raw) {
@@ -181,35 +232,12 @@ try {
         switch -Wildcard ($action) {
             "*Run Query*" {
                 $query = Read-SqlInput
-                if ($query) {
-                    try {
-                        Write-Host "  $($c.dim)Executing...$($c.reset)"
-                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $query -User $User -Password $Password
-                        $sw.Stop()
-                        $rowCount = ($tables | ForEach-Object { $_.Rows.Count } | Measure-Object -Sum).Sum
-                        Add-QueryHistory -Query $query -Server $Server -Database $Database -RowCount $rowCount -DurationMs $sw.ElapsedMilliseconds
-                        Show-ResultsInLess -Tables $tables -Query $query
-                        Show-PostResultActions -Tables $tables
-                    } catch {
-                        Write-Host "  $($c.red)Error: $_$($c.reset)"
-                        Read-Host "  Press Enter"
-                    }
-                }
+                Invoke-InteractiveQueryFlow -Query $query
             }
             "*SELECT Builder*" {
                 try {
                     $query = Show-SelectBuilder -Server $Server -Database $Database -User $User -Password $Password
-                    if ($query) {
-                        Write-Host "  $($c.dim)Executing...$($c.reset)"
-                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $query -User $User -Password $Password
-                        $sw.Stop()
-                        $rowCount = ($tables | ForEach-Object { $_.Rows.Count } | Measure-Object -Sum).Sum
-                        Add-QueryHistory -Query $query -Server $Server -Database $Database -RowCount $rowCount -DurationMs $sw.ElapsedMilliseconds
-                        Show-ResultsInLess -Tables $tables -Query $query
-                        Show-PostResultActions -Tables $tables
-                    }
+                    Invoke-InteractiveQueryFlow -Query $query
                 } catch {
                     Write-Host "  $($c.red)Error: $_$($c.reset)"
                     Read-Host "  Press Enter"
@@ -217,21 +245,7 @@ try {
             }
             "*Query History*" {
                 $query = Show-QueryHistoryPicker
-                if ($query) {
-                    try {
-                        Write-Host "  $($c.dim)Executing...$($c.reset)"
-                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $query -User $User -Password $Password
-                        $sw.Stop()
-                        $rowCount = ($tables | ForEach-Object { $_.Rows.Count } | Measure-Object -Sum).Sum
-                        Add-QueryHistory -Query $query -Server $Server -Database $Database -RowCount $rowCount -DurationMs $sw.ElapsedMilliseconds
-                        Show-ResultsInLess -Tables $tables -Query $query
-                        Show-PostResultActions -Tables $tables
-                    } catch {
-                        Write-Host "  $($c.red)Error: $_$($c.reset)"
-                        Read-Host "  Press Enter"
-                    }
-                }
+                Invoke-InteractiveQueryFlow -Query $query
             }
             "*Browse Tables*" {
                 try {
@@ -244,7 +258,7 @@ try {
                     if ($sel) {
                         $tableName = ($sel -replace '^\[.*?\]\s+', '').Trim()
                         Write-Host "  $($c.dim)Loading $tableName...$($c.reset)"
-                        $previewQuery = if ($script:activeDriver -eq 'sqlite') { "SELECT * FROM [$tableName] LIMIT 100" } else { "SELECT TOP 100 * FROM $tableName" }
+                        $previewQuery = New-SqlPreviewQuery -ObjectName $tableName -Driver $script:activeDriver
                         $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $previewQuery -User $User -Password $Password
                         Show-ResultsInLess -Tables $tables
                         Show-PostResultActions -Tables $tables
@@ -288,7 +302,7 @@ try {
                         switch ($detailAction) {
                             "Columns" {
                                 $cols = Get-ColumnsDetailed -Server $Server -Database $Database -Table $objName -User $User -Password $Password
-                                $colLines = @("", "  Columns: $objName", "  $([string]::new([char]0x2500, 70))")
+                                $colLines = @("", "  Columns: $objName", "  $('-' * 70)")
                                 foreach ($col in $cols) {
                                     $pk = if ($col.IsPK -eq 'PK') { "[PK] " } else { "     " }
                                     $typeStr = $col.DATA_TYPE
@@ -303,14 +317,14 @@ try {
                                 $colLines | less -R
                             }
                             "Preview Data (TOP 100)" {
-                                $previewQuery = if ($script:activeDriver -eq 'sqlite') { "SELECT * FROM [$objName] LIMIT 100" } else { "SELECT TOP 100 * FROM $objName" }
+                                $previewQuery = New-SqlPreviewQuery -ObjectName $objName -Driver $script:activeDriver
                                 $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $previewQuery -User $User -Password $Password
                                 Show-ResultsInLess -Tables $tables
                                 Show-PostResultActions -Tables $tables
                             }
                             "Indexes" {
                                 $idxs = Get-Indexes -Server $Server -Database $Database -Table $objName -User $User -Password $Password
-                                $idxLines = @("", "  Indexes: $objName", "  $([string]::new([char]0x2500, 70))")
+                                $idxLines = @("", "  Indexes: $objName", "  $('-' * 70)")
                                 foreach ($idx in $idxs) {
                                     $idxLines += "  $($idx.Type.PadRight(4)) $($idx.IndexName.PadRight(40)) $($idx.IndexType.PadRight(15)) $($idx.Columns)"
                                 }
@@ -319,7 +333,7 @@ try {
                             }
                             "Foreign Keys" {
                                 $fks = Get-ForeignKeys -Server $Server -Database $Database -Table $objName -User $User -Password $Password
-                                $fkLines = @("", "  Foreign Keys: $objName", "  $([string]::new([char]0x2500, 70))")
+                                $fkLines = @("", "  Foreign Keys: $objName", "  $('-' * 70)")
                                 if ($fks) {
                                     foreach ($fk in $fks) {
                                         $fkLines += "  $($fk.FK_Name)"
@@ -337,10 +351,8 @@ try {
                         }
                     } else {
                         # Sproc/Function — show definition
-                        $schema, $name = $objName -split '\.', 2
-                        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT ROUTINE_DEFINITION FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = '$schema' AND ROUTINE_NAME = '$name'" -User $User -Password $Password
-                        if ($tables[0].Rows.Count -gt 0) {
-                            $def = $tables[0].Rows[0].ROUTINE_DEFINITION
+                        $def = Get-RoutineDefinition -Server $Server -Database $Database -Routine $objName -User $User -Password $Password
+                        if ($def) {
                             $def -split "`n" | less -R
                         }
                     }

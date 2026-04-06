@@ -44,7 +44,7 @@ function Format-DataTableToLines {
     }) -join "  "
     $lines.Add("  $($script:c.green)$header$($script:c.reset)")
 
-    $sep = ($columns | ForEach-Object { [string]::new([char]0x2500, $colWidths[$_]) }) -join "  "
+    $sep = ($columns | ForEach-Object { '-' * $colWidths[$_] }) -join "  "
     $lines.Add("  $($script:c.dim)$sep$($script:c.reset)")
 
     # Rows

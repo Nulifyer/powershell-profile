@@ -47,8 +47,9 @@ function Get-Functions {
 function Get-ColumnsDetailed {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
     if ($script:activeDriver -eq 'sqlite') {
-        $tbl = ($Table -split '\.', 2)[-1]  # strip schema if present
-        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA table_info('$tbl')" -User $User -Password $Password
+        $tbl = (Split-SqlObjectName -Name $Table).Name
+        $tableLiteral = Quote-SqlLiteral -Value $tbl -Driver sqlite
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA table_info($tableLiteral)" -User $User -Password $Password
         return $tables[0] | ForEach-Object {
             @{
                 COLUMN_NAME              = $_.name
@@ -61,7 +62,9 @@ function Get-ColumnsDetailed {
             }
         }
     }
-    $schema, $tbl = $Table -split '\.', 2
+    $parts = Split-SqlObjectName -Name $Table
+    $schema = Quote-SqlLiteral -Value $parts.Schema
+    $tbl = Quote-SqlLiteral -Value $parts.Name
     $q = @"
 SELECT c.COLUMN_NAME, c.DATA_TYPE,
        c.CHARACTER_MAXIMUM_LENGTH, c.NUMERIC_PRECISION, c.NUMERIC_SCALE,
@@ -74,9 +77,9 @@ LEFT JOIN (
     JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
         AND tc.TABLE_SCHEMA = ku.TABLE_SCHEMA AND tc.TABLE_NAME = ku.TABLE_NAME
     WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-        AND tc.TABLE_SCHEMA = '$schema' AND tc.TABLE_NAME = '$tbl'
+        AND tc.TABLE_SCHEMA = $schema AND tc.TABLE_NAME = $tbl
 ) pk ON c.COLUMN_NAME = pk.COLUMN_NAME
-WHERE c.TABLE_SCHEMA = '$schema' AND c.TABLE_NAME = '$tbl'
+WHERE c.TABLE_SCHEMA = $schema AND c.TABLE_NAME = $tbl
 ORDER BY c.ORDINAL_POSITION
 "@
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $q -User $User -Password $Password
@@ -86,12 +89,14 @@ ORDER BY c.ORDINAL_POSITION
 function Get-TableRowCount {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
     if ($script:activeDriver -eq 'sqlite') {
-        $tbl = ($Table -split '\.', 2)[-1]
-        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT COUNT(*) AS RowCount FROM [$tbl]" -User $User -Password $Password
+        $qualifiedName = Format-SqlIdentifier -Name (Split-SqlObjectName -Name $Table).Name -Driver sqlite
+        $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query "SELECT COUNT(*) AS RowCount FROM $qualifiedName" -User $User -Password $Password
         return $tables[0].Rows[0].RowCount
     }
-    $schema, $tbl = $Table -split '\.', 2
-    $q = "SELECT SUM(p.rows) AS RowCount FROM sys.partitions p JOIN sys.tables t ON p.object_id = t.object_id JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = '$schema' AND t.name = '$tbl' AND p.index_id IN (0,1)"
+    $parts = Split-SqlObjectName -Name $Table
+    $schema = Quote-SqlLiteral -Value $parts.Schema
+    $tbl = Quote-SqlLiteral -Value $parts.Name
+    $q = "SELECT SUM(p.rows) AS RowCount FROM sys.partitions p JOIN sys.tables t ON p.object_id = t.object_id JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = $schema AND t.name = $tbl AND p.index_id IN (0,1)"
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $q -User $User -Password $Password
     $tables[0].Rows[0].RowCount
 }
@@ -99,11 +104,13 @@ function Get-TableRowCount {
 function Get-Indexes {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
     if ($script:activeDriver -eq 'sqlite') {
-        $tbl = ($Table -split '\.', 2)[-1]
-        $idxList = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA index_list('$tbl')" -User $User -Password $Password
+        $tbl = (Split-SqlObjectName -Name $Table).Name
+        $tableLiteral = Quote-SqlLiteral -Value $tbl -Driver sqlite
+        $idxList = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA index_list($tableLiteral)" -User $User -Password $Password
         $results = @()
         foreach ($idx in $idxList[0]) {
-            $idxInfo = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA index_info('$($idx.name)')" -User $User -Password $Password
+            $indexLiteral = Quote-SqlLiteral -Value $idx.name -Driver sqlite
+            $idxInfo = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA index_info($indexLiteral)" -User $User -Password $Password
             $cols = ($idxInfo[0] | ForEach-Object { $_.name }) -join ', '
             $results += @{
                 IndexName = $idx.name
@@ -114,7 +121,9 @@ function Get-Indexes {
         }
         return $results
     }
-    $schema, $tbl = $Table -split '\.', 2
+    $parts = Split-SqlObjectName -Name $Table
+    $schema = Quote-SqlLiteral -Value $parts.Schema
+    $tbl = Quote-SqlLiteral -Value $parts.Name
     $q = @"
 SELECT i.name AS IndexName,
        CASE WHEN i.is_primary_key = 1 THEN 'PK'
@@ -127,7 +136,7 @@ JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.inde
 JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 JOIN sys.tables t ON i.object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = '$schema' AND t.name = '$tbl' AND i.name IS NOT NULL
+WHERE s.name = $schema AND t.name = $tbl AND i.name IS NOT NULL
 GROUP BY i.name, i.is_primary_key, i.is_unique, i.type_desc
 ORDER BY i.is_primary_key DESC, i.name
 "@
@@ -138,8 +147,9 @@ ORDER BY i.is_primary_key DESC, i.name
 function Get-ForeignKeys {
     param([string]$Server, [string]$Database, [string]$Table, [string]$User, [string]$Password)
     if ($script:activeDriver -eq 'sqlite') {
-        $tbl = ($Table -split '\.', 2)[-1]
-        $fkList = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA foreign_key_list('$tbl')" -User $User -Password $Password
+        $tbl = (Split-SqlObjectName -Name $Table).Name
+        $tableLiteral = Quote-SqlLiteral -Value $tbl -Driver sqlite
+        $fkList = Invoke-SqlQuery -Server $Server -Database $Database -Query "PRAGMA foreign_key_list($tableLiteral)" -User $User -Password $Password
         return $fkList[0] | ForEach-Object {
             @{
                 FK_Name    = "fk_$($_.id)"
@@ -150,7 +160,9 @@ function Get-ForeignKeys {
             }
         }
     }
-    $schema, $tbl = $Table -split '\.', 2
+    $parts = Split-SqlObjectName -Name $Table
+    $schema = Quote-SqlLiteral -Value $parts.Schema
+    $tbl = Quote-SqlLiteral -Value $parts.Name
     $q = @"
 SELECT fk.name AS FK_Name,
        OBJECT_SCHEMA_NAME(fk.parent_object_id) + '.' + OBJECT_NAME(fk.parent_object_id) AS FromTable,
@@ -159,10 +171,27 @@ SELECT fk.name AS FK_Name,
        COL_NAME(fkc.referenced_object_id, fkc.referenced_column_id) AS ToColumn
 FROM sys.foreign_keys fk
 JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-WHERE (OBJECT_SCHEMA_NAME(fk.parent_object_id) = '$schema' AND OBJECT_NAME(fk.parent_object_id) = '$tbl')
-   OR (OBJECT_SCHEMA_NAME(fk.referenced_object_id) = '$schema' AND OBJECT_NAME(fk.referenced_object_id) = '$tbl')
+WHERE (OBJECT_SCHEMA_NAME(fk.parent_object_id) = $schema AND OBJECT_NAME(fk.parent_object_id) = $tbl)
+   OR (OBJECT_SCHEMA_NAME(fk.referenced_object_id) = $schema AND OBJECT_NAME(fk.referenced_object_id) = $tbl)
 ORDER BY fk.name
 "@
     $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $q -User $User -Password $Password
     $tables[0] | ForEach-Object { $_ }
+}
+
+function Get-RoutineDefinition {
+    param([string]$Server, [string]$Database, [string]$Routine, [string]$User, [string]$Password)
+
+    if ($script:activeDriver -eq 'sqlite') { return $null }
+
+    $parts = Split-SqlObjectName -Name $Routine
+    $schema = Quote-SqlLiteral -Value $parts.Schema
+    $name = Quote-SqlLiteral -Value $parts.Name
+    $q = "SELECT ROUTINE_DEFINITION FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = $schema AND ROUTINE_NAME = $name"
+    $tables = Invoke-SqlQuery -Server $Server -Database $Database -Query $q -User $User -Password $Password
+    if ($tables.Count -gt 0 -and $tables[0].Rows.Count -gt 0) {
+        return $tables[0].Rows[0].ROUTINE_DEFINITION
+    }
+
+    return $null
 }
