@@ -52,7 +52,21 @@ if ($h -or -not $GroupName) {
 
 $ErrorActionPreference = 'Stop'
 
-$groupFilter = "(&(objectClass=group)(cn=$GroupName))"
+function Escape-LdapFilterValue {
+    param([AllowNull()][string]$Value)
+
+    if ($null -eq $Value) { return '' }
+
+    return ($Value `
+        -replace '\\', '\5c' `
+        -replace '\*', '\2a' `
+        -replace '\(', '\28' `
+        -replace '\)', '\29' `
+        -replace ([string][char]0), '\00')
+}
+
+$escapedGroupName = Escape-LdapFilterValue $GroupName
+$groupFilter = "(&(objectClass=group)(cn=$escapedGroupName))"
 $groupSearcher = [System.DirectoryServices.DirectorySearcher]::new($groupFilter)
 
 try {
@@ -71,7 +85,8 @@ $allGroups = @()
 
 foreach ($group in $groupResults) {
     $groupDn = $group.Path.Substring("LDAP://".Length)
-    $userFilter = "(&(objectCategory=User)(memberOf=$groupDn))"
+    $escapedGroupDn = Escape-LdapFilterValue $groupDn
+    $userFilter = "(&(objectCategory=User)(memberOf=$escapedGroupDn))"
     $userSearcher = [System.DirectoryServices.DirectorySearcher]::new($userFilter)
     $userSearcher.PropertiesToLoad.AddRange(@('samaccountname', 'displayname', 'mail', 'distinguishedname'))
 

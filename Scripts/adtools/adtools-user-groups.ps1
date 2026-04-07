@@ -59,7 +59,21 @@ if ($h -or -not $Username) {
 
 $ErrorActionPreference = 'Stop'
 
-$filter = "(&(objectCategory=User)(samAccountName=$Username))"
+function Escape-LdapFilterValue {
+    param([AllowNull()][string]$Value)
+
+    if ($null -eq $Value) { return '' }
+
+    return ($Value `
+        -replace '\\', '\5c' `
+        -replace '\*', '\2a' `
+        -replace '\(', '\28' `
+        -replace '\)', '\29' `
+        -replace ([string][char]0), '\00')
+}
+
+$escapedUsername = Escape-LdapFilterValue $Username
+$filter = "(&(objectCategory=User)(samAccountName=$escapedUsername))"
 $searcher = [System.DirectoryServices.DirectorySearcher]::new($filter)
 
 try {

@@ -69,11 +69,26 @@ if ($h -or -not $Username) {
 
 $ErrorActionPreference = 'Stop'
 
+function Escape-LdapFilterValue {
+    param([AllowNull()][string]$Value)
+
+    if ($null -eq $Value) { return '' }
+
+    return ($Value `
+        -replace '\\', '\5c' `
+        -replace '\*', '\2a' `
+        -replace '\(', '\28' `
+        -replace '\)', '\29' `
+        -replace ([string][char]0), '\00')
+}
+
 # Auto-detect email vs username
 if ($Username -like '*@*') {
-    $filter = "(&(objectCategory=User)(mail=$Username))"
+    $escapedUsername = Escape-LdapFilterValue $Username
+    $filter = "(&(objectCategory=User)(mail=$escapedUsername))"
 } else {
-    $filter = "(&(objectCategory=User)(samAccountName=$Username))"
+    $escapedUsername = Escape-LdapFilterValue $Username
+    $filter = "(&(objectCategory=User)(samAccountName=$escapedUsername))"
 }
 $searcher = [System.DirectoryServices.DirectorySearcher]::new($filter)
 

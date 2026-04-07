@@ -57,6 +57,8 @@ $Help = $false
 $BuildLocal = $false
 $SetConfig = $false
 $cliArgs = $args
+$distroProvided = $false
+$variantProvided = $false
 
 for ($i = 0; $i -lt $cliArgs.Count; $i++) {
     $arg = $cliArgs[$i]
@@ -68,10 +70,12 @@ for ($i = 0; $i -lt $cliArgs.Count; $i++) {
             { $_ -in 'd', 'distro' } {
                 if ($Matches.val) { $Distro = $Matches.val }
                 elseif ($i + 1 -lt $cliArgs.Count) { $Distro = $cliArgs[++$i] }
+                $distroProvided = $true
             }
             { $_ -in 'v', 'variant' } {
                 if ($Matches.val) { $Variant = $Matches.val }
                 elseif ($i + 1 -lt $cliArgs.Count) { $Variant = $cliArgs[++$i] }
+                $variantProvided = $true
             }
             { $_ -in 'c', 'command' } {
                 if ($Matches.val) { $Command = $Matches.val }
@@ -92,6 +96,18 @@ for ($i = 0; $i -lt $cliArgs.Count; $i++) {
     }
 }
 
+if ($SetConfig -and -not $distroProvided -and -not $variantProvided) {
+    # Show current config without substituting hardcoded defaults.
+    $cfg = Get-ScriptConfig "wtc"
+    if ($cfg) {
+        Write-Host "Current wtc defaults:" -ForegroundColor Cyan
+        foreach ($key in $cfg.Keys) { Write-Host "  $key = $($cfg[$key])" }
+    } else {
+        Write-Host "No saved defaults. Using alpine-slim." -ForegroundColor DarkGray
+    }
+    exit 0
+}
+
 # Apply saved defaults, then fall back to hardcoded defaults
 if (-not $Distro)  { $Distro  = (Get-ScriptConfig "wtc" "distro")  ?? 'alpine' }
 if (-not $Variant) { $Variant = (Get-ScriptConfig "wtc" "variant") ?? 'slim' }
@@ -102,17 +118,6 @@ if ($Variant -notin 'slim', 'full') {
 }
 
 if ($SetConfig) {
-    if (-not $Distro -and -not $Variant) {
-        # Show current config
-        $cfg = Get-ScriptConfig "wtc"
-        if ($cfg) {
-            Write-Host "Current wtc defaults:" -ForegroundColor Cyan
-            foreach ($key in $cfg.Keys) { Write-Host "  $key = $($cfg[$key])" }
-        } else {
-            Write-Host "No saved defaults. Using alpine-slim." -ForegroundColor DarkGray
-        }
-        exit 0
-    }
     if ($Distro)  { Set-ScriptConfig "wtc" "distro" $Distro }
     if ($Variant) { Set-ScriptConfig "wtc" "variant" $Variant }
     Write-Host "Defaults saved: distro=$(Get-ScriptConfig 'wtc' 'distro'), variant=$(Get-ScriptConfig 'wtc' 'variant')" -ForegroundColor Green
@@ -141,10 +146,23 @@ if ($Help) {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $imageName = "ghcr.io/nulifyer/wsl-tempcli:${Distro}-${Variant}"
 
-# Convert Windows path to WSL-style path
-$currentPath = (Get-Location).Path
-$driveLetter = $currentPath.Substring(0, 1).ToLower()
-$wslPath = "/mnt/$driveLetter" + $currentPath.Substring(2).Replace('\', '/')
+function Get-WSLMountContext {
+    $location = Get-Location
+    if ($location.Provider.Name -ne 'FileSystem') {
+        throw "wtc only supports filesystem paths. Current location provider: $($location.Provider.Name)"
+    }
+
+    $currentPath = $location.ProviderPath
+    if ($currentPath -match '^[A-Za-z]:\\') {
+        $driveLetter = $currentPath.Substring(0, 1).ToLowerInvariant()
+        return @{
+            DriveLetter = $driveLetter
+            WslPath = "/mnt/$driveLetter" + $currentPath.Substring(2).Replace('\', '/')
+        }
+    }
+
+    throw "wtc only supports local drive paths like C:\src. Current path: $currentPath"
+}
 
 function Test-DockerAvailable {
     try {
@@ -176,6 +194,15 @@ function Build-Image {
 
 if (-not (Test-DockerAvailable)) {
     Write-Error "Docker is not available. Please ensure Docker or Podman is running."
+    exit 1
+}
+
+try {
+    $mountContext = Get-WSLMountContext
+    $driveLetter = $mountContext.DriveLetter
+    $wslPath = $mountContext.WslPath
+} catch {
+    Write-Error $_
     exit 1
 }
 

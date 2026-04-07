@@ -19,7 +19,7 @@ $parsed = Parse-Args $args @{
 }
 
 $Path   = $parsed._positional[0]
-$Filter = if ($parsed._positional[1]) { $parsed._positional[1] } else { '*.*' }
+$Filter = if ($parsed._positional[1]) { $parsed._positional[1] } else { '*' }
 
 if ($parsed._help -or -not $Path) {
     Show-Help
