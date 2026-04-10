@@ -236,7 +236,7 @@ _tm "environment and paths"
 # LOAD SCRIPTS AS ALIASES
 #-------------------------------------------------------------------------------
 
-$scriptsFolder = "$HOME\Documents\PowerShell\Scripts"
+$scriptsFolder = "$PSScriptRoot\Scripts"
 if (Test-Path $scriptsFolder) {
     Get-ChildItem -Path $scriptsFolder -Recurse -Filter "*.ps1" | ForEach-Object {
         $script = $_.FullName
@@ -475,7 +475,7 @@ if (-not $dockerCmd -and $podmanCmd) {
 
 $podmanExe = if ($podmanCmd -and $podmanCmd.CommandType -eq 'Application') { $podmanCmd.Source } else { $null }
 if ($podmanExe) {
-    $podmanCompletion = "$HOME\Documents\PowerShell\Completions\podman-completion.ps1"
+    $podmanCompletion = "$PSScriptRoot\Completions\podman-completion.ps1"
     $parentDir = Split-Path $podmanCompletion
     if (-not (Test-Path $parentDir)) {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
@@ -485,7 +485,7 @@ if ($podmanExe) {
 }
 $dockerExe = if ($dockerCmd -and $dockerCmd.CommandType -eq 'Application') { $dockerCmd.Source } else { $null }
 if ($dockerExe) {
-    $dockerCompletion = "$HOME\Documents\PowerShell\Completions\docker-completion.ps1"
+    $dockerCompletion = "$PSScriptRoot\Completions\docker-completion.ps1"
     $parentDir = Split-Path $dockerCompletion
     if (-not (Test-Path $parentDir)) {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
@@ -495,7 +495,7 @@ if ($dockerExe) {
 }
 
 # Theme name tab completion
-$themeCompletion = "$HOME\Documents\PowerShell\Completions\theme-completion.ps1"
+$themeCompletion = "$PSScriptRoot\Completions\theme-completion.ps1"
 if (Test-Path $themeCompletion) { . $themeCompletion }
 _tm "completions"
 
