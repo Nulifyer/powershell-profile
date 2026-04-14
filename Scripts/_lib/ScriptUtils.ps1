@@ -275,7 +275,7 @@ function _Save-Config([hashtable]$Config) {
     Get a config value for a script.
 
 .PARAMETER ScriptName
-    The script key (e.g. "wtc", "sqltools").
+    The script key (e.g. "theme", "tools").
 
 .PARAMETER Key
     Optional. If provided, returns that single value. Otherwise returns the full hashtable for the script.
@@ -302,7 +302,7 @@ function Get-ScriptConfig {
     Set a config value for a script.
 
 .PARAMETER ScriptName
-    The script key (e.g. "wtc", "sqltools").
+    The script key (e.g. "theme", "tools").
 
 .PARAMETER Key
     The setting name.

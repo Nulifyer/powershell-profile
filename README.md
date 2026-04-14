@@ -16,8 +16,7 @@ A custom PowerShell 7 profile with a fast startup, Unix-style keybindings, and a
 |---------|-------------|
 | `theme` | Switch terminal color palette (Catppuccin, Gruvbox, Nord, Dracula, etc.) |
 | `font` | Change terminal Nerd Font across all configured terminals, or install new Nerd Fonts |
-| `tools` | Check/install CLI tools via WinGet, with core/extra group targeting |
-| `sqltools` | Interactive SQL TUI — SQL Server, SQLite, ODBC with query history and CSV export |
+| `tools` | Check/install CLI tools, with core/extra group targeting |
 | `wsl-tempcli` | Spin up temporary Linux containers with current directory mounted |
 | `file-inventory` | Recursively scan directories for file count and size |
 
@@ -40,7 +39,7 @@ Run `tools` to see what's installed and install anything missing.
 
 `font --install` handles Nerd Font installation separately.
 
-Feature-specific helpers such as `chafa`, `lutgen`, `karchy`, and `guget` are tracked as optional extras in `tools`. `chafa` can be installed through WinGet; `lutgen`, `karchy`, and `guget` are currently manual extras.
+Feature-specific helpers such as `chafa`, `sqlgo`, `lutgen`, `karchy`, and `guget` are tracked as optional extras in `tools`. `chafa` can be installed through WinGet, `sqlgo` runs its upstream install script, and `lutgen`, `karchy`, and `guget` are currently manual extras.
 
 ## Install
 
