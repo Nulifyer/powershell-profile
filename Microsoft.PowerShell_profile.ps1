@@ -497,6 +497,12 @@ if ($dockerExe) {
 # Theme name tab completion
 $themeCompletion = "$PSScriptRoot\Completions\theme-completion.ps1"
 if (Test-Path $themeCompletion) { . $themeCompletion }
+
+# Sqlgo tab completion
+if (Get-Command sqlgo -ErrorAction SilentlyContinue) {
+    sqlgo completion pwsh | Out-String | Invoke-Expression
+}
+
 _tm "completions"
 
 #-------------------------------------------------------------------------------
