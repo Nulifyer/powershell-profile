@@ -962,6 +962,11 @@ function Get-VSCodeColorCustomizations([hashtable]$scheme, [string]$themeName) {
         "textBlockQuote.background" = $bgSurface
         "textBlockQuote.border" = $fgMuted
         "textCodeBlock.background" = $bgSurface
+        "markdownAlert.note.foreground" = $info
+        "markdownAlert.tip.foreground" = $success
+        "markdownAlert.important.foreground" = $scheme.purple
+        "markdownAlert.warning.foreground" = $warning
+        "markdownAlert.caution.foreground" = $error
         "toolbar.hoverBackground" = $bgSurface
         "toolbar.activeBackground" = $bgBorder
         "toolbar.hoverOutline" = "#00000000"
@@ -2047,6 +2052,12 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         (_tc "punctuation.definition.italic.markdown" $fg)
         (_tc "punctuation.definition.raw.markdown" $scheme.brightGreen)
         (_tc "punctuation.definition.list.begin.markdown" $orange)
+        (_tc "beginning.punctuation.definition.list.markdown" $orange)
+        (_tc "beginning.punctuation.definition.quote.markdown" $fgMuted)
+        (_tc "string.other.link.description.markdown" $scheme.blue)
+        (_tc "punctuation.definition.metadata.markdown" $fgMuted)
+        (_tc "punctuation.definition.link.markdown" $fgMuted)
+        (_tc "constant.other.reference.link.markdown" $scheme.blue)
         (_tc "fenced_code.block.language" $scheme.green)
 
         # -- Text --
