@@ -584,16 +584,21 @@ if (Test-Path $fpConfigPath) {
     if ($fpColors.Count -gt 0) {
         $bgBase = $scheme.background.TrimStart('#')
         $_fg = $scheme.foreground.TrimStart('#')
-        $_fgMuted = $scheme.brightBlack.TrimStart('#')
+        $_secondary = $scheme.white.TrimStart('#')
+        $_hidden = (Adjust-HexBrightness $scheme.brightBlack $(if (_Is-LightTheme $themeName) { -22 } else { 22 })).TrimStart('#')
 
         _Check "FilePilot Background" $bgBase $fpColors.Background
         _Check "FilePilot Text" $_fg $fpColors.Text
-        _Check "FilePilot Secondary" $_fgMuted $fpColors.Secondary
+        _Check "FilePilot Foreground" $_fg $fpColors.Foreground
+        _Check "FilePilot Secondary" $_secondary $fpColors.Secondary
         _Check "FilePilot IconTint" $scheme.cyan.TrimStart('#') $fpColors.IconTint
         _Check "FilePilot Selection" $scheme.blue.TrimStart('#') $fpColors.Selection
         _Check "FilePilot Match" $scheme.yellow.TrimStart('#') $fpColors.Match
         _Check "FilePilot Warning" $scheme.red.TrimStart('#') $fpColors.Warning
-        _Check "FilePilot Folder" $scheme.white.TrimStart('#') $fpColors.Folder
+        _Check "FilePilot File" $_fg $fpColors.File
+        _Check "FilePilot Folder" $_fg $fpColors.Folder
+        _Check "FilePilot Hidden" $_hidden $fpColors.Hidden
+        _Check "FilePilot Disabled" $_hidden $fpColors.Disabled
         _Check "FilePilot Progress" $scheme.blue.TrimStart('#') $fpColors.Progress
     } else {
         _Skip "FilePilot colors" "Nulifyer scheme not found"

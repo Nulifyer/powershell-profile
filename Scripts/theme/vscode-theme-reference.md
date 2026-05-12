@@ -181,7 +181,8 @@ inputOption.activeBorder/activeForeground
 inputValidation.{error,warning,info}{Background,Border,Foreground}
 button.background/foreground/hoverBackground
 button.secondaryBackground/secondaryForeground/secondaryHoverBackground
-dropdown.background/border/foreground
+dropdown.background/listBackground/border/foreground
+editorActionList.background/foreground/focusBackground/focusForeground
 ```
 
 ### Remaining Optional Keys (not yet set)

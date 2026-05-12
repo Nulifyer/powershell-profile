@@ -867,7 +867,7 @@ function Get-VSCodeColorCustomizations([hashtable]$scheme, [string]$themeName) {
         "list.errorForeground" = $error
         "list.warningForeground" = $warning
         "tree.indentGuidesStroke" = $fgMuted
-        "input.background" = "#00000000"
+        "input.background" = $bgSurface
         "input.border" = $fg + "40"
         "input.foreground" = $fg
         "input.placeholderForeground" = $fg + "80"
@@ -889,6 +889,7 @@ function Get-VSCodeColorCustomizations([hashtable]$scheme, [string]$themeName) {
         "button.secondaryForeground" = $fg
         "button.secondaryHoverBackground" = $bgBorder
         "dropdown.background" = $bgBase
+        "dropdown.listBackground" = $bgSurface
         "dropdown.border" = $bgBorder
         "dropdown.foreground" = $fgDim
         "badge.background" = $accent
@@ -970,6 +971,10 @@ function Get-VSCodeColorCustomizations([hashtable]$scheme, [string]$themeName) {
         "toolbar.hoverBackground" = $bgSurface
         "toolbar.activeBackground" = $bgBorder
         "toolbar.hoverOutline" = "#00000000"
+        "editorActionList.background" = $bgSurface
+        "editorActionList.foreground" = $fg
+        "editorActionList.focusBackground" = $bgHover
+        "editorActionList.focusForeground" = $fg
         "terminal.background" = $bgBase
         "terminal.foreground" = $fg
         "terminal.border" = $bgMid
@@ -1142,7 +1147,12 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
     }
     if (-not $vsSettingsPath) { return }
 
+    $ctx = Get-VSCodeThemeContext $scheme $themeName
     $colors = Get-VSCodeColorCustomizations $scheme $themeName
+    $isLight = $ctx.isLight
+    $bgBase = $ctx.bgBase
+    $fg = $ctx.fg
+    $fgMuted = $ctx.fgMuted
 
     # Token color mapping — one rule per scope to ensure specificity over base theme
     $orange = $scheme.brightRed   # brightRed is typically the orange slot in most themes
@@ -2197,7 +2207,9 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
             $vsSettings | Add-Member -NotePropertyName "editor.semanticTokenColorCustomizations" -NotePropertyValue ([PSCustomObject]$semanticTokenCustomizations) -Force
             $vsSettings | Add-Member -NotePropertyName "editor.semanticHighlighting.enabled" -NotePropertyValue $true -Force
             $vsSettings | ConvertTo-Json -Depth 10 | Set-Content $vsSettingsPath -Encoding UTF8
-        } catch {}
+        } catch {
+            Write-Warning "Failed to update VS Code settings '$vsSettingsPath': $($_.Exception.Message)"
+        }
     }
 }
 
@@ -2214,6 +2226,8 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
     $bgLighter = Adjust-HexBrightness $bgBase 20
     $fg = $scheme.foreground
     $fgMuted = $scheme.brightBlack
+    $isLight = _Is-LightTheme $themeName
+    $hidden = Adjust-HexBrightness $fgMuted $(if ($isLight) { -22 } else { 22 })
 
     # Strip # from hex colors for File Pilot format
     $strip = { param($c) $c.TrimStart('#') }
@@ -2224,7 +2238,7 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
             Caption                   = & $strip $bgDark
             Background                = & $strip $bgBase
             Surface                   = & $strip $bgMid
-            Foreground                = & $strip $fgMuted
+            Foreground                = & $strip $fg
             Inner                     = & $strip $bgDark
             Border                    = & $strip $bgLight
             Outline                   = & $strip $fgMuted
@@ -2232,18 +2246,18 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
             AlternatingRow            = & $strip $bgMid
             IconTint                  = & $strip $scheme.cyan
             Text                      = & $strip $fg
-            Secondary                 = & $strip $fgMuted
+            Secondary                 = & $strip $scheme.white
             Group                     = & $strip $scheme.white
-            File                      = & $strip $fgMuted
-            Folder                    = & $strip $scheme.white
+            File                      = & $strip $fg
+            Folder                    = & $strip $fg
             Warning                   = & $strip $scheme.red
             Progress                  = & $strip $scheme.blue
             Selection                 = & $strip $scheme.blue
             RectSelection             = & $strip $scheme.blue
             Match                     = & $strip $scheme.yellow
-            Hidden                    = & $strip $bgLighter
+            Hidden                    = & $strip $hidden
             Hover                     = & $strip $bgLighter
-            Disabled                  = & $strip $bgLighter
+            Disabled                  = & $strip $hidden
             ContentHover              = & $strip $fg
             ContentSelection          = & $strip $fg
             ContentDisabledSelection  = & $strip $scheme.red

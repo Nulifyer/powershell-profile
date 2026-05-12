@@ -169,8 +169,10 @@ function _AuditTheme([string]$themeName) {
     _TestPair "vscode" "panelTitle.inactiveFg on panel.bg"          $fgMuted $bgMid
 
     # -- VS Code: inputs / widgets ------------------------------------------
-    _TestPair "vscode" "input.foreground on editor.bg"              $fg      $bgBase
+    _TestPair "vscode" "input.foreground on input.bg"               $fg      $bgSurface
+    _TestPair "vscode" "dropdown.foreground on dropdown.listBg"     $fgDim   $bgSurface
     _TestPair "vscode" "quickInput.fg on quickInput.bg"             $fg      $bgSurface
+    _TestPair "vscode" "editorActionList.fg on actionList.bg"       $fg      $bgSurface
     _TestPair "vscode" "editorWidget.fg on editorWidget.bg"         $fg      $bgBase
     _TestPair "vscode" "editorSuggest.fg on editorSuggest.bg"       $fg      $bgSurface
 
@@ -214,16 +216,18 @@ function _AuditTheme([string]$themeName) {
     $fpBg    = $bgBase
     $fpSurf  = Adjust-HexBrightness $bgBase -15
     $fpBgDk  = Adjust-HexBrightness $bgBase -30
+    $fpHidden = Adjust-HexBrightness $fgMuted $(if ($isLight) { -22 } else { 22 })
 
     _TestPair "filepilot" "Text on Background"              $fg       $fpBg
-    _TestPair "filepilot" "Secondary on Background"         $fgMuted  $fpBg
-    _TestPair "filepilot" "Secondary (Foreground) on Surface" $fgMuted $fpSurf
+    _TestPair "filepilot" "Secondary on Background"         $scheme.white $fpBg
+    _TestPair "filepilot" "Secondary (Foreground) on Surface" $scheme.white $fpSurf
     _TestPair "filepilot" "Group on Background"             $scheme.white   $fpBg
     _TestPair "filepilot" "Group on Surface"                $scheme.white   $fpSurf
-    _TestPair "filepilot" "File on Background"              $fgMuted  $fpBg
-    _TestPair "filepilot" "Folder on Background"            $scheme.white   $fpBg
+    _TestPair "filepilot" "File on Background"              $fg       $fpBg
+    _TestPair "filepilot" "Folder on Background"            $fg       $fpBg
+    _TestPair "filepilot" "Hidden on Background"            $fpHidden $fpBg
     _TestPair "filepilot" "Text on Caption (dark bg)"       $fg       $fpBgDk
-    _TestPair "filepilot" "Secondary on Caption"            $fgMuted  $fpBgDk
+    _TestPair "filepilot" "Secondary on Caption"            $scheme.white $fpBgDk
     _TestPair "filepilot" "IconTint on Background"          $scheme.cyan    $fpBg
 
     # -- Prompt -------------------------------------------------------------
