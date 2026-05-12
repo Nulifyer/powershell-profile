@@ -692,6 +692,41 @@ function sudo {
 
 function h { Get-History | Select-Object -Last 50 }
 
+function clear-history {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    $historyPath = $null
+    if (Get-Command Get-PSReadLineOption -ErrorAction SilentlyContinue) {
+        try {
+            $historyPath = (Get-PSReadLineOption).HistorySavePath
+        } catch {
+            $historyPath = $null
+        }
+    }
+
+    $target = if ($historyPath) {
+        "PowerShell session history and PSReadLine history file '$historyPath'"
+    } else {
+        "PowerShell session history"
+    }
+
+    if (-not $PSCmdlet.ShouldProcess($target, 'Clear')) { return }
+
+    Microsoft.PowerShell.Core\Clear-History
+
+    $psConsoleReadLine = 'Microsoft.PowerShell.PSConsoleReadLine' -as [type]
+    if ($psConsoleReadLine) {
+        $psConsoleReadLine::ClearHistory()
+    }
+
+    if ($historyPath -and (Test-Path -LiteralPath $historyPath)) {
+        Set-Content -LiteralPath $historyPath -Value $null -NoNewline
+    }
+
+    Write-Host 'Command history cleared.' -ForegroundColor DarkGray
+}
+
 function export {
     param([Parameter(Mandatory)]$Assignment)
     $parts = $Assignment -split '=', 2

@@ -9,6 +9,7 @@ A custom PowerShell 7 profile with a fast startup, Unix-style keybindings, and a
 - **Unix feel on Windows** — emacs keybindings, aliases for common Unix tools (`grep`, `sed`, `awk`, etc. via Git), and functions like `touch`, `mkcd`, `watch`, `sudo`
 - **FZF integration** — `Ctrl+R` for fuzzy history search, `Ctrl+T` for file picker
 - **Predictive IntelliSense** — history-based suggestions with ListView
+- **History reset** — `clear-history` clears session history plus PSReadLine's saved history file
 
 ## Scripts
 
