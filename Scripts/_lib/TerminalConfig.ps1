@@ -2386,39 +2386,60 @@ function Update-BrowserTheme([hashtable]$scheme) {
 function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) { return }
     $personalizePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize"
-    $dwmPath = "HKCU:\SOFTWARE\Microsoft\Windows\DWM"
-    $accentPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Accent"
+    $dwmPath         = "HKCU:\SOFTWARE\Microsoft\Windows\DWM"
+    $accentPath      = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Accent"
+    $colorsPath      = "HKCU:\Control Panel\Colors"
 
     # Dark/Light mode
     $modeValue = if (_Is-LightTheme $themeName) { 1 } else { 0 }
     Set-ItemProperty $personalizePath -Name "AppsUseLightTheme" -Value $modeValue -Type Dword -Force
     Set-ItemProperty $personalizePath -Name "SystemUsesLightTheme" -Value $modeValue -Type Dword -Force
 
-    # Accent color from background
-    $accentABGR = Convert-HexToABGR $scheme.background
-    $hex = $scheme.background
-    $colorizationARGB = [Convert]::ToInt64("C4" + $hex.Substring(1), 16)
+    # Accent color — resolved from the theme's vscode.accent semantic role via
+    # the shared theme-context resolver (e.g. gruvbox = 'yellow' -> #D8A657).
+    # Falls back to background if resolution fails.
+    $accentHex = $null
+    try {
+        $ctx = Get-VSCodeThemeContext $scheme $themeName
+        if ($ctx -and $ctx.roles -and $ctx.roles.accent) { $accentHex = $ctx.roles.accent }
+    } catch {}
+    if (-not $accentHex) { $accentHex = $scheme.background }
 
-    # Step 1: Apply via undocumented API (updates taskbar/start menu live)
-    Set-ItemProperty $personalizePath -Name "ColorPrevalence" -Value 1 -Type Dword -Force
+    $accentABGR       = Convert-HexToABGR $accentHex
+    $colorizationARGB = [Convert]::ToInt64("C4" + $accentHex.Substring(1), 16)
+
+    # Start Search / Explorer flyouts read directly from AccentPalette and *ColorMenu
+    # (they ignore Personalize\ColorPrevalence). Derive those from the theme
+    # background so the Search panel matches the neutral Start menu look while
+    # title bars keep the vibrant accent from DWM\AccentColor.
+    $bgHex  = $scheme.background
+    $bgABGR = Convert-HexToABGR $bgHex
+
+    # Write all registry values FIRST, then broadcast at the end. We deliberately
+    # skip [NativeMethods]::ApplyAccentColor here: it seeds uxtheme's internal
+    # "user color preference" state, and later broadcasts cause uxtheme to
+    # reconcile DWM\AccentColor to match AccentPalette[3] — which would drag our
+    # accent-colored title bars back to the (dark) background color.
+
+    # Personalize\ColorPrevalence = 0 -> "Show accent color on Start and taskbar" OFF
+    # DWM\ColorPrevalence         = 1 -> "Show accent color on title bars and window borders" ON
+    Set-ItemProperty $personalizePath -Name "ColorPrevalence" -Value 0 -Type Dword -Force
     Set-ItemProperty $dwmPath -Name "ColorPrevalence" -Value 1 -Type Dword -Force
-    try { [NativeMethods]::ApplyAccentColor([uint32]$accentABGR) } catch {}
 
-    # Step 2: Brief pause to let the API finish its work
-    Start-Sleep -Milliseconds 200
-
-    # Step 3: Overwrite registry with our exact values
+    # Title bars (DWM): vibrant accent
     Set-ItemProperty $dwmPath -Name "AccentColor" -Value $accentABGR -Type Dword -Force
     Set-ItemProperty $dwmPath -Name "ColorizationColor" -Value $colorizationARGB -Type Dword -Force
     Set-ItemProperty $dwmPath -Name "ColorizationAfterglow" -Value $colorizationARGB -Type Dword -Force
-    Set-ItemProperty $accentPath -Name "AccentColorMenu" -Value $accentABGR -Type Dword -Force
-    Set-ItemProperty $accentPath -Name "StartColorMenu" -Value $accentABGR -Type Dword -Force
+    # Start Search / flyouts: theme background (so they don't get accent-tinted)
+    Set-ItemProperty $accentPath -Name "AccentColorMenu" -Value $bgABGR -Type Dword -Force
+    Set-ItemProperty $accentPath -Name "StartColorMenu" -Value $bgABGR -Type Dword -Force
 
-    # AccentPalette — 8 shades, each 4 bytes BBGGRRAA
+    # AccentPalette — 8 shades derived from BACKGROUND (Start Search reads from here),
+    # each 4 bytes BBGGRRAA
     $shadePercents = @(60, 40, 20, 0, -15, -30, -45, -60)
     $paletteBytes = [byte[]]::new(32)
     for ($i = 0; $i -lt 8; $i++) {
-        $shade = Adjust-HexBrightness $scheme.background $shadePercents[$i]
+        $shade = Adjust-HexBrightness $bgHex $shadePercents[$i]
         $paletteBytes[$i*4 + 0] = [Convert]::ToInt32($shade.Substring(5,2), 16) # BB
         $paletteBytes[$i*4 + 1] = [Convert]::ToInt32($shade.Substring(3,2), 16) # GG
         $paletteBytes[$i*4 + 2] = [Convert]::ToInt32($shade.Substring(1,2), 16) # RR
@@ -2426,7 +2447,30 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     }
     Set-ItemProperty $accentPath -Name "AccentPalette" -Value $paletteBytes -Type Binary -Force
 
-    # Step 4: Broadcast for other listeners
+    # Classic Win32 selection colors (Hilight / HilightText / HotTrackingColor)
+    # so old Win32 apps + File Explorer inline-rename get a visible selection band.
+    $ar = [Convert]::ToInt32($accentHex.Substring(1,2),16)
+    $ag = [Convert]::ToInt32($accentHex.Substring(3,2),16)
+    $ab = [Convert]::ToInt32($accentHex.Substring(5,2),16)
+    $accentRGB = "$ar $ag $ab"
+    # Perceived luminance -> pick contrasting foreground (white on dark, black on light)
+    $lum = (0.2126 * $ar + 0.7152 * $ag + 0.0722 * $ab) / 255.0
+    $textRGB = if ($lum -gt 0.5) { '0 0 0' } else { '255 255 255' }
+    # Hover: 15% darker than accent
+    $hoverHex = Adjust-HexBrightness $accentHex -15
+    $hr = [Convert]::ToInt32($hoverHex.Substring(1,2),16)
+    $hg = [Convert]::ToInt32($hoverHex.Substring(3,2),16)
+    $hb = [Convert]::ToInt32($hoverHex.Substring(5,2),16)
+    $hoverRGB = "$hr $hg $hb"
+    Set-ItemProperty $colorsPath -Name "Hilight"          -Value $accentRGB -Force
+    Set-ItemProperty $colorsPath -Name "HilightText"      -Value $textRGB   -Force
+    Set-ItemProperty $colorsPath -Name "HotTrackingColor" -Value $hoverRGB  -Force
+    Set-ItemProperty $colorsPath -Name "MenuHilight"      -Value $accentRGB -Force
+
+    # Broadcast WM_SETTINGCHANGE("ImmersiveColorSet") so DWM, Explorer, and
+    # SearchApp re-read their color values from the registry. This is the only
+    # refresh mechanism now (no ApplyAccentColor call) so DWM\AccentColor stays
+    # at the accent hex while AccentPalette stays at the bg-derived shades.
     try { [NativeMethods]::BroadcastSettingChange() } catch {}
 }
 
