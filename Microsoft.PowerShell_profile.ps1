@@ -48,9 +48,53 @@ if (-not (Test-Path $updateCheckFile)) {
     }
 }
 
+function _Test-InternetTcp {
+    # Fast raw-TCP reachability check. Cloudflare 1.1.1.1:443 answers reliably
+    # and isn't blocked by most corporate firewalls (unlike ICMP).
+    # Measured local latency: p95 ~35ms; 150ms gives ~4x headroom for cold cache / VPN handoff
+    # while still failing fast when offline.
+    param(
+        [string]$TargetHost = '1.1.1.1',
+        [int]$Port = 443,
+        [int]$TimeoutMs = 150
+    )
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $async = $client.BeginConnect($TargetHost, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) { return $false }
+        try { $client.EndConnect($async); return $true } catch { return $false }
+    } catch {
+        return $false
+    } finally {
+        $client.Close()
+    }
+}
+
+# Run a git command with a hard wall-clock timeout (kills the process on expiry).
+# Returns $true on clean exit within timeout, $false otherwise.
+function _Invoke-GitWithTimeout {
+    param(
+        [Parameter(Mandatory)][string[]]$ArgumentList,
+        [int]$TimeoutMs = 4000
+    )
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'git'
+    foreach ($a in $ArgumentList) { $psi.ArgumentList.Add($a) }
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    if (-not $proc.WaitForExit($TimeoutMs)) {
+        try { $proc.Kill($true) } catch {}
+        return $false
+    }
+    return ($proc.ExitCode -eq 0)
+}
+
 function _Check-PwshVersion {
     param([switch]$AutoUpdate)
-    $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 5).tag_name.TrimStart('v')
+    $latestVersion = (Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/latest" -TimeoutSec 3).tag_name.TrimStart('v')
     $currentVersion = $PSVersionTable.PSVersion.ToString()
     if ([version]$currentVersion -lt [version]$latestVersion) {
         Write-Host "PowerShell update available: $currentVersion → $latestVersion" -ForegroundColor Yellow
@@ -80,7 +124,11 @@ function _Check-ProfileUpdates {
         git -C $profileDir status --short
         return
     }
-    git -C $profileDir fetch origin main --quiet
+    # Hard timeout on the network call — a stalled fetch used to hang the whole profile load.
+    if (-not (_Invoke-GitWithTimeout -TimeoutMs 4000 -ArgumentList @('-C', $profileDir, 'fetch', 'origin', 'main', '--quiet'))) {
+        Write-Host "Profile update check skipped (git fetch timed out or failed)." -ForegroundColor DarkGray
+        return
+    }
     $local = git -C $profileDir rev-parse HEAD
     $remote = git -C $profileDir rev-parse origin/main
     if ($local -ne $remote) {
@@ -101,17 +149,8 @@ function _Check-ProfileUpdates {
 }
 
 if ($script:IsInteractiveShell -and $runUpdateCheck) {
-    # Test GitHub connectivity (1s timeout)
-    $canConnect = try {
-        if ($PSVersionTable.PSEdition -eq "Core") {
-            Test-Connection github.com -Count 1 -Quiet -TimeoutSeconds 1
-        } else {
-            $ping = [System.Net.NetworkInformation.Ping]::new()
-            ($ping.Send("github.com", 1000)).Status -eq "Success"
-        }
-    } catch { $false }
-
-    if ($canConnect) {
+    # Raw TCP probe to Cloudflare — ~150ms worst case, works through firewalls that block ICMP.
+    if (_Test-InternetTcp -TargetHost '1.1.1.1' -Port 443 -TimeoutMs 150) {
         try { _Check-PwshVersion } catch {}
         try { _Check-ProfileUpdates } catch {}
         (Get-Date -Format 'yyyy-MM-dd') | Set-Content $updateCheckFile
@@ -410,12 +449,43 @@ if ($script:IsInteractiveShell) {
     # Undo
     Set-PSReadLineKeyHandler -Key Ctrl+z -Function Undo
 
-    # Transient prompt: collapse previous prompt to just ❯ on Enter
+    # Transient prompt: collapse previous prompt to just ❯ on Enter.
+    # Guards:
+    #   - only collapse when the buffer parses cleanly (so multi-line
+    #     `if () {` / here-strings still get a newline instead of submitting)
+    #   - skip for multi-line input (pasted blocks stay expanded)
+    #   - reset the flag in `finally` so a throw inside InvokePrompt doesn't
+    #     leave the *next* real prompt stuck rendering as the transient ❯
+    #   - forward $key/$arg to AcceptLine so predictions/history stay in sync
+    #     (calling AcceptLine() with no args was what truncated echoed args)
+    #   - after InvokePrompt, clear from cursor to end of screen so the
+    #     PredictionSource=ListView rows (with their right-aligned
+    #     "<History(N/M)>" / "[History]" status labels) don't stay drawn and
+    #     bleed into the command's output
     Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
-        $global:_transientPrompt = $true
-        [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
-        [Console]::Write("`e[J")
-        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+        param($key, $arg)
+        $line = $null
+        $cursor = $null
+        $parseErrors = $null
+        [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState(
+            [ref]$line, [ref]$null, [ref]$parseErrors, [ref]$cursor)
+
+        $canCollapse = $line -and
+            $parseErrors.Count -eq 0 -and
+            $line -notmatch "`n"
+
+        if ($canCollapse) {
+            $global:_transientPrompt = $true
+            try {
+                [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+                # ESC[0J = erase from cursor to end of screen. Wipes the
+                # ListView prediction rows below the transient prompt.
+                [Console]::Write("`e[0J")
+            } finally {
+                $global:_transientPrompt = $false
+            }
+        }
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine($key, $arg)
     }
 }
 _tm "psreadline"

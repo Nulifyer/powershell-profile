@@ -2389,6 +2389,9 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     $dwmPath         = "HKCU:\SOFTWARE\Microsoft\Windows\DWM"
     $accentPath      = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Accent"
     $colorsPath      = "HKCU:\Control Panel\Colors"
+    $dwmPath         = "HKCU:\SOFTWARE\Microsoft\Windows\DWM"
+    $accentPath      = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Accent"
+    $colorsPath      = "HKCU:\Control Panel\Colors"
 
     # Dark/Light mode
     $modeValue = if (_Is-LightTheme $themeName) { 1 } else { 0 }
@@ -2407,6 +2410,9 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
 
     $accentABGR       = Convert-HexToABGR $accentHex
     $colorizationARGB = [Convert]::ToInt64("C4" + $accentHex.Substring(1), 16)
+    # Inactive title bar: dimmed accent so borders never fall back to grey.
+    $inactiveHex  = Adjust-HexBrightness $accentHex -40
+    $inactiveABGR = Convert-HexToABGR $inactiveHex
 
     # Start Search / Explorer flyouts read directly from AccentPalette and *ColorMenu
     # (they ignore Personalize\ColorPrevalence). Derive those from the theme
@@ -2421,24 +2427,43 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     # reconcile DWM\AccentColor to match AccentPalette[3] — which would drag our
     # accent-colored title bars back to the (dark) background color.
 
+    # AutoColorization = 0 stops Windows from re-picking the accent from the
+    # current wallpaper (Settings > Colors > "Automatically pick an accent
+    # color from my background"). If left enabled, Windows periodically
+    # resets DWM\AccentColor back to a wallpaper-derived (usually grey) value.
+    $desktopPath = "HKCU:\Control Panel\Desktop"
+    Set-ItemProperty $desktopPath -Name "AutoColorization" -Value 0 -Type Dword -Force
+
     # Personalize\ColorPrevalence = 0 -> "Show accent color on Start and taskbar" OFF
     # DWM\ColorPrevalence         = 1 -> "Show accent color on title bars and window borders" ON
     Set-ItemProperty $personalizePath -Name "ColorPrevalence" -Value 0 -Type Dword -Force
     Set-ItemProperty $dwmPath -Name "ColorPrevalence" -Value 1 -Type Dword -Force
 
-    # Title bars (DWM): vibrant accent
+    # Title bars (DWM): vibrant accent + matching inactive accent so borders
+    # never drop to the default grey when a window loses focus.
     Set-ItemProperty $dwmPath -Name "AccentColor" -Value $accentABGR -Type Dword -Force
+    Set-ItemProperty $dwmPath -Name "AccentColorInactive" -Value $inactiveABGR -Type Dword -Force
     Set-ItemProperty $dwmPath -Name "ColorizationColor" -Value $colorizationARGB -Type Dword -Force
     Set-ItemProperty $dwmPath -Name "ColorizationAfterglow" -Value $colorizationARGB -Type Dword -Force
+    # Explorer\Accent\AccentColor + StartColor are the "canonical" values that
+    # Settings > Personalization > Colors reads and writes. Windows periodically
+    # reconciles DWM\AccentColor from these; if we don't write them, the next
+    # reconcile (login, theme apply, settings open) resets our title bars to
+    # the stale grey stored here. Writing them keeps DWM stable long-term.
+    Set-ItemProperty $accentPath -Name "AccentColor" -Value $accentABGR -Type Dword -Force
+    Set-ItemProperty $accentPath -Name "StartColor" -Value $accentABGR -Type Dword -Force
     # Start Search / flyouts: theme background (so they don't get accent-tinted)
     Set-ItemProperty $accentPath -Name "AccentColorMenu" -Value $bgABGR -Type Dword -Force
     Set-ItemProperty $accentPath -Name "StartColorMenu" -Value $bgABGR -Type Dword -Force
 
     # AccentPalette — 8 shades derived from BACKGROUND (Start Search reads from here),
     # each 4 bytes BBGGRRAA
+    # AccentPalette — 8 shades derived from BACKGROUND (Start Search reads from here),
+    # each 4 bytes BBGGRRAA
     $shadePercents = @(60, 40, 20, 0, -15, -30, -45, -60)
     $paletteBytes = [byte[]]::new(32)
     for ($i = 0; $i -lt 8; $i++) {
+        $shade = Adjust-HexBrightness $bgHex $shadePercents[$i]
         $shade = Adjust-HexBrightness $bgHex $shadePercents[$i]
         $paletteBytes[$i*4 + 0] = [Convert]::ToInt32($shade.Substring(5,2), 16) # BB
         $paletteBytes[$i*4 + 1] = [Convert]::ToInt32($shade.Substring(3,2), 16) # GG
@@ -2447,6 +2472,30 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
     }
     Set-ItemProperty $accentPath -Name "AccentPalette" -Value $paletteBytes -Type Binary -Force
 
+    # Classic Win32 selection colors (Hilight / HilightText / HotTrackingColor)
+    # so old Win32 apps + File Explorer inline-rename get a visible selection band.
+    $ar = [Convert]::ToInt32($accentHex.Substring(1,2),16)
+    $ag = [Convert]::ToInt32($accentHex.Substring(3,2),16)
+    $ab = [Convert]::ToInt32($accentHex.Substring(5,2),16)
+    $accentRGB = "$ar $ag $ab"
+    # Perceived luminance -> pick contrasting foreground (white on dark, black on light)
+    $lum = (0.2126 * $ar + 0.7152 * $ag + 0.0722 * $ab) / 255.0
+    $textRGB = if ($lum -gt 0.5) { '0 0 0' } else { '255 255 255' }
+    # Hover: 15% darker than accent
+    $hoverHex = Adjust-HexBrightness $accentHex -15
+    $hr = [Convert]::ToInt32($hoverHex.Substring(1,2),16)
+    $hg = [Convert]::ToInt32($hoverHex.Substring(3,2),16)
+    $hb = [Convert]::ToInt32($hoverHex.Substring(5,2),16)
+    $hoverRGB = "$hr $hg $hb"
+    Set-ItemProperty $colorsPath -Name "Hilight"          -Value $accentRGB -Force
+    Set-ItemProperty $colorsPath -Name "HilightText"      -Value $textRGB   -Force
+    Set-ItemProperty $colorsPath -Name "HotTrackingColor" -Value $hoverRGB  -Force
+    Set-ItemProperty $colorsPath -Name "MenuHilight"      -Value $accentRGB -Force
+
+    # Broadcast WM_SETTINGCHANGE("ImmersiveColorSet") so DWM, Explorer, and
+    # SearchApp re-read their color values from the registry. This is the only
+    # refresh mechanism now (no ApplyAccentColor call) so DWM\AccentColor stays
+    # at the accent hex while AccentPalette stays at the bg-derived shades.
     # Classic Win32 selection colors (Hilight / HilightText / HotTrackingColor)
     # so old Win32 apps + File Explorer inline-rename get a visible selection band.
     $ar = [Convert]::ToInt32($accentHex.Substring(1,2),16)
