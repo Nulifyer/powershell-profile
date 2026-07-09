@@ -659,41 +659,63 @@ $sysMode  = (Get-ItemProperty $personalizePath -Name "SystemUsesLightTheme" -Err
 if ($null -ne $appsMode) { _Check "AppsUseLightTheme" $expectedMode $appsMode }
 if ($null -ne $sysMode)  { _Check "SystemUsesLightTheme" $expectedMode $sysMode }
 
-# Color prevalence (accent on taskbar)
+# Color prevalence
 $colorPrev = (Get-ItemProperty $personalizePath -Name "ColorPrevalence" -ErrorAction SilentlyContinue).ColorPrevalence
-if ($null -ne $colorPrev) { _Check "ColorPrevalence" 1 $colorPrev }
+if ($null -ne $colorPrev) { _Check "ColorPrevalence" 0 $colorPrev }
 $dwmPrev = (Get-ItemProperty $dwmPath -Name "ColorPrevalence" -ErrorAction SilentlyContinue).ColorPrevalence
 if ($null -ne $dwmPrev) { _Check "DWM ColorPrevalence" 1 $dwmPrev }
 
-# Accent color (ABGR format)
-$expectedABGR = Convert-HexToABGR $scheme.background
-$actualAccent = (Get-ItemProperty $dwmPath -Name "AccentColor" -ErrorAction SilentlyContinue).AccentColor
-if ($null -ne $actualAccent) {
-    # Compare as unsigned — registry stores as signed Int32
-    $expectedU = [Convert]::ToUInt32($expectedABGR -band 0xFFFFFFFF)
-    $actualU = [Convert]::ToUInt32([int64]$actualAccent -band 0xFFFFFFFF)
+# Accent color: same semantic role used by Update-WindowsTheme.
+$ctx = Get-VSCodeThemeContext $scheme $themeName
+$expectedAccent = if ($ctx -and $ctx.roles -and $ctx.roles.accent) { $ctx.roles.accent } else { $scheme.selectionBackground }
+if (-not $expectedAccent) { $expectedAccent = $scheme.background }
+$expectedAccent = $expectedAccent.ToUpperInvariant()
+$expectedStart = Adjust-HexBrightness $expectedAccent -15
+
+function _CheckDword([string]$label, [int64]$expected, $actual) {
+    if ($null -eq $actual) { return }
+    $expectedU = [Convert]::ToUInt32($expected -band 0xFFFFFFFF)
+    $actualU = [Convert]::ToUInt32([int64]$actual -band 0xFFFFFFFF)
     if ($expectedU -eq $actualU) {
         $script:passCount++
     } else {
         $script:failCount++
-        Write-Host "  $($c.red)MISMATCH$($c.reset) AccentColor"
+        Write-Host "  $($c.red)MISMATCH$($c.reset) $label"
         Write-Host "           expected: $($c.dim)0x$($expectedU.ToString('X8'))$($c.reset)  got: $($c.dim)0x$($actualU.ToString('X8'))$($c.reset)"
     }
 }
 
-$actualMenu = (Get-ItemProperty $accentPath -Name "AccentColorMenu" -ErrorAction SilentlyContinue).AccentColorMenu
-if ($null -ne $actualMenu) {
-    $expectedU = [Convert]::ToUInt32($expectedABGR -band 0xFFFFFFFF)
-    $actualU = [Convert]::ToUInt32([int64]$actualMenu -band 0xFFFFFFFF)
-    if ($expectedU -eq $actualU) {
+function _CheckBinary([string]$label, [byte[]]$expected, $actual) {
+    if ($null -eq $actual) { return }
+    $actualBytes = [byte[]]$actual
+    $expectedHex = ($expected | ForEach-Object { $_.ToString('X2') }) -join ' '
+    $actualHex = ($actualBytes | ForEach-Object { $_.ToString('X2') }) -join ' '
+    if ($expectedHex -eq $actualHex) {
         $script:passCount++
     } else {
         $script:failCount++
-        Write-Host "  $($c.red)MISMATCH$($c.reset) AccentColorMenu"
-        Write-Host "           expected: $($c.dim)0x$($expectedU.ToString('X8'))$($c.reset)  got: $($c.dim)0x$($actualU.ToString('X8'))$($c.reset)"
+        Write-Host "  $($c.red)MISMATCH$($c.reset) $label"
+        Write-Host "           expected: $($c.dim)$expectedHex$($c.reset)"
+        Write-Host "           got:      $($c.dim)$actualHex$($c.reset)"
     }
 }
 
+$dwm = Get-ItemProperty $dwmPath -ErrorAction SilentlyContinue
+$accent = Get-ItemProperty $accentPath -ErrorAction SilentlyContinue
+$expectedABGR = Convert-HexToABGR $expectedAccent
+$expectedStartABGR = Convert-HexToABGR $expectedStart
+$expectedInactiveABGR = Convert-HexToABGR (Adjust-HexBrightness $expectedAccent -40)
+$expectedColorizationARGB = Convert-HexToARGB $expectedAccent 0xC4
+
+_CheckDword "DWM AccentColor" $expectedABGR $dwm.AccentColor
+_CheckDword "DWM AccentColorInactive" $expectedInactiveABGR $dwm.AccentColorInactive
+_CheckDword "DWM ColorizationColor" $expectedColorizationARGB $dwm.ColorizationColor
+_CheckDword "DWM ColorizationAfterglow" $expectedColorizationARGB $dwm.ColorizationAfterglow
+_CheckDword "AccentColor" $expectedABGR $accent.AccentColor
+_CheckDword "AccentColorMenu" $expectedABGR $accent.AccentColorMenu
+_CheckDword "StartColor" $expectedStartABGR $accent.StartColor
+_CheckDword "StartColorMenu" $expectedStartABGR $accent.StartColorMenu
+_CheckBinary "AccentPalette" (New-WindowsAccentPalette $expectedAccent) $accent.AccentPalette
 _SectionResult "Windows System" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
 # -- Karchy ------------------------------------------------------------------
