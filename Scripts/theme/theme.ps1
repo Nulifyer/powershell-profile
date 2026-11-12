@@ -65,7 +65,7 @@ if ($parsed.Current) {
 
 if (-not $choice) {
     $themes = Get-Themes
-    $hasFzf = Get-Command fzf -ErrorAction SilentlyContinue
+    $hasFzf = Find-Tool fzf
     if ($hasFzf) {
         # Write palette data to temp file for the preview script
         $previewData = "$env:TEMP\pwsh-profile\theme-palettes.txt"

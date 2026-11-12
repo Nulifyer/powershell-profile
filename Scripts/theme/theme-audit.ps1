@@ -616,7 +616,7 @@ $prePass = $script:passCount
 $lutgenName = $scheme.lutgen_palette
 
 if ($lutgenName) {
-    $haslutgen = Get-Command lutgen -ErrorAction SilentlyContinue
+    $haslutgen = Find-Tool lutgen
     if ($haslutgen) {
         $lutgenOutput = & lutgen palette $lutgenName 2>$null
         $lutgenColors = @{}

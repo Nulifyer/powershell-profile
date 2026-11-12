@@ -2637,7 +2637,7 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
 
     $originalPath = "$script:WP_ORIGINALS\$wpName"
     if (-not (Test-Path $originalPath)) { return }
-    if (-not (Get-Command lutgen -ErrorAction SilentlyContinue)) { return }
+    if (-not $(if (Test-Path Function:\Find-Tool) { Find-Tool lutgen } else { Get-Command lutgen -ErrorAction SilentlyContinue })) { return }
 
     $cachePath = _Apply-ThemeToWallpaper $originalPath $themeName $scheme
     if ($cachePath) {
@@ -2647,7 +2647,7 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
 }
 
 function Update-KarchyTheme([string]$themeName) {
-    if (-not (Get-Command karchy -ErrorAction SilentlyContinue)) { return $false }
+    if (-not $(if (Test-Path Function:\Find-Tool) { Find-Tool karchy } else { Get-Command karchy -ErrorAction SilentlyContinue })) { return $false }
     $null = karchy theme set $themeName 2>&1
     return ($LASTEXITCODE -eq 0)
 }

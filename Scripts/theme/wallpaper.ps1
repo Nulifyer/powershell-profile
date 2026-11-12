@@ -28,7 +28,7 @@ function _Set-SelectedWallpaper([string]$originalPath, [string]$displayName) {
     if (-not $themeName) { $themeName = "catppuccin_mocha" }
 
     $scheme = Get-Theme $themeName
-    $hasLutgen = Get-Command lutgen -ErrorAction SilentlyContinue
+    $hasLutgen = Find-Tool lutgen
 
     if ($hasLutgen -and $scheme) {
         Write-Host "$($c.dim)Applying $themeName palette...$($c.reset)" -NoNewline
@@ -97,12 +97,12 @@ function _Browse-Wallhaven {
     )
 
     # Require fzf
-    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+    if (-not (Find-Tool fzf)) {
         Write-Host "$($c.red)fzf is required for browsing. Install: winget install junegunn.fzf$($c.reset)"
         exit 1
     }
 
-    $hasChafa = Get-Command chafa -ErrorAction SilentlyContinue
+    $hasChafa = Find-Tool chafa
     if (-not $hasChafa) {
         Write-Host "$($c.dim)Tip: install chafa for thumbnail previews (winget install hpjansson.Chafa)$($c.reset)"
     }
@@ -276,8 +276,8 @@ if ($wallpapers.Count -eq 0) {
 
 # No args: fzf picker
 if (-not $choice) {
-    $hasFzf = Get-Command fzf -ErrorAction SilentlyContinue
-    $hasChafa = Get-Command chafa -ErrorAction SilentlyContinue
+    $hasFzf = Find-Tool fzf
+    $hasChafa = Find-Tool chafa
     $currentWp = Get-ScriptConfig "wallpaper" "name"
 
     if ($hasFzf) {

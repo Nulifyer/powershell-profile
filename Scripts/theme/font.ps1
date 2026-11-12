@@ -21,7 +21,7 @@ $parsed = Parse-Args $args @{
 if ($parsed._help) { Show-Help; exit 0 }
 
 function Require-Fzf {
-    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+    if (-not (Find-Tool fzf)) {
         Write-Host "fzf is required for interactive font selection." -ForegroundColor Red
         Write-Host "Run 'tools --install' to install it." -ForegroundColor DarkGray
         exit 1
@@ -141,7 +141,7 @@ if ($parsed.List) {
 $choice = $parsed._positional | Select-Object -First 1
 
 if (-not $choice) {
-    $hasFzf = Get-Command fzf -ErrorAction SilentlyContinue
+    $hasFzf = Find-Tool fzf
     if ($hasFzf) {
         # Build lines with current marker
         $lines = @()

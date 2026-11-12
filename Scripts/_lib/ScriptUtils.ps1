@@ -326,3 +326,25 @@ function Set-ScriptConfig {
     $config[$ScriptName][$Key] = $Value
     _Save-Config $config
 }
+
+# -- Tools ----------------------------------------------------------------------
+
+function Find-Tool([string]$Name) {
+    <#
+    Full path of a command-line tool, or $null. Looks on this shell's PATH
+    first, then on the user and machine PATH in the registry and in winget's
+    package folders: a tool installed after this shell started, or one whose
+    winget link is blocked, is still found. Its folder is then added to this
+    shell's PATH, so the tool runs by name here and in child processes (such
+    as fzf previews).
+    #>
+    $cmd = Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($cmd) { return $cmd.Source }
+    if (-not (Test-Path Function:\Find-ToolExe)) { . ([IO.Path]::Combine($PSScriptRoot, 'ToolCatalog.ps1')) }
+    $exe = Find-ToolExe "$Name.exe"
+    if ($exe) {
+        $dir = [IO.Path]::GetDirectoryName($exe)
+        if (($env:PATH -split ';') -notcontains $dir) { $env:PATH = "$dir;$env:PATH" }
+    }
+    return $exe
+}
