@@ -78,9 +78,15 @@ function Build-ProfileCache {
         $all = [IO.File]::ReadAllText($colorsJson) | ConvertFrom-Json -AsHashtable
         $themeNames = @($all.Keys | Sort-Object)
         $palette = $null
+        $fontFace = $null
         if ([IO.File]::Exists($configJson)) {
-            try { $palette = ([IO.File]::ReadAllText($configJson) | ConvertFrom-Json -AsHashtable).theme.palette } catch {}
+            try {
+                $cfg = [IO.File]::ReadAllText($configJson) | ConvertFrom-Json -AsHashtable
+                $palette = $cfg.theme.palette
+                $fontFace = $cfg.font.face
+            } catch {}
         }
+        if (-not $fontFace) { $fontFace = 'CaskaydiaMono NF' } # `font`'s default
         if (-not $palette) { $palette = 'gruvbox' } # default until `theme` picks one
         if ($palette -and $all[$palette]) {
             $p = $all[$palette].prompt
@@ -106,7 +112,9 @@ function Build-ProfileCache {
         $hex = { param($v) '#' + "$v".TrimStart('#').ToUpperInvariant() }
         $ini = @(
             "bg=$(& $hex $t.terminal.bg)", "fg=$(& $hex $t.terminal.fg)", "muted=$(& $hex $t.prompt.os)",
-            "accent=$(& $hex $t.prompt.user)", "selection=$(& $hex $t.terminal.selection)", "match=$(& $hex $t.prompt.path)"
+            "accent=$(& $hex $t.prompt.user)", "selection=$(& $hex $t.terminal.selection)", "match=$(& $hex $t.prompt.path)",
+            # the terminal font, so the picker matches it (it falls back to Segoe UI if not installed)
+            "font=$fontFace"
         ) -join "`n"
         [void][IO.Directory]::CreateDirectory($pickDir)
         $iniPath = [IO.Path]::Combine($pickDir, 'theme.ini')

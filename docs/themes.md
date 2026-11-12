@@ -59,7 +59,7 @@ font --list             # list installed Nerd Fonts
 font --current          # show the current font
 ```
 
-`font` updates every terminal the profile knows about, and the terminal inside VS Code. Restart the terminal to see it.
+`font` updates every terminal the profile knows about, the terminal inside VS Code, and the [project picker](project-picker.md). Restart the terminal to see it; the picker switches the next time it opens.
 
 ## Wallpapers
 

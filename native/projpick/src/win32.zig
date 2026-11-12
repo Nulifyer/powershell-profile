@@ -387,6 +387,7 @@ pub extern "gdi32" fn SelectObject(dc: HDC, o: HGDIOBJ) callconv(.winapi) HGDIOB
 pub extern "gdi32" fn DeleteObject(o: HGDIOBJ) callconv(.winapi) BOOL;
 pub extern "gdi32" fn DeleteDC(dc: HDC) callconv(.winapi) BOOL;
 pub extern "gdi32" fn BitBlt(dst: HDC, x: i32, y: i32, w: i32, h: i32, src: HDC, sx: i32, sy: i32, rop: DWORD) callconv(.winapi) BOOL;
+pub extern "gdi32" fn GetTextFaceW(dc: HDC, count: i32, name: [*]u16) callconv(.winapi) i32;
 pub extern "gdi32" fn CreateFontW(h: i32, w: i32, esc: i32, orient: i32, weight: i32, italic: DWORD, underline: DWORD, strike: DWORD, charset: DWORD, outprec: DWORD, clipprec: DWORD, quality: DWORD, pitch: DWORD, face: [*:0]const u16) callconv(.winapi) HFONT;
 pub extern "gdi32" fn SetTextColor(dc: HDC, c: COLORREF) callconv(.winapi) COLORREF;
 pub extern "gdi32" fn SetBkMode(dc: HDC, mode: i32) callconv(.winapi) i32;

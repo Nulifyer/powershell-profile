@@ -58,7 +58,7 @@ projpick --quit; projpick
 | `terminal` | `wt.exe -d "{path}"` | Command for <kbd>Ctrl</kbd>+<kbd>E</kbd> |
 | `projects` | `%Z_PROJECTS_ROOT%`, else `~\Projects` | Folder whose subfolders are all projects |
 | `roots` | | More folders to search, separated by `;`, e.g. `D:\src;E:\work` |
-| `font` | `Segoe UI` | Font for the list |
+| `font` | your terminal font | Font for the picker. By default it uses the font you chose with `font`, or Segoe UI if that isn't installed |
 | `font_size` | `15` | Font size in pixels at 100% scaling |
 | `rows` | `10` | Visible rows |
 | `monitor` | `cursor` | Where to open: `cursor`, `active` (the focused window's monitor) or `primary` |

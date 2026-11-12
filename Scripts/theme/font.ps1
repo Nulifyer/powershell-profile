@@ -209,5 +209,7 @@ if ($updatedTerminals.Count -gt 0) {
 # -- Save ---------------------------------------------------------------------
 
 Set-ScriptConfig "font" "face" $choice
+# Rebuild the startup cache now so the project picker (theme.ini) uses the new font.
+if (Get-Command profile-rebuild -ErrorAction SilentlyContinue) { profile-rebuild -Quiet }
 Write-Host "Font set to: $choice" -ForegroundColor Green
 Write-Host "Restart your terminal to apply." -ForegroundColor DarkGray

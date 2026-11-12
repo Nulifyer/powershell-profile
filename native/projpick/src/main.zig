@@ -55,7 +55,7 @@ const Config = struct {
     terminal: []const u16 = L("wt.exe -d \"{path}\""),
     projects_root: []const u16 = &.{},
     extra_roots: []const []const u16 = &.{},
-    font: [:0]const u16 = L("Segoe UI"),
+    font: ?[:0]const u16 = null, // set only by font= in config.ini
     font_px: i32 = 15,
     rows: i32 = 10,
     monitor: enum { cursor, active, primary } = .cursor,
@@ -83,6 +83,8 @@ const config_template =
     \\# Extra folders to scan besides your home directory, separated by ';'.
     \\#roots=D:\src;E:\work
     \\
+    \\# Font for the picker. Default: the terminal font chosen with `font`
+    \\# (written to theme.ini by the profile), else Segoe UI.
     \\#font=Segoe UI
     \\#font_size=15
     \\#rows=10
@@ -176,7 +178,7 @@ fn loadConfig() Config {
             }
             cfg.extra_roots = list.items;
         } else if (std.ascii.eqlIgnoreCase(key, "font") and val.len > 0) {
-            cfg.font = util.toUtf16(gpa, val) catch cfg.font;
+            cfg.font = util.toUtf16(gpa, val) catch null;
         } else if (std.ascii.eqlIgnoreCase(key, "font_size")) {
             cfg.font_px = std.math.clamp(std.fmt.parseInt(i32, val, 10) catch cfg.font_px, 9, 40);
         } else if (std.ascii.eqlIgnoreCase(key, "rows")) {
@@ -194,9 +196,12 @@ fn loadConfig() Config {
     return cfg;
 }
 
-/// theme.ini is written by the PowerShell profile from the active palette.
+/// theme.ini is written by the PowerShell profile from the active palette and
+/// the terminal font. Sets app.theme_font (owned) to the font= line, if any.
 fn loadTheme(path: [:0]const u16) Theme {
     var t = Theme{};
+    if (app.theme_font) |f| gpa.free(f);
+    app.theme_font = null;
     const data = util.readFile(gpa, path, 64 << 10) catch return t;
     defer gpa.free(data);
     var lines = std.mem.splitScalar(u8, data, '\n');
@@ -204,6 +209,11 @@ fn loadTheme(path: [:0]const u16) Theme {
         const line = trimSpace(raw);
         const eq = std.mem.indexOfScalar(u8, line, '=') orelse continue;
         const key = trimSpace(line[0..eq]);
+        if (std.ascii.eqlIgnoreCase(key, "font")) {
+            const val = trimSpace(line[eq + 1 ..]);
+            if (val.len > 0) app.theme_font = util.toUtf16(gpa, val) catch null;
+            continue;
+        }
         const v = parseHex(line[eq + 1 ..]) orelse continue;
         inline for (@typeInfo(Theme).@"struct".field_names) |name| {
             if (std.ascii.eqlIgnoreCase(key, name)) @field(t, name) = v;
@@ -222,6 +232,8 @@ const App = struct {
     theme: Theme = .{},
     theme_path: [:0]u16 = undefined,
     theme_mtime: u64 = 0,
+    theme_font: ?[:0]u16 = null, // font= from theme.ini (the terminal font)
+    fonts_stale: bool = false, // theme.ini changed: rebuild fonts on next show
     home: [:0]u16 = undefined,
     idx: ?*index.Index = null,
     recent: index.Recent = .{},
@@ -389,18 +401,55 @@ fn updateTitle() void {
 
 // -- rendering ------------------------------------------------------------------
 
+/// True when GDI really uses `face` for `font`. For a name that isn't
+/// installed, CreateFontW silently substitutes another font.
+fn fontIsInstalled(font: w.HFONT, face: [:0]const u16) bool {
+    const dc = w.GetDC(null);
+    defer _ = w.ReleaseDC(null, dc);
+    const old = w.SelectObject(dc, font);
+    defer _ = w.SelectObject(dc, old);
+    var got: [64]u16 = undefined;
+    const n = w.GetTextFaceW(dc, got.len, &got);
+    if (n <= 0) return false;
+    const name = std.mem.sliceTo(got[0..@intCast(n)], 0);
+    if (name.len != face.len) return false;
+    for (name, face) |a, b| {
+        const la = if (a >= 'A' and a <= 'Z') a + 32 else a;
+        const lb = if (b >= 'A' and b <= 'Z') b + 32 else b;
+        if (la != lb) return false;
+    }
+    return true;
+}
+
+/// Font order: font= in config.ini, then the terminal font from theme.ini,
+/// then Segoe UI; the first one that is installed wins.
 fn makeFonts() void {
     for ([_]w.HFONT{ app.font, app.font_big, app.font_small }) |f| {
         if (f != null) _ = w.DeleteObject(f);
     }
     const mk = struct {
-        fn f(px: i32, weight: i32) w.HFONT {
-            return w.CreateFontW(-dp(px), 0, 0, 0, weight, 0, 0, 0, w.DEFAULT_CHARSET, 0, 0, w.CLEARTYPE_QUALITY, 0, app.cfg.font);
+        fn f(px: i32, face: [:0]const u16) w.HFONT {
+            return w.CreateFontW(-dp(px), 0, 0, 0, w.FW_NORMAL, 0, 0, 0, w.DEFAULT_CHARSET, 0, 0, w.CLEARTYPE_QUALITY, 0, face);
         }
     }.f;
-    app.font = mk(app.cfg.font_px, w.FW_NORMAL);
-    app.font_big = mk(app.cfg.font_px + 3, w.FW_NORMAL);
-    app.font_small = mk(app.cfg.font_px - 2, w.FW_NORMAL);
+    const fallback: [:0]const u16 = L("Segoe UI");
+    var face = fallback;
+    const theme_face: ?[:0]const u16 = if (app.theme_font) |f| f else null;
+    for ([_]?[:0]const u16{ app.cfg.font, theme_face }) |candidate| {
+        const c = candidate orelse continue;
+        const probe = mk(app.cfg.font_px, c);
+        const ok = probe != null and fontIsInstalled(probe, c);
+        if (probe != null) _ = w.DeleteObject(probe);
+        if (ok) {
+            face = c;
+            break;
+        }
+        if (app.debug) util.log("font: '{f}' is not installed, trying the next one", .{std.unicode.fmtUtf16Le(c)});
+    }
+    app.font = mk(app.cfg.font_px, face);
+    app.font_big = mk(app.cfg.font_px + 3, face);
+    app.font_small = mk(app.cfg.font_px - 2, face);
+    app.fonts_stale = false;
 }
 
 const header_h = 52;
@@ -629,6 +678,7 @@ fn show() void {
     if (tm != app.theme_mtime) {
         app.theme_mtime = tm;
         app.theme = loadTheme(app.theme_path);
+        app.fonts_stale = true;
         applyDwm();
     }
     const mon = targetMonitor();
@@ -637,7 +687,7 @@ fn show() void {
     var dx: w.UINT = 96;
     var dy: w.UINT = 96;
     if (w.GetDpiForMonitor(mon, w.MDT_EFFECTIVE_DPI, &dx, &dy) != 0) dx = 96;
-    if (dx != app.dpi or app.font == null) {
+    if (dx != app.dpi or app.font == null or app.fonts_stale) {
         app.dpi = dx;
         makeFonts();
     }
