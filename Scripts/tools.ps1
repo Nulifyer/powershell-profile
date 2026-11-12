@@ -6,8 +6,13 @@
 #.HELP   tools --install        — pick missing tools to install
 #.HELP   tools --install --core — install/select core profile tools only
 #.HELP   tools --install --extra — install/select workflow extras only
+#.HELP
+#.HELP The tool list lives in Scripts\_lib\ToolCatalog.ps1 and is shared with
+#.HELP profile-setup. Nothing here needs fzf, so it works on a fresh machine.
 
 . "$PSScriptRoot\_lib\ScriptUtils.ps1"
+. "$PSScriptRoot\_lib\Tui.ps1"
+. "$PSScriptRoot\_lib\ToolCatalog.ps1"
 
 $parsed = Parse-Args $args @{
     Install = @{ Aliases = @('i', 'install') }
@@ -16,313 +21,88 @@ $parsed = Parse-Args $args @{
 }
 
 if ($parsed._help) { Show-Help; exit 0 }
-
-function Require-Fzf {
-    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
-        return $false
-    }
-    return $true
-}
-
-function Install-WinGetPackage {
-    param(
-        [Parameter(Mandatory)]
-        [string]$Name,
-        [Parameter(Mandatory)]
-        [string]$WinGetId
-    )
-
-    Write-Host "  Installing $Name ($WinGetId)..." -ForegroundColor Yellow
-    winget install -e --id $WinGetId --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Installed $Name" -ForegroundColor Green
-        return $true
-    }
-
-    Write-Warning "  Failed to install $Name"
-    return $false
-}
-
-function Install-ScriptPackage {
-    param(
-        [Parameter(Mandatory)]
-        [hashtable]$Tool
-    )
-
-    if (-not $Tool.InstallScript) {
-        Write-Warning "  No install script configured for $($Tool.Name)"
-        return $false
-    }
-
-    Write-Host "  Installing $($Tool.Name) via project install script..." -ForegroundColor Yellow
-
-    try {
-        Invoke-Expression ((Invoke-WebRequest -UseBasicParsing -Uri $Tool.InstallScript).Content)
-        Write-Host "  Installed $($Tool.Name)" -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Warning "  Failed to install $($Tool.Name): $_"
-        return $false
-    }
-}
-
-function Install-Tool {
-    param(
-        [Parameter(Mandatory)]
-        [hashtable]$Tool
-    )
-
-    if ($Tool.WinGet) {
-        return Install-WinGetPackage -Name $Tool.Name -WinGetId $Tool.WinGet
-    }
-
-    if ($Tool.InstallScript) {
-        return Install-ScriptPackage -Tool $Tool
-    }
-
-    Write-Warning "  No supported installer configured for $($Tool.Name)"
-    return $false
-}
-
-function Require-WinGet {
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        return
-    }
-
-    Write-Host "  winget is required for tool installation, but it is not available." -ForegroundColor Red
-    Write-Host "  Install App Installer from Microsoft Store, then run 'tools --install' again." -ForegroundColor DarkGray
-    Write-Host ""
+if ($parsed.Core -and $parsed.Extra) {
+    Write-Host "  Choose either --core or --extra, not both." -ForegroundColor Red
     exit 1
 }
 
-function Select-InstallTargets {
-    param([array]$Choices)
+$search = Get-ToolSearchDirs
+$haveWinget = [bool](Find-ToolExe 'winget.exe' $search)
+$homePrefix = $HOME + '\'
+$wingetPrefix = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\"
 
-    if (-not $Choices -or $Choices.Count -eq 0) { return @() }
-
-    if (-not (Require-Fzf)) {
-        Write-Host "  fzf is required for interactive installs." -ForegroundColor Red
-        Write-Host ""
-        exit 1
-    }
-
-    $lines = foreach ($choice in $Choices) {
-        "$($choice.Key)`t$($choice.Label)`t$($choice.Detail)"
-    }
-
-    $selected = $lines | fzf --multi --layout=reverse --border --no-info `
-        --delimiter="`t" --with-nth=2,3 `
-        --prompt="install > " `
-        --header="TAB toggles, ENTER installs selected items (or current item if none selected)" `
-        --bind "tab:toggle+down,shift-tab:toggle+up"
-
-    if (-not $selected) { return @() }
-
-    return @($selected | ForEach-Object { ($_ -split "`t", 2)[0] })
+$rows = foreach ($tool in $ToolCatalog) {
+    if ($parsed.Core -and $tool.Group -ne 'core') { continue }
+    if ($parsed.Extra -and $tool.Group -ne 'extra') { continue }
+    $src = Find-ToolExe $tool.Exe $search
+    $display = if (-not $src) {
+        if ($tool.WinGet) { $tool.WinGet } elseif ($tool.InstallScript) { 'upstream install script' } else { $tool.InstallHint }
+    } elseif ($src.StartsWith($wingetPrefix)) {
+        "~/AppData/Local/.../$(($src.Substring($wingetPrefix.Length) -split '_')[0])/.../$(Split-Path $src -Leaf)"
+    } elseif ($src.StartsWith($homePrefix)) {
+        '~/' + $src.Substring($homePrefix.Length).Replace('\', '/')
+    } else { $src }
+    [pscustomobject]@{ Tool = $tool; Installed = [bool]$src; Display = $display }
 }
 
-function Write-ToolStatusLine {
-    param(
-        [Parameter(Mandatory)]
-        [hashtable]$Tool,
-        [Parameter(Mandatory)]
-        [bool]$IsInstalled
-    )
-
-    $stateLabel = if ($IsInstalled) { "[OK]" } else { "[  ]" }
-    $stateColor = if ($IsInstalled) { "Green" } else { "Yellow" }
-    $groupLabel = if ($Tool.Group -eq 'core') { "[core]" } else { "[extra]" }
-
-    Write-Host "  $stateLabel  $($Tool.Name.PadRight(14))" -ForegroundColor $stateColor -NoNewline
-    Write-Host " $groupLabel $($Tool.Display)" -ForegroundColor DarkGray
-}
-
-# Tool definitions: display name, install source, exe to check
-$tools = @(
-    # Profile foundations
-    @{ Name = "git";         Exe = "git.exe";         WinGet = "Git.Git";                  Group = "core" }
-    @{ Name = "gh";          Exe = "gh.exe";          WinGet = "GitHub.cli";               Group = "core" }
-    @{ Name = "oh-my-posh";  Exe = "oh-my-posh.exe";  WinGet = "JanDeDobbeleer.OhMyPosh";  Group = "core" }
-    @{ Name = "neovim";      Exe = "nvim.exe";        WinGet = "Neovim.Neovim";            Group = "core" }
-    @{ Name = "podman";      Exe = "podman.exe";      WinGet = "RedHat.Podman";            Group = "core" }
-    @{ Name = "fzf";         Exe = "fzf.exe";         WinGet = "junegunn.fzf";             Group = "core" }
-    @{ Name = "fd";          Exe = "fd.exe";          WinGet = "sharkdp.fd";               Group = "core" }
-    @{ Name = "ripgrep";     Exe = "rg.exe";          WinGet = "BurntSushi.ripgrep.MSVC";  Group = "core" }
-    @{ Name = "eza";         Exe = "eza.exe";         WinGet = "eza-community.eza";        Group = "core" }
-    @{ Name = "bat";         Exe = "bat.exe";         WinGet = "sharkdp.bat";              Group = "core" }
-    @{ Name = "btop";        Exe = "btop4win.exe";    WinGet = "aristocratos.btop4win";    Group = "core" }
-    # Workflow extras
-    @{ Name = "delta";       Exe = "delta.exe";       WinGet = "dandavison.delta";         Group = "extra" }
-    @{ Name = "procs";       Exe = "procs.exe";       WinGet = "dalance.procs";            Group = "extra" }
-    @{ Name = "jq";          Exe = "jq.exe";          WinGet = "jqlang.jq";                Group = "extra" }
-    @{ Name = "yq";          Exe = "yq.exe";          WinGet = "MikeFarah.yq";             Group = "extra" }
-    @{ Name = "sqlite";      Exe = "sqlite3.exe";     WinGet = "SQLite.SQLite";            Group = "extra" }
-    @{ Name = "sqlgo";       Exe = "sqlgo.exe";       InstallHint = "upstream install.ps1"; InstallScript = "https://raw.githubusercontent.com/Nulifyer/sqlgo/main/.scripts/install.ps1"; Group = "extra" }
-    @{ Name = "chafa";       Exe = "chafa.exe";       WinGet = "hpjansson.Chafa";          Group = "extra" }
-    @{ Name = "lutgen";      Exe = "lutgen.exe";      InstallHint = "github.com/ozwaldorf/lutgen-rs"; Group = "extra" }
-    @{ Name = "karchy";      Exe = "karchy.exe";      InstallHint = "github.com/Nulifyer/Karchy";     Group = "extra" }
-    @{ Name = "guget";       Exe = "guget.exe";       InstallHint = "manual install";      Group = "extra" }
-    @{ Name = "glow";        Exe = "glow.exe";        WinGet = "charmbracelet.glow";       Group = "extra" }
-    @{ Name = "hyperfine";   Exe = "hyperfine.exe";   WinGet = "sharkdp.hyperfine";        Group = "extra" }
-    @{ Name = "tokei";       Exe = "tokei.exe";       WinGet = "XAMPPRocky.tokei";         Group = "extra" }
-)
-
-$missing = @()
-$installed = @()
-
-foreach ($tool in $tools) {
-    $found = Get-Command $tool.Exe -ErrorAction SilentlyContinue
-    if ($found) {
-        $src = $found.Source
-        $display = $src
-        $homePrefix = $HOME + "\"
-        $wingetPrefix = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\"
-        if ($src.StartsWith($wingetPrefix)) {
-            $afterPkg = $src.Substring($wingetPrefix.Length)
-            $pkgId = ($afterPkg -split '_')[0]
-            $exe = Split-Path $src -Leaf
-            $display = "~/AppData/Local/.../$pkgId/.../$exe"
-        } elseif ($src.StartsWith($homePrefix)) {
-            $display = "~/" + $src.Substring($homePrefix.Length).Replace('\', '/')
-        }
-        $tool.Display = $display
-        $installed += $tool
-    } else {
-        $tool.Display = if ($tool.WinGet) { $tool.WinGet } else { $tool.InstallHint }
-        $missing += $tool
-    }
-}
-
-$totalInstalled = $installed.Count
-$totalMissing = $missing.Count
-
-if ($missing.Count -eq 0) {
-    if (-not $parsed.Install) {
-        Write-Host ""
-        Write-Host "  Terminal Tools Status" -ForegroundColor Cyan
-        Write-Host "  $("-" * 50)" -ForegroundColor DarkGray
-        foreach ($tool in $installed) {
-            Write-ToolStatusLine -Tool $tool -IsInstalled $true
-        }
-        Write-Host "  $("-" * 50)" -ForegroundColor DarkGray
-        Write-Host "  $totalInstalled installed, $totalMissing missing" -ForegroundColor DarkGray
-        Write-Host ""
-    }
-
-    Write-Host "  All tools installed." -ForegroundColor Green
-    Write-Host ""
-    exit 0
-}
+$missing = @($rows | Where-Object { -not $_.Installed })
 
 if (-not $parsed.Install) {
     Write-Host ""
     Write-Host "  Terminal Tools Status" -ForegroundColor Cyan
     Write-Host "  $("-" * 50)" -ForegroundColor DarkGray
-    foreach ($tool in $tools) {
-        if ($installed -contains $tool) {
-            Write-ToolStatusLine -Tool $tool -IsInstalled $true
-        } else {
-            Write-ToolStatusLine -Tool $tool -IsInstalled $false
-        }
+    foreach ($r in $rows) {
+        $state = if ($r.Installed) { "[OK]" } else { "[  ]" }
+        $group = if ($r.Tool.Group -eq 'core') { "[core]" } else { "[extra]" }
+        Write-Host "  $state  $($r.Tool.Name.PadRight(14))" -ForegroundColor $(if ($r.Installed) { 'Green' } else { 'Yellow' }) -NoNewline
+        Write-Host " $group $($r.Display)" -ForegroundColor DarkGray
     }
     Write-Host "  $("-" * 50)" -ForegroundColor DarkGray
-    Write-Host "  $totalInstalled installed, $totalMissing missing" -ForegroundColor DarkGray
+    Write-Host "  $(@($rows).Count - $missing.Count) installed, $($missing.Count) missing" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "  Run 'tools --install' to install missing tools." -ForegroundColor Yellow
-    Write-Host ""
+    if ($missing.Count -gt 0) { Write-Host "  Run 'tools --install' to install missing tools." -ForegroundColor Yellow; Write-Host "" }
     exit 0
 }
 
-if ($parsed.Core -and $parsed.Extra) {
-    Write-Host "  Choose either --core or --extra, not both." -ForegroundColor Red
-    Write-Host ""
-    exit 1
-}
-
-if (-not (Require-Fzf)) {
-    Require-WinGet
-
-    $fzfTool = $missing | Where-Object { $_.Name -eq 'fzf' } | Select-Object -First 1
-    if (-not $fzfTool) {
-        Write-Host "  fzf is required for interactive installs. Install fzf first, then run tools --install again." -ForegroundColor Red
-        Write-Host ""
-        exit 1
-    }
-
-    Write-Host "  fzf is required for interactive selection, so we'll install it first." -ForegroundColor Yellow
-    Write-Host ""
-    if (-not (Install-WinGetPackage -Name $fzfTool.Name -WinGetId $fzfTool.WinGet)) {
-        Write-Host ""
-        exit 1
-    }
-    Write-Host ""
-}
-
-# Build install choices
-$installChoices = @()
-$missingTools = if ($parsed.Core) {
-    @($missing | Where-Object { $_.Group -eq 'core' })
-} elseif ($parsed.Extra) {
-    @($missing | Where-Object { $_.Group -eq 'extra' })
-} else {
-    @($missing)
-}
-
-foreach ($tool in $missingTools) {
-    if ($tool.Name -eq 'fzf' -and (Require-Fzf)) { continue }
-    if (-not $tool.WinGet -and -not $tool.InstallScript) { continue }
-
-    $installChoices += @{
-        Key = "tool:$($tool.Name)"
-        Kind = "tool"
-        Name = $tool.Name
-        Label = if ($tool.Group -eq 'core') { "[core] $($tool.Name)" } else { "[extra] $($tool.Name)" }
-        Detail = if ($tool.WinGet) { $tool.WinGet } else { $tool.InstallHint }
-        Tool = $tool
-    }
-}
-
-if ($installChoices.Count -eq 0) {
-    $scopeLabel = if ($parsed.Core) { "core tools" } elseif ($parsed.Extra) { "extra tools" } else { "tools" }
-    $manualOnly = @($missingTools | Where-Object { -not $_.WinGet -and -not $_.InstallScript })
-    if ($manualOnly.Count -gt 0) {
-        Write-Host "  No missing $scopeLabel have a built-in installer." -ForegroundColor Yellow
-        Write-Host "  Manual extras: $($manualOnly.Name -join ', ')" -ForegroundColor DarkGray
-    } else {
-        Write-Host "  No missing $scopeLabel to install." -ForegroundColor Green
-    }
-    Write-Host ""
+if ($missing.Count -eq 0) {
+    Write-Host "  All tools installed." -ForegroundColor Green
     exit 0
 }
 
-$selectedKeys = Select-InstallTargets $installChoices
-if ($selectedKeys.Count -eq 0) {
-    Write-Host "  No tools selected." -ForegroundColor Yellow
-    Write-Host ""
-    exit 0
+$items = [System.Collections.Generic.List[hashtable]]::new()
+foreach ($group in 'core', 'extra') {
+    $inGroup = @($missing | Where-Object { $_.Tool.Group -eq $group })
+    if ($inGroup.Count -eq 0) { continue }
+    $items.Add(@{ Header = $true; Label = $(if ($group -eq 'core') { 'Core' } else { 'Extras' }) })
+    foreach ($r in $inGroup) {
+        $t = $r.Tool
+        $can = ($t.WinGet -and $haveWinget) -or $t.InstallScript
+        $why = if ($can) { $t.Desc } elseif ($t.WinGet) { "$($t.Desc) — needs winget (App Installer)" } else { "$($t.Desc) — $($t.InstallHint)" }
+        $items.Add(@{ Key = $t.Name; Label = $t.Name; Detail = $why; Checked = $false; Disabled = -not $can })
+    }
 }
 
-$selectedChoices = foreach ($key in $selectedKeys) {
-    $installChoices | Where-Object { $_.Key -eq $key } | Select-Object -First 1
-}
-
-Write-Host "  Installing selected items..." -ForegroundColor Cyan
 Write-Host ""
-
-foreach ($choice in $selectedChoices) {
-    if (-not $choice) { continue }
-
-    if ($choice.Kind -eq 'tool') {
-        $tool = $choice.Tool
-        [void](Install-Tool -Tool $tool)
-    }
-    Write-Host ""
+$selected = Show-Checklist -Title 'Install tools' -Items $items -Hint 'Up/Down move   Space toggle   a all   n none   Enter install   Esc cancel'
+if (-not $selected -or $selected.Count -eq 0) {
+    Write-Host "  No tools selected." -ForegroundColor Yellow
+    exit 0
 }
 
-# Clear cached tool paths so profile picks up newly installed tools
-$cacheFile = "$env:TEMP\pwsh-profile\winget-tool-paths.txt"
+foreach ($name in $selected) {
+    $tool = $ToolCatalog | Where-Object { $_.Name -eq $name } | Select-Object -First 1
+    Write-Step run "Installing $name"
+    if (Install-CatalogTool $tool) { Write-Step ok "Installed $name" } else { Write-Step fail "$name was not installed" }
+}
+
+# Mirror new winget tools into the user PATH if that was chosen in profile-setup.
+Update-WinGetUserPath
+
+# Clear the profile's startup cache so new shells pick up the new tools
+# (it usually notices on its own via PATH/WinGet timestamps; this makes it certain).
+$cacheFile = Join-Path $env:LOCALAPPDATA 'pwsh-profile\cache.ps1'
 if (Test-Path $cacheFile) {
     Remove-Item $cacheFile -Force
-    Write-Host "  Path cache cleared. Restart your shell to pick up new tools." -ForegroundColor Cyan
+    Write-Host "  Profile cache cleared. New shells will pick up the new tools (or run 'profile-rebuild' here)." -ForegroundColor Cyan
 }
 Write-Host ""
