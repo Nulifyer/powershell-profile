@@ -261,14 +261,25 @@ foreach ($p in @("$env:USERPROFILE\.config\wezterm\wezterm.lua", "$env:USERPROFI
 
 if ($weztermPath) {
     $content = Get-Content $weztermPath -Raw
-    $weztermExpected = if ($script:WEZTERM_SCHEMES[$scheme.name]) { $script:WEZTERM_SCHEMES[$scheme.name] } else { $scheme.name }
-
-    if ($content -match "config\.color_scheme\s*=\s*[`"']([^`"']+)[`"']") {
-        _Check "wezterm color_scheme" $weztermExpected $Matches[1]
-    } elseif ($content -match "color_scheme\s*=\s*[`"']([^`"']+)[`"']") {
-        _Check "wezterm color_scheme" $weztermExpected $Matches[1]
+    $m = [regex]::Match($content, '(?ms)^-- BEGIN theme \(managed.*?^-- END theme')
+    if ($m.Success) {
+        $blk = $m.Value
+        foreach ($pair in @(@('foreground', 'foreground'), @('background', 'background'), @('cursor_bg', 'cursorColor'), @('selection_bg', 'selectionBackground'))) {
+            if ($blk -match "(?m)^\s*$($pair[0])\s*=\s*'([^']+)'") { _Check "wezterm $($pair[0])" $scheme[$pair[1]] $Matches[1] }
+            else { _Check "wezterm $($pair[0])" $scheme[$pair[1]] '(missing)' }
+        }
+        foreach ($set in @(@('ansi', @('black','red','green','yellow','blue','purple','cyan','white')),
+                           @('brights', @('brightBlack','brightRed','brightGreen','brightYellow','brightBlue','brightPurple','brightCyan','brightWhite')))) {
+            if ($blk -match "(?m)^\s*$($set[0])\s*=\s*\{([^}]*)\}") {
+                $vals = @([regex]::Matches($Matches[1], "'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+                for ($i = 0; $i -lt 8; $i++) { _Check "wezterm $($set[0])[$i]" $scheme[$set[1][$i]] $vals[$i] }
+            } else { _Check "wezterm $($set[0])" 'present' '(missing)' }
+        }
+        if ($content -match '(?m)^\s*config\.color_scheme\s*=') { _Check "wezterm color_scheme disabled" 'commented out' 'still set (overrides the palette)' }
+    } elseif ($content -notmatch '(?m)^return\s+config\b') {
+        _Skip "WezTerm" "config doesn't end with 'return config', so theme leaves it alone"
     } else {
-        _Skip "WezTerm" "no color_scheme found in config"
+        _Check "wezterm palette block" 'present' '(missing: run theme again)'
     }
 } else {
     _Skip "WezTerm" "config not found"
@@ -281,9 +292,15 @@ _Section "VS Code"
 $preFail = $script:failCount
 $prePass = $script:passCount
 
-$vsSettingsPath = "$env:APPDATA\Code\User\settings.json"
-
-if (Test-Path $vsSettingsPath) {
+$vsVariants = @(_Get-VSCodeVariants)
+$vsSettingsPath = if ($vsVariants) { $vsVariants[0].Settings } else { $null }
+foreach ($v in $vsVariants | Select-Object -Skip 1) {
+    $vsOther = if (Test-Path $v.Settings) { (Get-Content $v.Settings -Raw | ConvertFrom-Json).'workbench.colorTheme' } else { '(no settings.json)' }
+    _Check "$($v.Name) workbench.colorTheme" "Nulifyer" $vsOther
+}
+if ($vsVariants -and -not (Test-Path $vsSettingsPath)) {
+    _Check "$($vsVariants[0].Name) themed" "settings.json written" "(missing: run theme again)"
+} elseif ($vsSettingsPath -and (Test-Path $vsSettingsPath)) {
     $vs = Get-Content $vsSettingsPath -Raw | ConvertFrom-Json
 
     # Check active theme name
@@ -319,149 +336,20 @@ if (Test-Path $vsSettingsPath) {
 
     # Check token color rules (textMateRules) — rebuild full expected map from theme logic
     $tc = $vs.'editor.tokenColorCustomizations'
+    $vsTokens = Get-VSCodeTokenCustomizations $scheme $themeName
     if ($tc -and $tc.textMateRules) {
-        $orange = $scheme.brightRed
-
-        # Build scope -> expected foreground map (mirrors _tc calls in TerminalConfig.ps1)
+        # Expected scope -> color, from the same generator that writes them
         $tcExpected = [ordered]@{}
-        # Comments
-        foreach ($s in @("comment","punctuation.definition.comment")) { $tcExpected[$s] = $fgMuted }
-        # Strings
-        foreach ($s in @("string","string.tag","string.value","string meta.image.inline.markdown",
-            "meta.embedded.assembly","meta.preprocessor.string",
-            "punctuation.definition.string.begin","punctuation.definition.string.end",
-            "punctuation.definition.string.template.begin","punctuation.definition.string.template.end")) { $tcExpected[$s] = $scheme.brightGreen }
-        $tcExpected["string.regexp"] = $scheme.cyan
-        # Constants
-        foreach ($s in @("constant.language","constant.numeric","constant.character","constant.other.option",
-            "constant.regexp","constant.sha.git-rebase","variable.other.constant","variable.other.enummember",
-            "keyword.other.unit","keyword.operator.plus.exponent","keyword.operator.minus.exponent",
-            "meta.preprocessor.numeric")) { $tcExpected[$s] = $scheme.purple }
-        # Format/escape -> orange
-        foreach ($s in @("constant.other.placeholder","constant.character.format.placeholder",
-            "constant.character.escape")) { $tcExpected[$s] = $orange }
-        foreach ($s in @("constant.other.color.rgb-value","constant.other.rgb-value")) { $tcExpected[$s] = $scheme.brightGreen }
-        # Keywords -> red
-        foreach ($s in @("keyword","keyword.control","keyword.other.using","keyword.other.directive.using",
-            "keyword.other.operator","storage","storage.modifier")) { $tcExpected[$s] = $scheme.red }
-        $tcExpected["storage.type"] = $scheme.green
-        # Word-like operators -> red
-        foreach ($s in @("keyword.operator.expression","keyword.operator.new","keyword.operator.delete",
-            "keyword.operator.cast","keyword.operator.sizeof","keyword.operator.alignof","keyword.operator.typeid",
-            "keyword.operator.alignas","keyword.operator.instanceof","keyword.operator.logical.python",
-            "keyword.operator.wordlike","keyword.operator.noexcept","source.cpp keyword.operator.new",
-            "entity.name.operator")) { $tcExpected[$s] = $scheme.red }
-        # Symbolic operators -> orange
-        foreach ($s in @("keyword.operator","keyword.operator.quantifier.regexp","keyword.operator.negation.regexp",
-            "keyword.operator.arrow","storage.type.function.arrow","punctuation.accessor","punctuation.separator.dot",
-            "punctuation.other.period","punctuation.separator.namespace","punctuation.separator.namespace.ruby",
-            "punctuation.definition.template-expression.begin","punctuation.definition.template-expression.end",
-            "punctuation.section.embedded","punctuation.definition.list.begin.markdown")) { $tcExpected[$s] = $orange }
-        foreach ($s in @("punctuation.section.embedded.begin.php","punctuation.section.embedded.end.php")) { $tcExpected[$s] = $scheme.red }
-        # Regex
-        foreach ($s in @("support.other.parenthesis.regexp","punctuation.definition.group.regexp",
-            "punctuation.definition.group.assertion.regexp","punctuation.definition.character-class.regexp",
-            "punctuation.character.set.begin.regexp","punctuation.character.set.end.regexp")) { $tcExpected[$s] = $scheme.brightGreen }
-        foreach ($s in @("constant.character.character-class.regexp","constant.other.character-class.set.regexp",
-            "constant.other.character-class.regexp","constant.character.set.regexp")) { $tcExpected[$s] = $scheme.red }
-        foreach ($s in @("keyword.operator.or.regexp","keyword.control.anchor.regexp")) { $tcExpected[$s] = $scheme.yellow }
-        # Functions -> yellow
-        foreach ($s in @("entity.name.function","entity.name.function.macro","entity.name.function.support.builtin",
-            "entity.name.operator.custom-literal","entity.name.command","support.function",
-            "support.function.builtin","support.function.library","support.function.git-rebase",
-            "support.constant.handlebars","source.powershell variable.other.member")) { $tcExpected[$s] = $scheme.yellow }
-        $tcExpected["entity.name.function.preprocessor"] = $scheme.red
-        # Brackets
-        foreach ($s in @("punctuation.definition.block","punctuation.section","meta.brace",
-            "punctuation.squarebracket","punctuation.curlybrace","punctuation.parenthesis",
-            "punctuation.definition.parameters","punctuation.definition.arguments",
-            "punctuation.definition.begin.bracket","punctuation.definition.end.bracket",
-            "punctuation.definition.attribute","punctuation.definition.mapping.begin",
-            "punctuation.definition.mapping.end")) { $tcExpected[$s] = $bracket }
-        # Types -> green
-        foreach ($s in @("entity.name.type","entity.name.class","entity.name.namespace","entity.name.module",
-            "entity.name.scope-resolution","entity.other.attribute","entity.other.inherited-class",
-            "support.type","support.type.builtin","support.type.primitive","support.type.exception",
-            "support.class","support.class.builtin","support.constant.math","support.constant.dom",
-            "support.constant.json","meta.type.cast.expr","meta.type.new.expr","keyword.type",
-            "storage.type.cs","storage.type.generic.cs","storage.type.modifier.cs","storage.type.variable.cs",
-            "storage.type.annotation.java","storage.type.generic.java","storage.type.java",
-            "storage.type.object.array.java","storage.type.primitive.array.java","storage.type.primitive.java",
-            "storage.type.token.java","storage.type.groovy","storage.type.annotation.groovy",
-            "storage.type.parameters.groovy","storage.type.generic.groovy","storage.type.object.array.groovy",
-            "storage.type.primitive.array.groovy","storage.type.primitive.groovy",
-            "storage.type.numeric.go","storage.type.byte.go","storage.type.boolean.go",
-            "storage.type.string.go","storage.type.uintptr.go","storage.type.error.go",
-            "storage.type.rune.go")) { $tcExpected[$s] = $scheme.green }
-        # Variables -> fg
-        foreach ($s in @("variable","variable.other","variable.other.readwrite","variable.other.property",
-            "variable.other.object","variable.parameter","variable.argument","punctuation.definition.variable",
-            "entity.name.variable","support.variable","meta.definition.variable.name",
-            "variable.legacy.builtin.python","variable.language.wildcard.java")) { $tcExpected[$s] = $fg }
-        $tcExpected["variable.language"] = $scheme.red
-        # PowerShell-specific
-        foreach ($s in @("support.function.powershell","support.function.attribute.powershell",
-            "variable.other.member.powershell")) { $tcExpected[$s] = $scheme.yellow }
-        $tcExpected["support.variable.automatic.powershell"] = $scheme.red
-        $tcExpected["support.variable.drive.powershell"] = $fg
-        $tcExpected["support.constant.variable.powershell"] = $scheme.purple
-        $tcExpected["variable.parameter.attribute.powershell"] = $orange
-        foreach ($s in @("storage.modifier.scope.powershell","keyword.other.powershell")) { $tcExpected[$s] = $scheme.red }
-        foreach ($s in @("keyword.other.array.begin.powershell","keyword.other.hashtable.begin.powershell")) { $tcExpected[$s] = $scheme.yellow }
-        $tcExpected["keyword.operator.string-format.powershell"] = $orange
-        foreach ($s in @("punctuation.section.embedded.substatement.begin.powershell",
-            "punctuation.section.embedded.substatement.end.powershell")) { $tcExpected[$s] = $orange }
-        foreach ($s in @("punctuation.section.braces.begin.powershell","punctuation.section.braces.end.powershell",
-            "punctuation.section.bracket.begin.powershell","punctuation.section.bracket.end.powershell",
-            "punctuation.section.group.begin.powershell","punctuation.section.group.end.powershell",
-            "meta.attribute.powershell")) { $tcExpected[$s] = $bracket }
-        # Tags
-        foreach ($s in @("entity.name.tag","entity.name.tag.css","entity.name.tag.less",
-            "entity.name.tag.yaml")) { $tcExpected[$s] = $scheme.yellow }
-        foreach ($s in @("entity.other.attribute-name","entity.other.attribute-name.class.css",
-            "entity.other.attribute-name.id.css","entity.other.attribute-name.parent-selector.css",
-            "entity.other.attribute-name.parent.less","entity.other.attribute-name.pseudo-element.css",
-            "entity.other.attribute-name.scss","source.css entity.other.attribute-name.class",
-            "source.css entity.other.attribute-name.pseudo-class",
-            "source.css.less entity.other.attribute-name.id")) { $tcExpected[$s] = $orange }
-        $tcExpected["punctuation.definition.tag"] = $fgMuted
-        # CSS
-        foreach ($s in @("support.type.vendored.property-name","support.type.property-name")) { $tcExpected[$s] = $scheme.yellow }
-        foreach ($s in @("support.constant.property-value","support.constant.font-name",
-            "support.constant.media-type","support.constant.media","support.constant.color")) { $tcExpected[$s] = $scheme.brightGreen }
-        $tcExpected["source.css variable"] = $fg
-        $tcExpected["source.coffee.embedded"] = $fg
-        # JSON/object keys
-        foreach ($s in @("meta.object-literal.key","support.type.property-name.json",
-            "meta.structure.dictionary.key.python")) { $tcExpected[$s] = $scheme.yellow }
-        # Decorators
-        foreach ($s in @("meta.decorator","entity.name.decorator","punctuation.decorator",
-            "punctuation.definition.decorator","punctuation.definition.annotation",
-            "meta.attribute")) { $tcExpected[$s] = $scheme.yellow }
-        # Rust lifetimes
-        foreach ($s in @("entity.name.type.lifetime","punctuation.definition.lifetime")) { $tcExpected[$s] = $orange }
-        # Preprocessor
-        $tcExpected["meta.preprocessor"] = $scheme.red
-        # Resets
-        foreach ($s in @("meta.embedded","source.groovy.embedded","meta.template.expression",
-            "entity.name.label","storage.modifier.import.java","storage.modifier.package.java")) { $tcExpected[$s] = $fg }
-        # Misc
-        $tcExpected["meta.diff.header"] = $scheme.yellow
-        foreach ($s in @("punctuation.definition.quote.begin.markdown","entity.other.document.begin",
-            "entity.other.document.end")) { $tcExpected[$s] = $fgMuted }
-        $tcExpected["header"] = $scheme.yellow
-        $tcExpected["invalid"] = $scheme.red
-        # Markup
-        $tcExpected["markup.heading"] = $scheme.yellow
-        foreach ($s in @("markup.bold","markup.italic")) { $tcExpected[$s] = $fg }
-        $tcExpected["markup.inserted"] = $scheme.green
-        $tcExpected["markup.deleted"] = $scheme.red
-        $tcExpected["markup.changed"] = $scheme.yellow
-        $tcExpected["markup.inline.raw"] = $scheme.brightGreen
-        foreach ($s in @("markup.underline.link","markup.link")) { $tcExpected[$s] = $scheme.blue }
-        $tcExpected["punctuation.definition.to-file.diff"] = $scheme.green
-        $tcExpected["punctuation.definition.from-file.diff"] = $scheme.red
-        $tcExpected["text"] = $fg
+        foreach ($rule in $vsTokens.TextMateRules) { $tcExpected[$rule.scope] = $rule.settings.foreground }
+
+        # A rule without a color silently falls back to VS Code's defaults
+        foreach ($rule in $tc.textMateRules) {
+            if (-not $rule.settings.foreground -and -not $rule.settings.fontStyle) { _Check "token $($rule.scope) has a color" 'a color' '(empty)' }
+        }
+        foreach ($k in $vsTokens.Semantic.rules.Keys) {
+            $v = $vsTokens.Semantic.rules[$k]
+            if (-not ($(if ($v -is [System.Collections.IDictionary]) { $v.foreground -or $v.fontStyle } else { $v }))) { _Check "semantic $k has a color" 'a color' '(empty)' }
+        }
 
         # Compare every rule in settings against expected
         foreach ($rule in $tc.textMateRules) {
@@ -491,48 +379,14 @@ if (Test-Path $vsSettingsPath) {
     # Check semantic token colors
     $stc = $vs.'editor.semanticTokenColorCustomizations'
     if ($stc -and $stc.rules) {
-        $orange = $scheme.brightRed
-        $semExpected = [ordered]@{
-            "keyword" = $scheme.red
-            "function" = $scheme.yellow
-            "method" = $scheme.yellow
-            "function.defaultLibrary" = $scheme.yellow
-            "method.defaultLibrary" = $scheme.yellow
-            "variable" = $fg
-            "parameter" = $fg
-            "property" = $fg
-            "class" = $scheme.green
-            "interface" = $scheme.green
-            "struct" = $scheme.green
-            "enum" = $scheme.green
-            "type" = $scheme.green
-            "typeAlias" = $scheme.green
-            "class.defaultLibrary" = $scheme.green
-            "interface.defaultLibrary" = $scheme.green
-            "struct.defaultLibrary" = $scheme.green
-            "enum.defaultLibrary" = $scheme.green
-            "type.defaultLibrary" = $scheme.green
-            "builtinType" = $scheme.green
-            "typeParameter" = $scheme.green
-            "string" = $scheme.brightGreen
-            "number" = $scheme.purple
-            "boolean" = $scheme.purple
-            "enumMember" = $scheme.purple
-            "const" = $scheme.purple
-            "operator" = $orange
-            "punctuation" = $bracket
-            "comment" = $fgMuted
-            "newOperator" = $scheme.red
-            "stringLiteral" = $scheme.brightGreen
-            "customLiteral" = $scheme.yellow
-            "numberLiteral" = $scheme.purple
-            "label" = $fg
-            "namespace" = $fg
-            "decorator" = $scheme.yellow
-            "macro" = $scheme.yellow
+        $semExpected = [ordered]@{}
+        foreach ($k in $vsTokens.Semantic.rules.Keys) {
+            $v = $vsTokens.Semantic.rules[$k]
+            $semExpected[$k] = if ($v -is [System.Collections.IDictionary]) { $v.foreground } else { $v }
         }
         foreach ($k in $semExpected.Keys) {
             $actual = $stc.rules.$k
+            if ($actual -and $actual -isnot [string]) { $actual = $actual.foreground }
             if ($actual) {
                 _Check "semantic.$k" $semExpected[$k] $actual
             } else {
@@ -617,26 +471,26 @@ $prePass = $script:passCount
 $browsers = @(
     @{ Name = "Chrome";  Policy = "HKCU:\SOFTWARE\Policies\Google\Chrome";  Exe = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") }
     @{ Name = "Brave";   Policy = "HKCU:\SOFTWARE\Policies\BraveSoftware\Brave";  Exe = @("$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe") }
-    @{ Name = "Edge";    Policy = "HKCU:\SOFTWARE\Policies\Microsoft\Edge";  Exe = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") }
     @{ Name = "Vivaldi"; Policy = "HKCU:\SOFTWARE\Policies\Vivaldi";  Exe = @("$env:LOCALAPPDATA\Vivaldi\Application\vivaldi.exe") }
 )
 
+$anyBrowser = $false
 foreach ($b in $browsers) {
     $installed = $b.Exe | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($installed) {
-        if (Test-Path $b.Policy) {
-            $regColor = (Get-ItemProperty -Path $b.Policy -Name "BrowserThemeColor" -ErrorAction SilentlyContinue).BrowserThemeColor
-            if ($regColor) {
-                _Check "$($b.Name) BrowserThemeColor" $scheme.background $regColor
-            } else {
-                _Skip "$($b.Name)" "BrowserThemeColor not set"
-            }
+        $anyBrowser = $true
+        $regColor = if (Test-Path $b.Policy) { (Get-ItemProperty -Path $b.Policy -Name "BrowserThemeColor" -ErrorAction SilentlyContinue).BrowserThemeColor }
+        if ($regColor) {
+            _Check "$($b.Name) BrowserThemeColor" (Get-BrowserThemeSeed $scheme) $regColor
         } else {
-            _Skip "$($b.Name)" "policy key not found"
+            _Skip "$($b.Name)" "theme color not applied: browser policies need an administrator shell (sudo theme $themeName)"
         }
     }
 }
-if ($script:passCount -eq $prePass -and $script:failCount -eq $preFail) {
+if ((Get-ItemProperty "HKCU:\SOFTWARE\Policies\Microsoft\Edge" -Name BrowserThemeColor -ErrorAction SilentlyContinue)) {
+    _Check "Edge BrowserThemeColor" "(not set: Edge rejects this policy)" "set (shows a policy error in Edge)"
+}
+if (-not $anyBrowser) {
     _Skip "Browsers" "no Chromium browsers detected"
 }
 _SectionResult "Browsers" ($script:passCount - $prePass) ($script:failCount - $preFail)
@@ -759,8 +613,7 @@ _Section "Lutgen Palette"
 $preFail = $script:failCount
 $prePass = $script:passCount
 
-$lutgenMap = $script:LutgenPalettes
-$lutgenName = $lutgenMap[$themeName]
+$lutgenName = $scheme.lutgen_palette
 
 if ($lutgenName) {
     $haslutgen = Get-Command lutgen -ErrorAction SilentlyContinue

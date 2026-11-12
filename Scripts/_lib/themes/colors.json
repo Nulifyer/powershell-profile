@@ -676,7 +676,7 @@
     "bat_theme": "ansi",
     "lutgen_palette": "gruvbox-material-dark-hard",
     "prompt": {
-      "os": "746A62",
+      "os": "948576",
       "user": "D8A657",
       "path": "E78A4E",
       "git": "A9B665",
@@ -688,7 +688,7 @@
       "bg": "#202020",
       "fg": "#DDC7A1",
       "cursor": "#DDC7A1",
-      "selection": "#2A2827",
+      "selection": "#504945",
       "normal": {
         "black": "#2A2827",
         "red": "#EA6962",
@@ -700,7 +700,7 @@
         "white": "#DDC7A1"
       },
       "bright": {
-        "black": "#746A62",
+        "black": "#948576",
         "red": "#EA6962",
         "green": "#A9B665",
         "yellow": "#D8A657",

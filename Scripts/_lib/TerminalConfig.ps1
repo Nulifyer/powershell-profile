@@ -3,6 +3,21 @@
 
 # -- Color utility helpers ---------------------------------------------------
 
+# WCAG contrast ratio between two #RRGGBB colors (1..21).
+function Get-HexContrast([string]$a, [string]$b) {
+    $lum = {
+        param($h)
+        $h = $h.TrimStart('#')
+        $c = foreach ($i in 0, 2, 4) {
+            $v = [Convert]::ToInt32($h.Substring($i, 2), 16) / 255
+            if ($v -le 0.03928) { $v / 12.92 } else { [Math]::Pow(($v + 0.055) / 1.055, 2.4) }
+        }
+        0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2]
+    }
+    $la = & $lum $a; $lb = & $lum $b
+    ([Math]::Max($la, $lb) + 0.05) / ([Math]::Min($la, $lb) + 0.05)
+}
+
 function Adjust-HexBrightness([string]$hex, [int]$percent) {
     $r = [Convert]::ToInt32($hex.Substring(1,2),16)
     $g = [Convert]::ToInt32($hex.Substring(3,2),16)
@@ -67,7 +82,7 @@ function _Is-LightTheme([string]$themeName) {
 
 # -- P/Invoke for Windows theming + wallpaper --------------------------------
 
-if (-not ([System.Management.Automation.PSTypeName]'NativeMethods').Type) {
+if (-not ([System.Management.Automation.PSTypeName]'NativeMethods').Type) {   # (a session that loaded an older NativeMethods keeps it until restarted)
     Add-Type @"
     using System;
     using System.Runtime.InteropServices;
@@ -104,11 +119,12 @@ if (-not ([System.Management.Automation.PSTypeName]'NativeMethods').Type) {
         [DllImport("uxtheme.dll", EntryPoint = "#122")]
         public static extern int SetUserColorPreference(ref IMMERSIVE_COLOR_PREFERENCE pref, bool forceCommit);
 
-        public static void ApplyAccentColor(uint abgrColor) {
+        // color1 is the Start/taskbar shade (StartColorMenu), color2 the accent (AccentColorMenu).
+        public static void ApplyAccentColors(uint startAbgr, uint accentAbgr) {
             var pref = new IMMERSIVE_COLOR_PREFERENCE();
             GetUserColorPreference(ref pref, false);
-            pref.color1 = abgrColor;
-            pref.color2 = abgrColor;
+            pref.color1 = startAbgr;
+            pref.color2 = accentAbgr;
             SetUserColorPreference(ref pref, true);
         }
     }
@@ -178,27 +194,6 @@ function _Ensure-WTProfile {
     }
 
     return $wt
-}
-
-# WezTerm built-in color scheme name mappings
-$script:WEZTERM_SCHEMES = @{
-    "Catppuccin Mocha"     = "Catppuccin Mocha"
-    "Catppuccin Macchiato" = "Catppuccin Macchiato"
-    "Catppuccin Frappe"    = "Catppuccin Frappe"
-    "Catppuccin Latte"     = "Catppuccin Latte"
-    "Gruvbox Dark"         = "GruvboxDarkHard"
-    "Gruvbox Light"        = "Gruvbox light, medium (base16)"
-    "Everforest Dark"      = "Everforest Dark Hard (Gogh)"
-    "Everforest Light"     = "Everforest Light Hard (Gogh)"
-    "Tokyo Night"          = "Tokyo Night"
-    "Tokyo Night Light"    = "Tokyo Night Light (Gogh)"
-    "Nord"                 = "nord"
-    "Dracula"              = "Dracula (Official)"
-    "Rose Pine"            = "rose-pine"
-    "Rose Pine Dawn"       = "rose-pine-dawn"
-    "Kanagawa"             = "Kanagawa (Gogh)"
-    "Solarized Dark"       = "Solarized Dark (Gogh)"
-    "One Dark"             = "One Dark (Gogh)"
 }
 
 # -- Config file paths per terminal -------------------------------------------
@@ -313,6 +308,17 @@ function Update-TerminalFont([string]$FontName) {
         } catch {}
     }
 
+    # VS Code's integrated terminal — settings.json: terminal.integrated.fontFamily
+    foreach ($variant in @(_Get-VSCodeVariants)) {
+        try {
+            $vs = if (Test-Path $variant.Settings) { Get-Content $variant.Settings -Raw -ErrorAction Stop | ConvertFrom-Json } else { $null }
+            if ($null -eq $vs) { $vs = [PSCustomObject]@{} }
+            $vs | Add-Member -NotePropertyName 'terminal.integrated.fontFamily' -NotePropertyValue $FontName -Force
+            $vs | ConvertTo-Json -Depth 10 | Set-Content $variant.Settings -Encoding UTF8
+            $updated += "$($variant.Name) terminal"
+        } catch {}
+    }
+
     return $updated
 }
 
@@ -329,15 +335,16 @@ function Update-TerminalColors([hashtable]$scheme) {
         try {
             $wt = _Ensure-WTProfile
             if ($wt) {
-                # Add or update the color scheme
-                $existingScheme = $wt.schemes | Where-Object { $_.name -eq $schemeName }
-                if ($existingScheme) {
-                    foreach ($key in $scheme.Keys) { $existingScheme | Add-Member -NotePropertyName $key -NotePropertyValue $scheme[$key] -Force }
-                } else {
-                    $newSchemes = [System.Collections.ArrayList]@($wt.schemes)
-                    $newSchemes.Add([PSCustomObject]$scheme) | Out-Null
-                    $wt | Add-Member -NotePropertyName "schemes" -NotePropertyValue $newSchemes.ToArray() -Force
+                # Replace the color scheme with exactly the keys Windows Terminal reads
+                $wtScheme = [ordered]@{ name = $schemeName }
+                foreach ($key in 'background', 'foreground', 'cursorColor', 'selectionBackground',
+                    'black', 'red', 'green', 'yellow', 'blue', 'purple', 'cyan', 'white',
+                    'brightBlack', 'brightRed', 'brightGreen', 'brightYellow', 'brightBlue', 'brightPurple', 'brightCyan', 'brightWhite') {
+                    $wtScheme[$key] = $scheme[$key]
                 }
+                $newSchemes = [System.Collections.ArrayList]@($wt.schemes | Where-Object { $_.name -ne $schemeName })
+                $newSchemes.Add([PSCustomObject]$wtScheme) | Out-Null
+                $wt | Add-Member -NotePropertyName "schemes" -NotePropertyValue $newSchemes.ToArray() -Force
 
                 # Set colorScheme and opacity on the profile
                 $profile = $wt.profiles.list | Where-Object { $_.guid -eq $script:NULIFYR_GUID }
@@ -364,11 +371,15 @@ function Update-TerminalColors([hashtable]$scheme) {
             $content = $content -replace '(?ms)^\[colors\.bright\].*?(?=^\[[^\]]*\]|\z)', ''
             $content = $content -replace '(?ms)^\[colors\.cursor\].*?(?=^\[[^\]]*\]|\z)', ''
             $content = $content -replace '(?ms)^\[colors\.selection\].*?(?=^\[[^\]]*\]|\z)', ''
-            # Remove stray bare background/foreground keys (not under a [section])
-            $content = $content -replace '(?m)^#[^\n]*COLORS[^\n]*\n', ''
-            $content = $content -replace '(?m)^background\s*=\s*"[^"]*"\s*$', ''
-            $content = $content -replace '(?m)^foreground\s*=\s*"[^"]*"\s*$', ''
-            $content = $content -replace '(\r?\n){3,}', "`n`n"
+            # Remove stray bare background/foreground keys left by older versions,
+            # but only above the first [table] (keys inside other tables such as
+            # [colors.search.matches] are the user's). Case-sensitive on purpose.
+            $firstTable = [regex]::Match($content, '(?m)^\[')
+            $head = if ($firstTable.Success) { $content.Substring(0, $firstTable.Index) } else { $content }
+            $tail = if ($firstTable.Success) { $content.Substring($firstTable.Index) } else { '' }
+            $head = $head -creplace '(?m)^# COLORS[^\n]*\n', ''
+            $head = $head -creplace '(?m)^(background|foreground)\s*=\s*"[^"]*"\s*\r?$\n?', ''
+            $content = ($head + $tail) -replace '(\r?\n){3,}', "`n`n"
             $content = $content.TrimEnd()
 
             $colors = @"
@@ -382,7 +393,7 @@ text = "CellBackground"
 cursor = "$($scheme.cursorColor)"
 
 [colors.selection]
-text = "CellBackground"
+text = "CellForeground"
 background = "$($scheme.selectionBackground)"
 
 [colors.normal]
@@ -499,20 +510,41 @@ white   = "$($scheme.brightWhite)"
         } catch {}
     }
 
-    # -- WezTerm — Lua config.color_scheme ------------------------------------
+    # -- WezTerm — managed config.colors block --------------------------------
+    # The palette is written out (WezTerm's built-in schemes of the same name
+    # use different colors), between markers so reruns replace only this block.
 
     if ($configs.wezterm) {
         try {
             $content = Get-Content $configs.wezterm -Raw -ErrorAction Stop
-            $weztermScheme = if ($script:WEZTERM_SCHEMES[$schemeName]) { $script:WEZTERM_SCHEMES[$schemeName] } else { $schemeName }
-
-            if ($content -match "config\.color_scheme\s*=") {
-                $content = $content -replace "config\.color_scheme\s*=\s*[`"'][^`"']*[`"']", "config.color_scheme = `"$weztermScheme`""
-            } elseif ($content -match "color_scheme\s*=\s*[`"']") {
-                $content = $content -replace "color_scheme\s*=\s*[`"'][^`"']*[`"']", "color_scheme = `"$weztermScheme`""
+            $q = { param($c) "'$c'" }
+            $ansi = ($scheme.black, $scheme.red, $scheme.green, $scheme.yellow, $scheme.blue, $scheme.purple, $scheme.cyan, $scheme.white | ForEach-Object { & $q $_ }) -join ', '
+            $brights = ($scheme.brightBlack, $scheme.brightRed, $scheme.brightGreen, $scheme.brightYellow, $scheme.brightBlue, $scheme.brightPurple, $scheme.brightCyan, $scheme.brightWhite | ForEach-Object { & $q $_ }) -join ', '
+            $block = @(
+                "-- BEGIN theme (managed by the PowerShell profile's ``theme`` command): $schemeName"
+                "config.colors = {"
+                "  foreground = $(& $q $scheme.foreground),"
+                "  background = $(& $q $scheme.background),"
+                "  cursor_bg = $(& $q $scheme.cursorColor),"
+                "  cursor_fg = $(& $q $scheme.background),"
+                "  cursor_border = $(& $q $scheme.cursorColor),"
+                "  selection_bg = $(& $q $scheme.selectionBackground),"
+                "  selection_fg = $(& $q $scheme.foreground),"
+                "  ansi = { $ansi },"
+                "  brights = { $brights },"
+                "}"
+                "-- END theme"
+            ) -join "`n"
+            $content = $content -replace '(?ms)^-- BEGIN theme \(managed.*?^-- END theme\r?\n?', ''
+            # A color_scheme would override part of the palette; disable it.
+            $content = $content -replace '(?m)^(\s*)(config\.color_scheme\s*=)', '$1-- $2'
+            $ret = [regex]::Match($content, '(?m)^return\s+config\b')
+            if ($ret.Success) {
+                $content = $content.Substring(0, $ret.Index) + $block + "`n" + $content.Substring($ret.Index)
+                $content | Set-Content $configs.wezterm -Encoding UTF8 -NoNewline
+                $updated += "WezTerm"
             }
-            $content | Set-Content $configs.wezterm -Encoding UTF8
-            $updated += "WezTerm"
+            # Configs that don't end with `return config` are left untouched.
         } catch {}
     }
 
@@ -525,52 +557,63 @@ white   = "$($scheme.brightWhite)"
 # synced to ~/.vscode/extensions/nulifyer-theme/ on theme switch.
 
 $script:VS_EXT_SOURCE = "$PSScriptRoot\..\theme\vscode-extension"
-function _Sync-VSCodeExtension {
-    if (-not (Test-Path $script:VS_EXT_SOURCE)) { return }
-    $sourceVersion = (Get-Content "$script:VS_EXT_SOURCE\package.json" -Raw | ConvertFrom-Json).version
-    $script:VS_EXT_DEST = "$env:USERPROFILE\.vscode\extensions\nulifyer.nulifyer-theme-$sourceVersion"
-    $destPkg = "$script:VS_EXT_DEST\package.json"
-    $needsSync = -not (Test-Path $destPkg)
-    if (-not $needsSync) {
-        $destVersion = (Get-Content $destPkg -Raw | ConvertFrom-Json).version
-        $needsSync = $destVersion -ne $sourceVersion
-    }
-    if ($needsSync) {
-        if (Test-Path $script:VS_EXT_DEST) { Remove-Item $script:VS_EXT_DEST -Recurse -Force }
-        # Copy only what VS Code needs: package.json + themes/
-        New-Item -ItemType Directory -Path "$script:VS_EXT_DEST\themes" -Force | Out-Null
-        Copy-Item "$script:VS_EXT_SOURCE\package.json" "$script:VS_EXT_DEST\package.json" -Force
-        Copy-Item "$script:VS_EXT_SOURCE\themes\nulifyer.json" "$script:VS_EXT_DEST\themes\nulifyer.json" -Force
-        # Register in extensions.json so VS Code recognizes it
-        _Register-VSCodeExtension
+
+# VS Code, Insiders and VSCodium each read their own settings and extensions.
+# A variant counts as installed once its User folder exists (VS Code creates it
+# on first start, before any settings.json).
+function _Get-VSCodeVariants {
+    foreach ($v in @(
+            @{ Name = 'VS Code';          User = "$env:APPDATA\Code\User";            Ext = "$env:USERPROFILE\.vscode\extensions" }
+            @{ Name = 'VS Code Insiders'; User = "$env:APPDATA\Code - Insiders\User"; Ext = "$env:USERPROFILE\.vscode-insiders\extensions" }
+            @{ Name = 'VSCodium';         User = "$env:APPDATA\VSCodium\User";        Ext = "$env:USERPROFILE\.vscode-oss\extensions" }
+        )) {
+        if (Test-Path $v.User) { $v.Settings = Join-Path $v.User 'settings.json'; $v }
     }
 }
 
-function _Register-VSCodeExtension {
-    $extJsonPath = "$env:USERPROFILE\.vscode\extensions\extensions.json"
+# Installs the theme extension into one variant's extensions folder (once per
+# version) and makes sure extensions.json points at that version.
+function _Sync-VSCodeExtension([string]$ExtensionsDir) {
+    if (-not (Test-Path $script:VS_EXT_SOURCE)) { return $null }
+    $sourceVersion = (Get-Content "$script:VS_EXT_SOURCE\package.json" -Raw | ConvertFrom-Json).version
+    $dest = Join-Path $ExtensionsDir "nulifyer.nulifyer-theme-$sourceVersion"
+    if (-not (Test-Path "$dest\package.json")) {
+        # Old versions of the extension would also load; remove them.
+        Get-ChildItem $ExtensionsDir -Directory -Filter 'nulifyer.nulifyer-theme-*' -ErrorAction SilentlyContinue |
+            Where-Object FullName -ne $dest | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path "$dest\themes" -Force | Out-Null
+        Copy-Item "$script:VS_EXT_SOURCE\package.json" "$dest\package.json" -Force
+        Copy-Item "$script:VS_EXT_SOURCE\themes\nulifyer.json" "$dest\themes\nulifyer.json" -Force
+    }
+    _Register-VSCodeExtension $ExtensionsDir $dest $sourceVersion
+    return $dest
+}
+
+function _Register-VSCodeExtension([string]$ExtensionsDir, [string]$Dest, [string]$Version) {
+    $extJsonPath = Join-Path $ExtensionsDir 'extensions.json'
     if (-not (Test-Path $extJsonPath)) { return }
     try {
-        $extensions = Get-Content $extJsonPath -Raw -ErrorAction Stop | ConvertFrom-Json
         $extId = "nulifyer.nulifyer-theme"
-        $already = $extensions | Where-Object { $_.identifier.id -eq $extId }
-        if (-not $already) {
-            $entry = [PSCustomObject]@{
-                identifier = [PSCustomObject]@{ id = $extId }
-                version = (Get-Content "$script:VS_EXT_SOURCE\package.json" -Raw | ConvertFrom-Json).version
-                location = [PSCustomObject]@{
-                    '$mid' = 1
-                    path = ($script:VS_EXT_DEST -replace '\\','/' -replace '^C:','/c:')
-                    scheme = "file"
-                }
-                relativeLocation = Split-Path $script:VS_EXT_DEST -Leaf
-                metadata = [PSCustomObject]@{
-                    installedTimestamp = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
-                    source = "local"
-                }
+        $extensions = @(Get-Content $extJsonPath -Raw -ErrorAction Stop | ConvertFrom-Json)
+        $current = $extensions | Where-Object { $_.identifier.id -eq $extId }
+        if ($current -and $current.version -eq $Version -and $current.relativeLocation -eq (Split-Path $Dest -Leaf)) { return }
+        $entry = [PSCustomObject]@{
+            identifier = [PSCustomObject]@{ id = $extId }
+            version = $Version
+            location = [PSCustomObject]@{
+                '$mid' = 1
+                # VS Code's form: /c:/Users/.../extensions/<folder> (lower-case drive letter)
+                path = '/' + $Dest.Substring(0, 1).ToLowerInvariant() + $Dest.Substring(1).Replace('\', '/')
+                scheme = "file"
             }
-            $extensions = @($extensions) + @($entry)
-            ConvertTo-Json $extensions -Depth 10 | Set-Content $extJsonPath -Encoding UTF8
+            relativeLocation = Split-Path $Dest -Leaf
+            metadata = [PSCustomObject]@{
+                installedTimestamp = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+                source = "local"
+            }
         }
+        $extensions = @($extensions | Where-Object { $_.identifier.id -ne $extId }) + @($entry)
+        ConvertTo-Json $extensions -Depth 10 | Set-Content $extJsonPath -Encoding UTF8
     } catch {}
 }
 
@@ -1162,24 +1205,11 @@ function Get-VSCodeColorCustomizations([hashtable]$scheme, [string]$themeName) {
     }
 }
 
-function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
-    _Sync-VSCodeExtension
-    $themeFile = "$script:VS_EXT_DEST\themes\nulifyer.json"
-    if (-not (Test-Path (Split-Path $themeFile))) { return }
-
-    # Check VSCode, VSCode Insiders, and VSCodium
-    $vsSettingsPath = $null
-    foreach ($p in @(
-        "$env:APPDATA\Code\User\settings.json"
-        "$env:APPDATA\Code - Insiders\User\settings.json"
-        "$env:APPDATA\VSCodium\User\settings.json"
-    )) {
-        if (Test-Path $p) { $vsSettingsPath = $p; break }
-    }
-    if (-not $vsSettingsPath) { return }
-
+# Token (syntax) colors for VS Code: TextMate rules and semantic token rules.
+# Shared by Update-VSCodeTheme and theme-audit so the two can't drift apart.
+function Get-VSCodeTokenCustomizations([hashtable]$scheme, [string]$themeName) {
     $ctx = Get-VSCodeThemeContext $scheme $themeName
-    $colors = Get-VSCodeColorCustomizations $scheme $themeName
+    $bracket = $ctx.roles.bracket   # brackets / braces / block punctuation
     $isLight = $ctx.isLight
     $bgBase = $ctx.bgBase
     $fg = $ctx.fg
@@ -2209,6 +2239,32 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
         }
     }
 
+    return @{ TextMateRules = $tokenColors; Semantic = $semanticTokenCustomizations }
+}
+
+function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
+    # Returns the names of the VS Code variants that were themed.
+    $variants = @(_Get-VSCodeVariants)
+    if ($variants.Count -eq 0) { return @() }
+
+    $ctx = Get-VSCodeThemeContext $scheme $themeName
+    $colors = Get-VSCodeColorCustomizations $scheme $themeName
+    $isLight = $ctx.isLight
+    $bgBase = $ctx.bgBase
+    $fg = $ctx.fg
+    $tokens = Get-VSCodeTokenCustomizations $scheme $themeName
+    $tokenColors = $tokens.TextMateRules
+    $semanticTokenCustomizations = $tokens.Semantic
+
+    $themed = @()
+    foreach ($variant in $variants) {
+    $extDir = _Sync-VSCodeExtension $variant.Ext
+    if (-not $extDir) { continue }
+    $themeFile = "$extDir\themes\nulifyer.json"
+    $vsSettingsPath = $variant.Settings
+    # A fresh install has a User folder but no settings.json yet.
+    if (-not (Test-Path $vsSettingsPath)) { Set-Content $vsSettingsPath '{}' -Encoding UTF8 }
+
     # Write neutral base theme to extension (prevents flash of default theme colors)
     $baseTheme = [ordered]@{
         '$schema' = "vscode://schemas/color-theme"
@@ -2238,10 +2294,13 @@ function Update-VSCodeTheme([hashtable]$scheme, [string]$themeName) {
             $vsSettings | Add-Member -NotePropertyName "editor.semanticTokenColorCustomizations" -NotePropertyValue ([PSCustomObject]$semanticTokenCustomizations) -Force
             $vsSettings | Add-Member -NotePropertyName "editor.semanticHighlighting.enabled" -NotePropertyValue $true -Force
             $vsSettings | ConvertTo-Json -Depth 10 | Set-Content $vsSettingsPath -Encoding UTF8
+            $themed += $variant.Name
         } catch {
             Write-Warning "Failed to update VS Code settings '$vsSettingsPath': $($_.Exception.Message)"
         }
     }
+    }
+    return $themed
 }
 
 # -- File Pilot theming -----------------------------------------------------
@@ -2262,6 +2321,10 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
 
     # Strip # from hex colors for File Pilot format
     $strip = { param($c) $c.TrimStart('#') }
+
+    # Selected rows are a solid fill of $scheme.blue, so their text (and match
+    # highlights inside them) must be whichever of bg/fg reads better on it.
+    $onSelection = if ((Get-HexContrast $bgBase $scheme.blue) -ge (Get-HexContrast $fg $scheme.blue)) { $bgBase } else { $fg }
 
     $fpScheme = [ordered]@{
         "Nulifyer" = [ordered]@{
@@ -2290,13 +2353,13 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
             Hover                     = & $strip $bgLighter
             Disabled                  = & $strip $hidden
             ContentHover              = & $strip $fg
-            ContentSelection          = & $strip $fg
+            ContentSelection          = & $strip $onSelection
             ContentDisabledSelection  = & $strip $scheme.red
             OutlineHover              = & $strip $scheme.cyan
             OutlineSelection          = & $strip $scheme.blue
             OutlineDisabledSelection  = & $strip $fgMuted
             MatchHover                = & $strip $scheme.yellow
-            MatchSelection            = & $strip $scheme.yellow
+            MatchSelection            = & $strip $onSelection
             MatchDisabledSelection    = & $strip $scheme.yellow
         }
     }
@@ -2313,67 +2376,63 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
         }
         $block += "`t`t}"
 
-        # Set ColorScheme and SystemColorScheme
+        # Point ColorScheme at our entry, keeping each line's trailing comma as it was.
         for ($i = 0; $i -lt $fileLines.Count; $i++) {
-            if ($fileLines[$i] -match '"ColorScheme"') { $fileLines[$i] = "`t`t`"ColorScheme`": `"Nulifyer`"," }
-            if ($fileLines[$i] -match '"SystemColorScheme"') { $fileLines[$i] = "`t`t`"SystemColorScheme`": false," }
+            $comma = if ($fileLines[$i].TrimEnd().EndsWith(',')) { ',' } else { '' }
+            if ($fileLines[$i] -match '^\s*"ColorScheme"\s*:') { $fileLines[$i] = "`t`t`"ColorScheme`": `"Nulifyer`"$comma" }
+            if ($fileLines[$i] -match '^\s*"SystemColorScheme"\s*:') { $fileLines[$i] = "`t`t`"SystemColorScheme`": false$comma" }
         }
 
-        # Find Colors array and handle Nulifyer entry
+        # File Pilot's "Colors" is an array of named blocks:  "Colors": [ "Name": { ... }, ... ]
+        # Parse it into entries, replace ours, and write the array back with commas
+        # generated from scratch (so reruns never accumulate stray commas).
         $colorsIdx = -1
-        $nulStart = -1
-        $nulEnd = -1
-        for ($i = 0; $i -lt $fileLines.Count; $i++) {
-            if ($fileLines[$i] -match '"Colors"') { $colorsIdx = $i }
-            if ($fileLines[$i] -match '"Nulifyer"') { $nulStart = $i }
-        }
-
-        if ($nulStart -ge 0) {
-            # Find the closing } for our entry (track brace depth)
-            $depth = 0
-            for ($i = $nulStart; $i -lt $fileLines.Count; $i++) {
-                if ($fileLines[$i] -match '\{') { $depth++ }
-                if ($fileLines[$i] -match '\}') { $depth--; if ($depth -eq 0) { $nulEnd = $i; break } }
-            }
-            # Remove old entry (and trailing comma if present)
-            if ($nulEnd -ge 0) {
-                if ($nulEnd + 1 -lt $fileLines.Count -and $fileLines[$nulEnd] -match '\},') {
-                    $fileLines.RemoveRange($nulStart, $nulEnd - $nulStart + 1)
-                } else {
-                    $fileLines.RemoveRange($nulStart, $nulEnd - $nulStart + 1)
-                }
-            }
-            # Re-find Colors [ since indices shifted
-            for ($i = 0; $i -lt $fileLines.Count; $i++) {
-                if ($fileLines[$i] -match '"Colors"') { $colorsIdx = $i; break }
-            }
-        }
+        for ($i = 0; $i -lt $fileLines.Count; $i++) { if ($fileLines[$i] -match '^\s*"Colors"\s*:') { $colorsIdx = $i; break } }
 
         if ($colorsIdx -ge 0) {
-            # Colors array exists — find the [ line
-            $bracketIdx = $colorsIdx
-            if ($fileLines[$colorsIdx] -notmatch '\[') { $bracketIdx++ }
+            $openIdx = $colorsIdx
+            while ($openIdx -lt $fileLines.Count -and $fileLines[$openIdx] -notmatch '\[') { $openIdx++ }
+            $closeIdx = -1
+            $depth = 0
+            for ($i = $openIdx; $i -lt $fileLines.Count; $i++) {
+                $depth += ([regex]::Matches($fileLines[$i], '[\[{]')).Count - ([regex]::Matches($fileLines[$i], '[\]}]')).Count
+                if ($depth -eq 0) { $closeIdx = $i; break }
+            }
+            if ($closeIdx -lt 0) { return $false }
 
-            # Check if there are existing entries after [
-            $hasOther = $false
-            for ($i = $bracketIdx + 1; $i -lt $fileLines.Count; $i++) {
-                if ($fileLines[$i] -match '^\s*\]') { break }
-                if ($fileLines[$i] -match '\S') { $hasOther = $true; break }
+            $entries = [System.Collections.Generic.List[object]]::new()
+            $current = $null
+            $depth = 0
+            for ($i = $openIdx + 1; $i -lt $closeIdx; $i++) {
+                $line = $fileLines[$i]
+                if ($depth -eq 0) {
+                    if ($line -match '^\s*,?\s*$') { continue }           # stray commas / blank lines
+                    if ($line -match '^\s*"([^"]+)"\s*:') { $current = @{ Name = $Matches[1]; Lines = [System.Collections.Generic.List[string]]::new() }; $entries.Add($current) }
+                }
+                if ($current) { $current.Lines.Add($line) }
+                $depth += ([regex]::Matches($line, '[\[{]')).Count - ([regex]::Matches($line, '[\]}]')).Count
             }
 
-            # Insert our block after [
-            $insertLines = if ($hasOther) { $block + @(",") } else { $block }
-            $fileLines.InsertRange($bracketIdx + 1, $insertLines)
+            $others = @($entries | Where-Object { $_.Name -ne 'Nulifyer' })
+            $all = @(@{ Name = 'Nulifyer'; Lines = $block }) + $others
+            $body = [System.Collections.Generic.List[string]]::new()
+            for ($e = 0; $e -lt $all.Count; $e++) {
+                $lines = @($all[$e].Lines)
+                $last = $lines[-1].TrimEnd().TrimEnd(',')
+                $lines[-1] = if ($e -lt $all.Count - 1) { "$last," } else { $last }
+                $body.AddRange([string[]]$lines)
+            }
+            $fileLines.RemoveRange($openIdx + 1, $closeIdx - $openIdx - 1)
+            $fileLines.InsertRange($openIdx + 1, $body)
         } else {
             # No Colors array — create it before Hotkeys
             $hotkeysIdx = -1
             for ($i = 0; $i -lt $fileLines.Count; $i++) {
                 if ($fileLines[$i] -match '"Hotkeys"') { $hotkeysIdx = $i; break }
             }
-            if ($hotkeysIdx -ge 0) {
-                $colorsBlock = @("`t`"Colors`":", "`t[") + $block + @("`t],")
-                $fileLines.InsertRange($hotkeysIdx, $colorsBlock)
-            }
+            if ($hotkeysIdx -lt 0) { return $false }
+            $colorsBlock = @("`t`"Colors`":", "`t[") + $block + @("`t],")
+            $fileLines.InsertRange($hotkeysIdx, [string[]]$colorsBlock)
         }
 
         $fileLines | Set-Content $configPath -Encoding UTF8
@@ -2382,31 +2441,58 @@ function Update-FilePilotTheme([hashtable]$scheme, [string]$themeName) {
 }
 
 # -- Browser theming (Chromium-based) ---------------------------------------
-# Uses BrowserThemeColor managed policy via registry. Works on stock browsers.
+# Uses the BrowserThemeColor policy, which Chrome builds its whole palette
+# from (and picks light or dark from its lightness). Supported by Chrome and
+# Chromium browsers that read Chrome policies (Brave); Edge does not support it
+# (edge://policy shows it as an error and Edge then says it is "managed").
+
+# Seed color: the background tinted with 25% of the theme's accent, so dark
+# themes stay dark but the UI picks up the theme's hue instead of plain grey.
+function Get-BrowserThemeSeed([hashtable]$scheme) {
+    $accent = $null
+    try { $accent = (Get-VSCodeThemeContext $scheme $scheme.key).roles.accent } catch {}
+    if (-not $accent) { return $scheme.background.ToUpperInvariant() }
+    $mix = { param($a, $b, $i) [int]([Convert]::ToInt32($a.Substring($i, 2), 16) * 0.75 + [Convert]::ToInt32($b.Substring($i, 2), 16) * 0.25) }
+    $bg = $scheme.background.TrimStart('#'); $ac = $accent.TrimStart('#')
+    '#{0:X2}{1:X2}{2:X2}' -f (& $mix $bg $ac 0), (& $mix $bg $ac 2), (& $mix $bg $ac 4)
+}
 
 function Update-BrowserTheme([hashtable]$scheme) {
-    $color = $scheme.background
+    $color = Get-BrowserThemeSeed $scheme
     $updated = @()
 
-    # Map of browser name → policy registry path → exe detection paths
     $browsers = @(
         @{ Name = "Chrome";  Policy = "HKCU:\SOFTWARE\Policies\Google\Chrome";  Exe = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") }
         @{ Name = "Brave";   Policy = "HKCU:\SOFTWARE\Policies\BraveSoftware\Brave";  Exe = @("$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe") }
-        @{ Name = "Edge";    Policy = "HKCU:\SOFTWARE\Policies\Microsoft\Edge";  Exe = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") }
         @{ Name = "Vivaldi"; Policy = "HKCU:\SOFTWARE\Policies\Vivaldi";  Exe = @("$env:LOCALAPPDATA\Vivaldi\Application\vivaldi.exe") }
     )
 
+    # Earlier versions also wrote the policy for Edge, which rejects it. Remove it
+    # when we can (needs the same administrator shell as writing it).
+    $edgePolicy = "HKCU:\SOFTWARE\Policies\Microsoft\Edge"
+    if ((Get-ItemProperty $edgePolicy -Name BrowserThemeColor -ErrorAction SilentlyContinue)) {
+        try { Remove-ItemProperty $edgePolicy -Name BrowserThemeColor -ErrorAction Stop } catch {}
+    }
+
+    # Policy keys are writable only from an elevated shell on most machines
+    # (HKCU\SOFTWARE\Policies is admin-only), so collect failures and report once.
+    $blocked = @()
     foreach ($b in $browsers) {
         $installed = $b.Exe | Where-Object { Test-Path $_ } | Select-Object -First 1
         if ($installed) {
             try {
                 if (-not (Test-Path $b.Policy)) {
-                    New-Item -Path $b.Policy -Force | Out-Null
+                    New-Item -Path $b.Policy -Force -ErrorAction Stop | Out-Null
                 }
                 Set-ItemProperty -Path $b.Policy -Name "BrowserThemeColor" -Value $color -Type String -Force -ErrorAction Stop
                 $updated += $b.Name
-            } catch {}
+            } catch {
+                $blocked += $b.Name
+            }
         }
+    }
+    if ($blocked) {
+        Write-Host "  $($blocked -join ', '): the theme color is a browser policy, which needs an administrator shell (sudo theme $($scheme.key))" -ForegroundColor DarkGray
     }
 
     return $updated
@@ -2451,7 +2537,7 @@ function Update-WindowsTheme([hashtable]$scheme, [string]$themeName) {
 
     # Keep Windows' own color preference in sync, then write the registry values
     # explicitly so DWM, Explorer, Start, Search, and classic Win32 agree.
-    try { [NativeMethods]::ApplyAccentColor([uint32]([int64]$accentABGR -band 0xFFFFFFFF)) } catch {}
+    try { [NativeMethods]::ApplyAccentColors([uint32]([int64]$startABGR -band 0xFFFFFFFF), [uint32]([int64]$accentABGR -band 0xFFFFFFFF)) } catch {}
 
     # Settings > Colors > "Automatically pick an accent color from my background" OFF.
     Set-ItemProperty $desktopPath -Name "AutoColorization" -Value 0 -Type Dword -Force

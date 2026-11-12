@@ -15,7 +15,7 @@
 
 $configKey = "theme"
 $currentTheme = Get-ScriptConfig $configKey "palette"
-if (-not $currentTheme) { $currentTheme = "catppuccin_mocha" }
+if (-not $currentTheme) { $currentTheme = "gruvbox" }
 
 $parsed = Parse-Args $args @{
     List    = @{ Aliases = @('l', 'list') }
@@ -151,8 +151,8 @@ $updated = @()
 # Terminal emulators
 $updated += Update-TerminalColors $theme
 
-# VS Code theme
-try { Update-VSCodeTheme $theme $choice; $updated += "VS Code" } catch {}
+# VS Code (and Insiders / VSCodium, each listed when themed)
+try { $updated += @(Update-VSCodeTheme $theme $choice) } catch {}
 
 # File Pilot
 try { if (Update-FilePilotTheme $theme $choice) { $updated += "File Pilot" } } catch {}
@@ -186,6 +186,14 @@ if ($global:_c) {
     $global:_c.userhost = _hex2ansi $theme.userhost
     $global:_c.path     = _hex2ansi $theme.path
     $global:_c.git      = _hex2ansi $theme.git
+    # grey suggestion text follows the theme's muted color
+    if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
+        try { Set-PSReadLineOption -Colors @{ InlinePrediction = $global:_c.muted } } catch {}
+    }
 }
+
+# Refresh the profile's startup cache now (prompt colors for new shells,
+# project picker theme) instead of on the next shell start.
+if (Get-Command profile-rebuild -ErrorAction SilentlyContinue) { profile-rebuild -Quiet }
 
 Write-Host "Switched to $choice" -ForegroundColor Green

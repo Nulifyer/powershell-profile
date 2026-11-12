@@ -75,7 +75,7 @@ $script:passCount = 0
 $script:failCount = 0
 $script:warnCount = 0
 
-function _TestPair([string]$context, [string]$label, [string]$fgHex, [string]$bgHex) {
+function _TestPair([string]$context, [string]$label, [string]$fgHex, [string]$bgHex, [double]$Min = $script:RequiredRatio) {
     if (-not $fgHex -or -not $bgHex) { return }
     # skip transparent / partially transparent backgrounds
     $stripped = $fgHex.TrimStart('#')
@@ -86,7 +86,7 @@ function _TestPair([string]$context, [string]$label, [string]$fgHex, [string]$bg
     $ratio = _ContrastRatio $fgHex $bgHex
     $ratioStr = "{0:N2}" -f $ratio
 
-    if ($ratio -ge $script:RequiredRatio) {
+    if ($ratio -ge $Min) {
         $script:passCount++
     } else {
         $script:failCount++
@@ -124,15 +124,20 @@ function _AuditTheme([string]$themeName) {
     _TestPair "terminal" "foreground on background"       $fg       $bgBase
     _TestPair "terminal" "cursor on background"           $scheme.cursorColor $bgBase
 
-    # ANSI normal colors on terminal bg
+    # Selected text must stay readable, and the highlight itself must be visible
+    # (1.5:1 is a practical floor for a highlight; WCAG has no rule for it).
+    _TestPair "terminal" "foreground on selection"        $fg       $scheme.selectionBackground
+    _TestPair "terminal" "selection on background"        $scheme.selectionBackground $bgBase 1.5
+
+    # ANSI normal colors on terminal bg (the theme data calls magenta "purple")
     foreach ($col in @('black','red','green','yellow','blue','magenta','cyan','white')) {
-        $hex = $scheme."$col"
+        $hex = $scheme."$($col -replace 'magenta', 'purple')"
         if ($col -eq 'black') { continue } # black on dark bg is expected to be low
         _TestPair "terminal" "normal $col on background"  $hex $bgBase
     }
     # ANSI bright colors on terminal bg
     foreach ($col in @('brightBlack','brightRed','brightGreen','brightYellow','brightBlue','brightMagenta','brightCyan','brightWhite')) {
-        $hex = $scheme."$col"
+        $hex = $scheme."$($col -replace 'Magenta', 'Purple')"
         _TestPair "terminal" "$col on background"         $hex $bgBase
     }
 
