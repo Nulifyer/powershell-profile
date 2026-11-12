@@ -10,3 +10,15 @@ windows-terminal-fragment.json
 Scripts/theme/vscode-extension/node_modules/
 Scripts/theme/vscode-extension/bun.lock
 Scripts/theme/vscode-extension/bun.lockb
+
+# Never commit binaries: company endpoint protection flags repos that ship
+# executables. bin/ is built locally by profile-setup (or native/projpick/build.*).
+bin/
+*.exe
+*.dll
+*.pdb
+*.lib
+*.obj
+*.msi
+native/**/.zig-cache/
+native/**/zig-out/
