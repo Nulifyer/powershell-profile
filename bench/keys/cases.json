@@ -1,0 +1,427 @@
+[
+ {
+  "id": "home",
+  "desc": "Home",
+  "keys": "echo alpha beta gamma{combo:home}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "end",
+  "desc": "End",
+  "keys": "echo alpha beta gamma{combo:home}{combo:end}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 21
+  }
+ },
+ {
+  "id": "ctrl+a",
+  "desc": "Ctrl+A (start of line)",
+  "keys": "echo alpha beta gamma{combo:ctrl+a}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "ctrl+e",
+  "desc": "Ctrl+E (end of line)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:ctrl+e}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 21
+  }
+ },
+ {
+  "id": "left",
+  "desc": "Left",
+  "keys": "echo alpha beta gamma{combo:left}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 20
+  }
+ },
+ {
+  "id": "right",
+  "desc": "Right (one character)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:right}{combo:right}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 2
+  }
+ },
+ {
+  "id": "ctrl+left",
+  "desc": "Ctrl+Left (back a word)",
+  "keys": "echo alpha beta gamma{combo:ctrl+left}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 16
+  }
+ },
+ {
+  "id": "ctrl+left x2",
+  "desc": "Ctrl+Left twice",
+  "keys": "echo alpha beta gamma{combo:ctrl+left}{combo:ctrl+left}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 11
+  }
+ },
+ {
+  "id": "ctrl+right",
+  "desc": "Ctrl+Right (forward a word)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:ctrl+right}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 4
+  }
+ },
+ {
+  "id": "alt+b",
+  "desc": "Alt+B (back a word)",
+  "keys": "echo alpha beta gamma{combo:alt+b}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 16
+  }
+ },
+ {
+  "id": "alt+f",
+  "desc": "Alt+F (forward a word)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:alt+f}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 4
+  }
+ },
+ {
+  "id": "backspace",
+  "desc": "Backspace",
+  "keys": "echo alpha beta gamma{combo:bs}",
+  "expect": {
+   "line": "echo alpha beta gamm",
+   "cursor": 20
+  }
+ },
+ {
+  "id": "delete",
+  "desc": "Delete",
+  "keys": "echo alpha beta gamma{combo:home}{combo:del}",
+  "expect": {
+   "line": "cho alpha beta gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "ctrl+backspace",
+  "desc": "Ctrl+Backspace (delete word back)",
+  "keys": "echo alpha beta gamma{combo:ctrl+bs}",
+  "expect": {
+   "line": "echo alpha beta ",
+   "cursor": 16
+  }
+ },
+ {
+  "id": "ctrl+w",
+  "desc": "Ctrl+W (delete word back)",
+  "keys": "echo alpha beta gamma{combo:ctrl+w}",
+  "expect": {
+   "line": "echo alpha beta ",
+   "cursor": 16
+  }
+ },
+ {
+  "id": "alt+backspace",
+  "desc": "Alt+Backspace (delete word back)",
+  "keys": "echo alpha beta gamma{combo:alt+bs}",
+  "expect": {
+   "line": "echo alpha beta ",
+   "cursor": 16
+  }
+ },
+ {
+  "id": "ctrl+delete",
+  "desc": "Ctrl+Delete (delete word forward)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:ctrl+del}",
+  "expect": {
+   "line": " alpha beta gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "alt+d",
+  "desc": "Alt+D (delete word forward)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:alt+d}",
+  "expect": {
+   "line": " alpha beta gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "ctrl+u",
+  "desc": "Ctrl+U (delete to start)",
+  "keys": "echo alpha beta gamma{combo:left}{combo:left}{combo:left}{combo:left}{combo:left}{combo:left}{combo:ctrl+u}",
+  "expect": {
+   "line": " gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "ctrl+k",
+  "desc": "Ctrl+K (delete to end)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:alt+f}{combo:ctrl+k}",
+  "expect": {
+   "line": "echo",
+   "cursor": 4
+  }
+ },
+ {
+  "id": "ctrl+y",
+  "desc": "Ctrl+K then Ctrl+Y (yank)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:alt+f}{combo:ctrl+k}{combo:home}{combo:ctrl+y}",
+  "expect": {
+   "line": " alpha beta gammaecho",
+   "cursor": 17
+  }
+ },
+ {
+  "id": "ctrl+d",
+  "desc": "Ctrl+D (delete char)",
+  "keys": "echo alpha beta gamma{combo:home}{combo:ctrl+d}",
+  "expect": {
+   "line": "cho alpha beta gamma",
+   "cursor": 0
+  }
+ },
+ {
+  "id": "ctrl+z",
+  "desc": "Ctrl+Z (undo)",
+  "keys": "echo alpha beta gamma{combo:ctrl+w}{combo:ctrl+z}",
+  "expect": {
+   "line": "echo alpha beta gamma"
+  }
+ },
+ {
+  "id": "type-over-sel",
+  "desc": "Typing replaces a selection",
+  "keys": "echo alpha beta gamma{combo:home}{combo:shift+right}{combo:shift+right}{combo:shift+right}{combo:shift+right}ECHO",
+  "expect": {
+   "line": "ECHO alpha beta gamma",
+   "cursor": 4
+  }
+ },
+ {
+  "id": "shift+arrows",
+  "desc": "Shift+Left selects",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "selStart": 16,
+   "selLen": 5
+  }
+ },
+ {
+  "id": "shift+home",
+  "desc": "Shift+Home selects",
+  "keys": "echo alpha beta gamma{combo:shift+home}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "selStart": 0,
+   "selLen": 21
+  }
+ },
+ {
+  "id": "ctrl+shift+left",
+  "desc": "Ctrl+Shift+Left selects a word",
+  "keys": "echo alpha beta gamma{combo:ctrl+shift+left}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "selStart": 16,
+   "selLen": 5
+  }
+ },
+ {
+  "id": "copy ctrl+c",
+  "desc": "Ctrl+C copies the selection",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:ctrl+c}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "clip": "gamma"
+  }
+ },
+ {
+  "id": "copy ctrl+shift+c",
+  "desc": "Ctrl+Shift+C copies the selection",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:ctrl+shift+c}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "clip": "gamma"
+  }
+ },
+ {
+  "id": "copy ctrl+insert",
+  "desc": "Ctrl+Insert copies the selection",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:ctrl+ins}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "clip": "gamma"
+  }
+ },
+ {
+  "id": "cut ctrl+x",
+  "desc": "Ctrl+X cuts the selection",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:ctrl+x}",
+  "expect": {
+   "line": "echo alpha beta ",
+   "clip": "gamma"
+  }
+ },
+ {
+  "id": "cut shift+del",
+  "desc": "Shift+Delete cuts the selection",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+del}",
+  "expect": {
+   "line": "echo alpha beta ",
+   "clip": "gamma"
+  }
+ },
+ {
+  "id": "ctrl+c cancel",
+  "desc": "Ctrl+C with no selection cancels the line",
+  "keys": "echo alpha beta gamma{combo:ctrl+c}",
+  "expect": {
+   "line": ""
+  }
+ },
+ {
+  "id": "paste ctrl+v",
+  "desc": "Ctrl+V pastes",
+  "keys": "echo {combo:ctrl+v}",
+  "expect": {
+   "line": "echo PASTED",
+   "cursor": 11
+  },
+  "clip": "PASTED"
+ },
+ {
+  "id": "paste ctrl+shift+v",
+  "desc": "Ctrl+Shift+V pastes",
+  "keys": "echo {combo:ctrl+shift+v}",
+  "expect": {
+   "line": "echo PASTED",
+   "cursor": 11
+  },
+  "clip": "PASTED"
+ },
+ {
+  "id": "paste shift+insert",
+  "desc": "Shift+Insert pastes",
+  "keys": "echo {combo:shift+ins}",
+  "expect": {
+   "line": "echo PASTED",
+   "cursor": 11
+  },
+  "clip": "PASTED"
+ },
+ {
+  "id": "paste over selection",
+  "desc": "Ctrl+V replaces the selection",
+  "keys": "echo alpha beta gamma{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:shift+left}{combo:ctrl+v}",
+  "expect": {
+   "line": "echo alpha beta PASTED"
+  },
+  "clip": "PASTED"
+ },
+ {
+  "id": "paste multi-line",
+  "desc": "Multi-line paste waits for Enter",
+  "keys": "{combo:ctrl+v}",
+  "expect": {
+   "line": "echo one\necho two"
+  },
+  "clip": "echo one\r\necho two",
+  "only": "code"
+ },
+ {
+  "id": "paste multi-line (confirm)",
+  "desc": "Multi-line paste after \"Paste anyway\"",
+  "only": "wt",
+  "keys": "{combo:ctrl+v}{wait:1200}{combo:enter}{wait:800}",
+  "expect": {
+   "line": "echo one\necho two"
+  },
+  "clip": "echo one\r\necho two"
+ },
+ {
+  "id": "paste multi-line (lazy)",
+  "desc": "Multi-line paste as the first Enter",
+  "only": "wt",
+  "keys": "$global:_ppKeyQueue = $null\\r{wait:800}{combo:ctrl+v}{wait:1200}{combo:enter}{wait:800}",
+  "expect": {
+   "line": "echo one\necho two"
+  },
+  "clip": "echo one\r\necho two"
+ },
+ {
+  "id": "tab",
+  "desc": "Tab completes",
+  "keys": "Get-ChildIt{combo:tab}",
+  "expect": {
+   "line": "Get-ChildItem"
+  }
+ },
+ {
+  "id": "ctrl+l",
+  "desc": "Ctrl+L clears the screen, keeps the line",
+  "keys": "echo alpha beta gamma{combo:ctrl+l}",
+  "expect": {
+   "line": "echo alpha beta gamma",
+   "cursor": 21
+  }
+ },
+ {
+  "id": "up",
+  "desc": "Up recalls the last command",
+  "keys": "echo up-marker\\r{wait:800}{combo:up}",
+  "expect": {
+   "line": "echo up-marker"
+  }
+ },
+ {
+  "id": "ctrl+r",
+  "desc": "Ctrl+R fuzzy history",
+  "keys": "{combo:ctrl+r}{wait:4000}kt-history-marker{wait:800}\\r{wait:600}",
+  "expect": {
+   "line": "echo kt-history-marker"
+  }
+ },
+ {
+  "id": "end+predictions",
+  "desc": "End with history predictions showing",
+  "keys": "git ch{combo:home}{combo:end}",
+  "expect": {
+   "line": "git ch",
+   "cursor": 6
+  }
+ },
+ {
+  "id": "ctrl+t",
+  "desc": "Ctrl+T fuzzy file picker",
+  "keys": "cat {combo:ctrl+t}{wait:4000}README{wait:800}\\r{wait:600}",
+  "expect": {
+   "line": "cat README.md"
+  }
+ },
+ {
+  "id": "alt+.",
+  "desc": "Alt+. inserts the last argument",
+  "keys": "echo up-marker\\r{wait:800}echo {combo:alt+period}",
+  "expect": {
+   "line": "echo up-marker"
+  }
+ }
+]
