@@ -83,9 +83,13 @@ function Register-NerdFontFile {
     $familyName = Get-FontFamilyNameFromFile -Path $targetPath
     $extension = [System.IO.Path]::GetExtension($targetPath).ToLowerInvariant()
     $kind = if ($extension -eq '.otf') { 'OpenType' } else { 'TrueType' }
-    $valueName = if ($familyName) { "$familyName ($kind)" } else { "$fileName ($kind)" }
+    # One entry per file: the styles of a family (Regular, Bold, Italic, ...)
+    # share the family name, so naming entries after it would keep only the
+    # last style registered. The value is the full path, as Windows writes for
+    # per-user fonts.
+    $valueName = "$([System.IO.Path]::GetFileNameWithoutExtension($fileName)) ($kind)"
 
-    New-ItemProperty -Path $registryPath -Name $valueName -Value $fileName -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $registryPath -Name $valueName -Value $targetPath -PropertyType String -Force | Out-Null
 
     return @{
         File = $fileName
