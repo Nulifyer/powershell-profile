@@ -55,7 +55,6 @@ The checklist offers command-line tools you don't have yet. Most install with [w
 | eza | `ls`, `ll`, `la`, `tree` with icons |
 | bat | `cat` with syntax highlighting |
 | gh | GitHub CLI |
-| oh-my-posh | Installs Nerd Fonts for `font --install` |
 | neovim | Editor |
 | podman | Containers for `wtc` |
 | btop | Resource monitor |

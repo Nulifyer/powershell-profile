@@ -17,7 +17,6 @@ $ToolCatalog = @(
     @{ Name = 'eza';        Exe = 'eza.exe';        WinGet = 'eza-community.eza';       Group = 'core'; Recommended = $true; Desc = 'ls / ll / la / tree with icons' }
     @{ Name = 'bat';        Exe = 'bat.exe';        WinGet = 'sharkdp.bat';             Group = 'core'; Recommended = $true; Desc = 'cat with syntax highlighting' }
     @{ Name = 'gh';         Exe = 'gh.exe';         WinGet = 'GitHub.cli';              Group = 'core'; Desc = 'GitHub CLI' }
-    @{ Name = 'oh-my-posh'; Exe = 'oh-my-posh.exe'; WinGet = 'JanDeDobbeleer.OhMyPosh'; Group = 'core'; Desc = 'Nerd Font installer used by `font --install`' }
     @{ Name = 'neovim';     Exe = 'nvim.exe';       WinGet = 'Neovim.Neovim';           Group = 'core'; Desc = 'editor' }
     @{ Name = 'podman';     Exe = 'podman.exe';     WinGet = 'RedHat.Podman';           Group = 'core'; Desc = 'containers (wsl-tempcli; aliased as docker when docker is absent)' }
     @{ Name = 'btop';       Exe = 'btop4win.exe';   WinGet = 'aristocratos.btop4win';   Group = 'core'; Desc = 'resource monitor' }
