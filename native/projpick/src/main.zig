@@ -771,10 +771,15 @@ fn resolveProgram(a: std.mem.Allocator, prog: []const u16, path_var: []const u16
         }
         return null;
     }
+    // A name with an extension (wt.exe) is looked up as written; a bare name
+    // (code) gets the extensions, never itself: VS Code's bin holds both an
+    // extensionless shell script `code` and `code.cmd`.
+    const has_ext = std.mem.lastIndexOfScalar(u16, prog, '.') != null;
+    const try_exts: []const []const u16 = if (has_ext) exts[0..1] else exts[1..];
     var dirs = std.mem.splitScalar(u16, path_var, ';');
     while (dirs.next()) |d| {
         if (d.len == 0) continue;
-        for (exts[1..]) |e| {
+        for (try_exts) |e| {
             const base = util.join(a, &.{ d, prog }) catch continue;
             defer a.free(base);
             const cand = std.mem.concatWithSentinel(a, u16, &.{ base, e }, 0) catch continue;
