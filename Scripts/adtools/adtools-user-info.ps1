@@ -42,7 +42,7 @@ param(
     [switch]$h
 )
 
-if ($h -or -not $Username) {
+if ($h -or -not $Username -or $Username -in '--help', '-?', '/?') {
     $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
     Write-Host "Usage: $scriptName <Username|Email> [-a|-All] [-g|-Groups] [-dr|-DirectReports] [-r|-Raw] [-nc|-NoColor]" -ForegroundColor Cyan
     Write-Host ""
@@ -94,6 +94,13 @@ $searcher = [System.DirectoryServices.DirectorySearcher]::new($filter)
 
 try {
     $result = $searcher.FindOne()
+}
+catch {
+    # Not on a domain, or the domain can't be reached: say so instead of a .NET stack.
+    $msg = if ($_.Exception.InnerException) { $_.Exception.InnerException.Message } else { $_.Exception.Message }
+    Write-Host "Couldn't query Active Directory: $msg" -ForegroundColor Red
+    Write-Host 'adtools needs a computer joined to a domain that it can reach.' -ForegroundColor DarkGray
+    exit 1
 }
 finally {
     $searcher.Dispose()

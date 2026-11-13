@@ -30,7 +30,7 @@ param(
     [switch]$h
 )
 
-if ($h -or -not $GroupName) {
+if ($h -or -not $GroupName -or $GroupName -in '--help', '-?', '/?') {
     $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
     Write-Host "Usage: $scriptName <GroupName> [-r|-Raw] [-nc|-NoColor]" -ForegroundColor Cyan
     Write-Host ""
@@ -71,6 +71,13 @@ $groupSearcher = [System.DirectoryServices.DirectorySearcher]::new($groupFilter)
 
 try {
     $groupResults = $groupSearcher.FindAll()
+}
+catch {
+    # Not on a domain, or the domain can't be reached: say so instead of a .NET stack.
+    $msg = if ($_.Exception.InnerException) { $_.Exception.InnerException.Message } else { $_.Exception.Message }
+    Write-Host "Couldn't query Active Directory: $msg" -ForegroundColor Red
+    Write-Host 'adtools needs a computer joined to a domain that it can reach.' -ForegroundColor DarkGray
+    exit 1
 }
 finally {
     $groupSearcher.Dispose()
