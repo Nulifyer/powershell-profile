@@ -32,7 +32,6 @@ $ToolCatalog = @(
     @{ Name = 'hyperfine';  Exe = 'hyperfine.exe';  WinGet = 'sharkdp.hyperfine';       Group = 'extra'; Desc = 'command benchmarking' }
     @{ Name = 'tokei';      Exe = 'tokei.exe';      WinGet = 'XAMPPRocky.Tokei';        Group = 'extra'; Desc = 'code statistics' }
     @{ Name = 'lutgen';     Exe = 'lutgen.exe';     InstallHint = 'github.com/ozwaldorf/lutgen-rs'; Group = 'extra'; Desc = 'wallpaper re-coloring (manual install)' }
-    @{ Name = 'karchy';     Exe = 'karchy.exe';     InstallHint = 'github.com/Nulifyer/Karchy';     Group = 'extra'; Desc = 'launcher (manual install)' }
     @{ Name = 'guget';      Exe = 'guget.exe';      InstallScript = 'https://raw.githubusercontent.com/nulifyer/guget/main/.scripts/install.ps1'; Group = 'extra'; Desc = 'NuGet package manager TUI, needs the .NET SDK (upstream install script)' }
 )
 

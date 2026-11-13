@@ -2,7 +2,7 @@
 #.HELP Usage: theme-audit [theme]
 #.HELP
 #.HELP Checks that every themed app (terminals, VS Code, File Pilot, browsers,
-#.HELP the Windows accent, Karchy, the wallpaper palette) uses the theme's colors.
+#.HELP the Windows accent, the wallpaper palette) uses the theme's colors.
 #.HELP   theme-audit           check the active theme
 #.HELP   theme-audit gruvbox   check against gruvbox
 <#
@@ -12,7 +12,7 @@
 .DESCRIPTION
     Reads the current theme from config and checks every themed component
     (Windows Terminal, Alacritty, Kitty, Ghostty, WezTerm, VS Code,
-     File Pilot, browsers, Windows accent, Karchy) to verify colors match.
+     File Pilot, browsers, Windows accent) to verify colors match.
 
 .EXAMPLE
     theme-audit              # audit current theme
@@ -578,27 +578,6 @@ _CheckDword "StartColor" $expectedStartABGR $accent.StartColor
 _CheckDword "StartColorMenu" $expectedStartABGR $accent.StartColorMenu
 _CheckBinary "AccentPalette" (New-WindowsAccentPalette $expectedAccent) $accent.AccentPalette
 _SectionResult "Windows System" ($script:passCount - $prePass) ($script:failCount - $preFail)
-
-# -- Karchy ------------------------------------------------------------------
-
-_Section "Karchy"
-$preFail = $script:failCount
-$prePass = $script:passCount
-
-$karchyPath = "$env:APPDATA\karchy\config.toml"
-
-if (Test-Path $karchyPath) {
-    $expectedAccent = $palette.userhost
-    foreach ($line in (Get-Content $karchyPath)) {
-        if ($line -match '^\s*accent\s*=\s*"([^"]+)"') {
-            _Check "karchy accent" $expectedAccent $Matches[1]
-            break
-        }
-    }
-} else {
-    _Skip "Karchy" "config not found"
-}
-_SectionResult "Karchy" ($script:passCount - $prePass) ($script:failCount - $preFail)
 
 # -- Saved Config ------------------------------------------------------------
 

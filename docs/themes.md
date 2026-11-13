@@ -18,7 +18,6 @@ One command recolors everything at once:
 - File Pilot
 - Chrome, Brave and Vivaldi, through their theme color policy (needs an administrator shell, see below)
 - Windows: light or dark mode and the accent color
-- Karchy, if installed
 - the prompt, in the current terminal and new ones
 - the [project picker](project-picker.md)
 - your [wallpaper](#wallpapers), if you've set one with `wallpaper`

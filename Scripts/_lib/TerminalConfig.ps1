@@ -2645,9 +2645,3 @@ function Update-Wallpaper([string]$themeName, [hashtable]$scheme) {
         try { Set-LockScreen $cachePath } catch {}
     }
 }
-
-function Update-KarchyTheme([string]$themeName) {
-    if (-not $(if (Test-Path Function:\Find-Tool) { Find-Tool karchy } else { Get-Command karchy -ErrorAction SilentlyContinue })) { return $false }
-    $null = karchy theme set $themeName 2>&1
-    return ($LASTEXITCODE -eq 0)
-}

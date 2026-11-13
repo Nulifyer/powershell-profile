@@ -62,7 +62,7 @@ The checklist offers command-line tools you don't have yet. Most install with [w
 | sqlgo | SQL client (upstream install script) |
 | guget | NuGet package manager TUI; needs the .NET SDK (upstream install script) |
 | chafa | Image previews in `wallpaper browse` |
-| lutgen, karchy | Listed for reference; install manually |
+| lutgen | Listed for reference; install manually |
 
 The first time, the tools the profile uses directly (git, fzf, fd, ripgrep, eza, bat) are pre-ticked. Anything you untick is remembered as declined and not offered again by automatic runs.
 

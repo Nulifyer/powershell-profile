@@ -164,9 +164,6 @@ try { $updated += Update-BrowserTheme $theme } catch {}
 # Windows system (dark/light mode + accent color)
 try { Update-WindowsTheme $theme $choice; $updated += "Windows" } catch {}
 
-# Karchy launcher
-try { if (Update-KarchyTheme $choice) { $updated += "Karchy" } } catch {}
-
 # Re-theme active wallpaper (if set)
 try { Update-Wallpaper $choice $theme } catch {}
 
