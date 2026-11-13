@@ -69,6 +69,7 @@ if (-not $choice) {
     if ($hasFzf) {
         # Write palette data to temp file for the preview script
         $previewData = "$env:TEMP\pwsh-profile\theme-palettes.txt"
+        [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($previewData))
         $paletteLines = @()
         foreach ($name in $themes.Keys) {
             $t = $themes[$name]
