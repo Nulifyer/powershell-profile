@@ -588,28 +588,33 @@ function pkill {
 }
 
 function Format-CommandInvocation {
-    param([object[]]$Tokens)
-    if (-not $Tokens -or $Tokens.Count -eq 0) { return $null }
-    $quoted = foreach ($token in $Tokens) {
-        [System.Management.Automation.Language.CodeGeneration]::QuoteArgument([string]$token)
+    # A command line that re-parses to the same command (for sudo's new shell and
+    # watch's header): parameter names and plain words stay as they are, anything
+    # else is single-quoted.
+    $parts = foreach ($t in $args) {
+        $s = [string]$t
+        if ($s -match '^-{1,2}[A-Za-z][\w-]*:?$' -or $s -match '^[\w./\\:~+=,@%-]+$') { $s }
+        else { "'" + $s.Replace("'", "''") + "'" }
     }
-    return '& ' + ($quoted -join ' ')
+    if (-not $parts) { return $null }
+    '& ' + ($parts -join ' ')
 }
 
 function Invoke-ArgumentCommand {
-    param([object[]]$CommandTokens)
-    if (-not $CommandTokens -or $CommandTokens.Count -eq 0) { throw 'No command provided.' }
-    $commandName = [string]$CommandTokens[0]
-    $commandArgs = @($CommandTokens | Select-Object -Skip 1)
+    # Deliberately a plain function: its $args remembers which tokens were
+    # parameter names (-Format), so splatting passes them on as parameters.
+    # (ValueFromRemainingArguments turns them into plain text.)
+    $commandName, $commandArgs = $args
+    if (-not $commandName) { throw 'No command provided.' }
     & $commandName @commandArgs
 }
 
 function sudo {
-    if (-not $args -or $args.Count -eq 0) {
+    if ($args.Count -eq 0) {
         Start-Process pwsh -Verb RunAs
         return
     }
-    $commandText = Format-CommandInvocation $args
+    $commandText = Format-CommandInvocation @args
     Start-Process pwsh -Verb RunAs -ArgumentList '-NoExit', '-Command', $commandText
 }
 
@@ -649,37 +654,34 @@ function export {
 }
 
 function watch {
-    param(
-        [Alias('n')][int]$Interval,
-        [Parameter(ValueFromRemainingArguments)]$Command
-    )
-    # Parse leading -n <seconds> from remaining args (like linux watch)
-    if (-not $Interval -and $Command.Count -ge 2 -and $Command[0] -eq '-n') {
-        $Interval = [int]$Command[1]
-        $Command = @($Command | Select-Object -Skip 2)
+    # watch [-n secs] <command>; a plain function so <command>'s parameters pass through
+    $interval = 2
+    $command = @($args)
+    if ($command.Count -ge 2 -and [string]$command[0] -eq '-n') {
+        $interval = [double]$command[1]
+        $command = if ($command.Count -gt 2) { $command[2..($command.Count - 1)] } else { @() }
     }
-    if (-not $Interval) { $Interval = 2 }
-    $cmdStr = Format-CommandInvocation $Command
-    if (-not $cmdStr) { Write-Host 'Usage: watch [-n secs] <command>'; return }
+    if ($command.Count -eq 0) { Write-Host 'Usage: watch [-n secs] <command>'; return }
+    $cmdStr = Format-CommandInvocation @command
     while ($true) {
         Clear-Host
         $now = Get-Date -Format 'HH:mm:ss'
-        Write-Host "Every ${Interval}.0s: $cmdStr    $now" -ForegroundColor DarkGray
+        Write-Host "Every ${interval}s: $cmdStr    $now" -ForegroundColor DarkGray
         Write-Host ''
-        try { Invoke-ArgumentCommand $Command } catch { Write-Host $_.Exception.Message -ForegroundColor Red }
-        Start-Sleep -Seconds $Interval
+        try { Invoke-ArgumentCommand @command } catch { Write-Host $_.Exception.Message -ForegroundColor Red }
+        Start-Sleep -Seconds $interval
     }
 }
 
 function time {
-    param([Parameter(ValueFromRemainingArguments)]$Command)
-    if (-not $Command -or $Command.Count -eq 0) {
+    # A plain function so the timed command's parameters pass through (see Invoke-ArgumentCommand)
+    if ($args.Count -eq 0) {
         Write-Host 'Usage: time <command>' -ForegroundColor Yellow
         return
     }
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        Invoke-ArgumentCommand $Command
+        Invoke-ArgumentCommand @args
     } finally {
         $stopwatch.Stop()
         Write-Host ("`nreal {0:mm\:ss\.fff}" -f $stopwatch.Elapsed) -ForegroundColor DarkGray
