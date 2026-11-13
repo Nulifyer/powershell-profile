@@ -124,12 +124,14 @@ function Build-ProfileCache {
     # -- Script aliases ---------------------------------------------------------
     # Scripts\*.ps1 and Scripts\<dir>\*.ps1. A script may declare aliases with
     # '#.ALIAS name' in its first 20 lines; otherwise its base name is used.
+    # Files starting with '_' are helpers for other scripts, not commands.
     $aliases = [ordered]@{}
     $scripts = [IO.Path]::Combine($Root, 'Scripts')
     if ([IO.Directory]::Exists($scripts)) {
         $dirs = @($scripts) + [IO.Directory]::GetDirectories($scripts)
         foreach ($dir in $dirs) {
             foreach ($file in [IO.Directory]::GetFiles($dir, '*.ps1')) {
+                if ([IO.Path]::GetFileName($file).StartsWith('_')) { continue }
                 $names = [System.Collections.Generic.List[string]]::new()
                 $n = 0
                 foreach ($line in [IO.File]::ReadLines($file)) {

@@ -79,7 +79,7 @@ if (-not $choice) {
         $paletteLines | Set-Content $previewData -Encoding UTF8
 
         # Preview command calls the separate preview script — {1} is the hidden theme name field
-        $previewScript = "$PSScriptRoot\theme-preview.ps1"
+        $previewScript = "$PSScriptRoot\_theme-preview.ps1"
         $previewCmd = "pwsh -NoProfile -File `"$previewScript`" {1} `"$previewData`" `"$env:USERNAME`" `"$env:COMPUTERNAME`""
 
         # Build fzf input lines: "name<TAB>swatches marker name" — fzf shows field 2+ via --with-nth

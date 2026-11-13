@@ -94,4 +94,4 @@ Every script also prints its own help with `-h` or `--help`.
 
 ## Adding your own commands
 
-Drop a `.ps1` file in `Scripts\` (or a subfolder of it) and open a new terminal: it becomes a command named after the file. To pick a different name, or several, put `#.ALIAS name` lines near the top of the script.
+Drop a `.ps1` file in `Scripts\` (or a subfolder of it) and open a new terminal: it becomes a command named after the file. To pick a different name, or several, put `#.ALIAS name` lines near the top of the script. Files whose name starts with `_` are left out, for helpers that other scripts call.

@@ -151,7 +151,7 @@ if (-not $choice) {
         }
 
         # Preview script is a separate file so $([char]0x...) expressions are evaluated at runtime
-        $previewScript = "$PSScriptRoot\font-preview.ps1"
+        $previewScript = "$PSScriptRoot\_font-preview.ps1"
         $previewCmd = "pwsh -NoProfile -File `"$previewScript`" {}"
 
         Write-Host "`e[?1049h" -NoNewline
