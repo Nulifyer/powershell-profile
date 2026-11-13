@@ -25,7 +25,7 @@ function _Set-SelectedWallpaper([string]$originalPath, [string]$displayName) {
     Set-ScriptConfig "wallpaper" "name" ([System.IO.Path]::GetFileName($originalPath))
 
     $themeName = Get-ScriptConfig "theme" "palette"
-    if (-not $themeName) { $themeName = "catppuccin_mocha" }
+    if (-not $themeName) { $themeName = "gruvbox" } # the profile's default theme
 
     $scheme = Get-Theme $themeName
     $hasLutgen = Find-Tool lutgen

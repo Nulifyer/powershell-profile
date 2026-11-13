@@ -1,4 +1,10 @@
 #.ALIAS theme-audit
+#.HELP Usage: theme-audit [theme]
+#.HELP
+#.HELP Checks that every themed app (terminals, VS Code, File Pilot, browsers,
+#.HELP the Windows accent, Karchy, the wallpaper palette) uses the theme's colors.
+#.HELP   theme-audit           check the active theme
+#.HELP   theme-audit gruvbox   check against gruvbox
 <#
 .SYNOPSIS
     Audit system colors against the selected theme.
@@ -22,10 +28,11 @@ $c = Get-Colors
 # -- Determine target theme --------------------------------------------------
 
 $parsed = Parse-Args $args @{}
+if ($parsed._help) { Show-Help; exit 0 }
 $themeName = $parsed._positional | Select-Object -First 1
 if (-not $themeName) {
     $themeName = Get-ScriptConfig "theme" "palette"
-    if (-not $themeName) { $themeName = "catppuccin_mocha" }
+    if (-not $themeName) { $themeName = "gruvbox" } # the profile's default theme
 }
 
 $theme = Get-Theme $themeName

@@ -1,4 +1,12 @@
 #.ALIAS theme-contrast
+#.HELP Usage: theme-contrast [theme] [--all] [--ratio <n>]
+#.HELP
+#.HELP Checks theme color pairs (terminal, prompt, VS Code, File Pilot) against the
+#.HELP WCAG contrast ratio.
+#.HELP   theme-contrast             check the active theme
+#.HELP   theme-contrast gruvbox     check one theme
+#.HELP   theme-contrast --all       check every theme
+#.HELP   --ratio <n>                required ratio (default 4.5)
 <#
 .SYNOPSIS
     Audit theme colors for WCAG contrast compliance.
@@ -256,6 +264,7 @@ $parsed = Parse-Args $args @{
     "all"   = @{ Type = "switch"; Aliases = @("all", "a") }
     "ratio" = @{ Type = "value";  Aliases = @("ratio", "r"); Default = $null }
 }
+if ($parsed._help) { Show-Help; exit 0 }
 
 if ($parsed.ratio) {
     $script:RequiredRatio = [double]$parsed.ratio
@@ -269,7 +278,7 @@ if ($parsed.all) {
     $name = $parsed._positional | Select-Object -First 1
     if (-not $name) {
         $name = Get-ScriptConfig "theme" "palette"
-        if (-not $name) { $name = "catppuccin_mocha" }
+        if (-not $name) { $name = "gruvbox" } # the profile's default theme
     }
     $themeNames = @($name)
 }
