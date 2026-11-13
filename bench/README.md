@@ -40,7 +40,7 @@ uses) and records, per launch:
 Presses the hotkey (`-combo`, default `ctrl+alt+p`) with `SendInput`, then
 polls until the window (`-class`, or `-title`) is visible and in the
 foreground. It then types `-type` one character at a time and waits until the
-window title shows the query (projpick publishes `projpick [query] count` in
+window title shows the query (projpick publishes `projpick [query] count selected` in
 its title for this), and finally presses Esc.
 
 - `-high` runs the harness at high priority so CPU load measures the target,

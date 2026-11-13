@@ -377,7 +377,8 @@ fn foldQuery(buf: *[256]u16) []const u16 {
     return buf[0..n_out];
 }
 
-/// Window title carries the state for automation/benchmarks: "projpick [query] count".
+/// Window title carries the state for automation/benchmarks:
+/// "projpick [query] count selected" (selected is the 0-based result index).
 fn updateTitle() void {
     var t: [320]u16 = undefined;
     var n: usize = 0;
@@ -390,7 +391,7 @@ fn updateTitle() void {
     t[n] = ']';
     n += 1;
     var num: [16]u8 = undefined;
-    const ns = std.fmt.bufPrint(&num, " {d}", .{app.results.items.len}) catch "";
+    const ns = std.fmt.bufPrint(&num, " {d} {d}", .{ app.results.items.len, app.sel }) catch "";
     for (ns) |c| {
         t[n] = c;
         n += 1;
@@ -628,6 +629,7 @@ fn move(delta: isize) void {
     const next = std.math.clamp(cur + delta, 0, @as(isize, @intCast(n - 1)));
     app.sel = @intCast(next);
     ensureVisible();
+    updateTitle();
     redraw();
 }
 
@@ -1127,6 +1129,7 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
         w.WM_LBUTTONDOWN => {
             if (rowAt(lp)) |i| {
                 app.sel = i;
+                updateTitle();
                 redraw();
             }
             return 0;
