@@ -343,7 +343,8 @@ try {
     try {
         if ($state.decisions[$pathKey] -eq 'on') {
             $state.userPath = Sync-WinGetUserPath -Owned @($state.userPath)
-            Write-Step ok "winget tool folders on your user PATH ($(@($state.userPath).Count))"
+            # (count the folders, not just the entries this sync added: some may have been there already)
+            Write-Step ok "winget tool folders on your user PATH ($((Get-WinGetToolDirs).Count))"
         } elseif (@($state.userPath).Count -gt 0) {
             $state.userPath = Sync-WinGetUserPath -Owned @($state.userPath) -Remove
             Write-Step ok 'Removed winget tool folders from your user PATH'
