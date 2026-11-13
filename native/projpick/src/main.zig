@@ -33,6 +33,7 @@ const WM_APP_SHOW = w.WM_APP + 1;
 const WM_APP_INDEX = w.WM_APP + 2;
 const WM_APP_QUIT = w.WM_APP + 3;
 const WM_APP_ANCHOR = w.WM_APP + 4;
+const WM_APP_RELEASE = w.WM_APP + 5;
 const TIMER_PREWARM = 2;
 
 // -- configuration ---------------------------------------------------------------
@@ -217,7 +218,11 @@ const App = struct {
     mem_w: i32 = 0,
     mem_h: i32 = 0,
     prev_fg: w.HWND = null,
-    anchor: w.HWND = null, // PowerToys build: activation target, see createAnchor
+    anchor: w.HWND = null, // activation target for PowerToys, see createAnchor
+    closing_to: w.HWND = null, // set when the shortcut closes an open picker
+    closing: bool = false,
+    focused: bool = false, // the picker holds the foreground
+    self_hiding: bool = false, // hide() is hiding the picker
     last_scan_tick: u64 = 0,
     scanning: std.atomic.Value(bool) = .init(false), // shared with the scan thread
     autostart: bool = false,
@@ -622,7 +627,8 @@ fn targetMonitor() w.HMONITOR {
 }
 
 fn focusSelf() void {
-    if (w.SetForegroundWindow(app.hwnd) != 0 and w.GetForegroundWindow() == app.hwnd) return;
+    app.focused = w.SetForegroundWindow(app.hwnd) != 0 and w.GetForegroundWindow() == app.hwnd;
+    if (app.focused) return;
     // Windows' foreground lock refused us. projpick never synthesizes input to
     // get around it: the window stays shown and topmost, and a click focuses it.
     util.log("focus refused", .{});
@@ -643,20 +649,62 @@ fn show() void {
 /// The picker is hidden between summons, so a zero-size window stands in:
 /// nothing to see or click, not in Alt+Tab. When PowerToys activates it, this
 /// process holds the foreground and shows the picker.
-/// WS_EX_NOACTIVATE keeps Windows from activating it when the picker hides;
-/// an anchor left in the foreground would make PowerToys skip the next summon.
+/// An anchor left in the foreground would make PowerToys skip the next press,
+/// so it never keeps it: hide() hands focus back before hiding, and an
+/// activation during our own hide is released (WM_APP_RELEASE).
+/// The anchor owns the picker window, so PowerToys (which looks for unowned
+/// windows) always activates the anchor, also while the picker is open. That
+/// is how the shortcut closes an open picker: see WM_ACTIVATE.
 fn createAnchor(inst: w.HINSTANCE) void {
     const wc = w.WNDCLASSEXW{ .lpfnWndProc = wndProc, .hInstance = inst, .lpszClassName = anchor_class };
     if (w.RegisterClassExW(&wc) == 0) return;
-    app.anchor = w.CreateWindowExW(w.WS_EX_TOOLWINDOW | w.WS_EX_NOACTIVATE, anchor_class, L("projpick"), w.WS_POPUP | w.WS_VISIBLE, 0, 0, 0, 0, null, null, inst, null);
-    if (app.anchor == null) util.log("anchor window not created; PowerToys summons won't take focus", .{});
+    app.anchor = w.CreateWindowExW(w.WS_EX_TOOLWINDOW, anchor_class, L("projpick"), w.WS_POPUP, 0, 0, 0, 0, null, null, inst, null);
+    if (app.anchor == null) {
+        util.log("anchor window not created; PowerToys summons won't take focus", .{});
+        return;
+    }
+    // Shown without activation: created visible, it would take the foreground
+    // that a just-started process holds, and PowerToys would then treat the
+    // next press as already done.
+    _ = w.ShowWindow(app.anchor, w.SW_SHOWNA);
 }
 
 /// The anchor was activated (prev: the window that lost activation).
 fn showFromAnchor(prev: w.HWND) void {
+    if (app.closing) {
+        // The shortcut was pressed while the picker had focus: it closed.
+        app.closing = false;
+        const back = app.closing_to;
+        app.closing_to = null;
+        // The anchor must not keep the foreground (see WM_APP_RELEASE).
+        if (back == null or w.SetForegroundWindow(back) == 0) _ = w.SetForegroundWindow(w.GetShellWindow());
+        return;
+    }
+    // Windows passes no previous window when it was in another thread; the
+    // app that was in front is then the next window below the anchor.
+    app.prev_fg = prev orelse windowBelow(app.anchor);
     if (w.IsWindowVisible(app.hwnd) != 0) return focusSelf();
-    app.prev_fg = prev;
     present();
+}
+
+/// First window under `h` in Z order that a person would call an app window:
+/// visible, unowned, not a tool window, not minimized or cloaked, not ours.
+fn windowBelow(h: w.HWND) w.HWND {
+    const me = w.GetCurrentProcessId();
+    var it = w.GetWindow(h, w.GW_HWNDNEXT);
+    var n: u32 = 0;
+    while (it != null and n < 256) : (n += 1) {
+        defer it = w.GetWindow(it, w.GW_HWNDNEXT);
+        if (w.IsWindowVisible(it) == 0 or w.IsIconic(it) != 0 or w.GetWindow(it, w.GW_OWNER) != null) continue;
+        if ((w.GetWindowLongPtrW(it, w.GWL_EXSTYLE) & @as(isize, w.WS_EX_TOOLWINDOW)) != 0) continue;
+        var cloaked: w.DWORD = 0;
+        if (w.DwmGetWindowAttribute(it, w.DWMWA_CLOAKED, &cloaked, 4) == 0 and cloaked != 0) continue;
+        var pid: w.DWORD = 0;
+        _ = w.GetWindowThreadProcessId(it, &pid);
+        if (pid == me) continue;
+        return it;
+    }
+    return null;
 }
 
 fn present() void {
@@ -694,14 +742,20 @@ fn present() void {
 }
 
 fn hide(restore_focus: bool) void {
+    // Hand focus back first: hiding the active picker would otherwise pass
+    // activation to its owner, the anchor (see WM_ACTIVATE).
+    const prev = app.prev_fg;
+    app.prev_fg = null;
+    app.focused = false;
+    if (restore_focus and prev != null) _ = w.SetForegroundWindow(prev);
+    app.self_hiding = true;
     _ = w.ShowWindow(app.hwnd, w.SW_HIDE);
+    app.self_hiding = false;
     if (app.debug and app.keys > 0) util.log("hide: {d} keys, handler avg {d:.3} ms, max {d:.3} ms, paint max {d:.3} ms", .{ app.keys, app.key_sum_ms / @as(f64, @floatFromInt(app.keys)), app.key_max_ms, app.paint_max_ms });
     app.paint_max_ms = 0;
     app.keys = 0;
     app.key_sum_ms = 0;
     app.key_max_ms = 0;
-    if (restore_focus and app.prev_fg != null) _ = w.SetForegroundWindow(app.prev_fg);
-    app.prev_fg = null;
 }
 
 // -- actions ------------------------------------------------------------------------
@@ -1044,6 +1098,10 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
             if (w.IsWindowVisible(hwnd) != 0) redraw();
             return 0;
         },
+        WM_APP_RELEASE => {
+            if (w.GetForegroundWindow() == app.anchor) _ = w.SetForegroundWindow(w.GetShellWindow());
+            return 0;
+        },
         WM_APP_ANCHOR => {
             showFromAnchor(@ptrFromInt(@as(usize, @bitCast(lp))));
             return 0;
@@ -1065,10 +1123,27 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
         },
         w.WM_ACTIVATE => {
             const active = (wp & 0xFFFF) != w.WA_INACTIVE;
+            if (app.debug) util.log("WM_ACTIVATE {s} active={} self_hiding={}", .{ if (hwnd == app.anchor) "anchor" else "picker", active, app.self_hiding });
             if (hwnd == app.anchor) {
-                // Show after activation finishes; lp is the window that lost it.
-                if (active) _ = w.PostMessageW(app.hwnd, WM_APP_ANCHOR, 0, lp);
-            } else if (!active and w.IsWindowVisible(hwnd) != 0) hide(false);
+                // Activated by our own hide (owner fallback): not a summon, and
+                // the anchor must not keep the foreground or PowerToys would
+                // treat the next press as already done. Otherwise PowerToys
+                // activated it: show after activation finishes; lp is the
+                // window that lost it.
+                if (active) _ = w.PostMessageW(app.hwnd, if (app.self_hiding) WM_APP_RELEASE else WM_APP_ANCHOR, 0, lp);
+            } else if (!active and w.IsWindowVisible(hwnd) != 0 and !app.self_hiding) {
+                // lp is the window being activated. The anchor means PowerToys
+                // handled the shortcut while the picker was open. If the picker
+                // had focus, the press closes it and focus goes back where it
+                // came from. If it was shown without focus, the press is meant
+                // to focus it: keep it, and the anchor handler focuses it.
+                if (app.anchor != null and @as(w.HWND, @ptrFromInt(@as(usize, @bitCast(lp)))) == app.anchor) {
+                    if (!app.focused) return 0;
+                    app.closing = true;
+                    app.closing_to = app.prev_fg;
+                }
+                hide(false);
+            }
             return 0;
         },
         w.WM_KEYDOWN, w.WM_SYSKEYDOWN => {
@@ -1168,10 +1243,10 @@ fn runDaemon(show_now: bool, autostart: bool) u8 {
     const inst = w.GetModuleHandleW(null);
     const wc = w.WNDCLASSEXW{ .style = w.CS_DBLCLKS, .lpfnWndProc = wndProc, .hInstance = inst, .hCursor = w.LoadCursorW(null, w.IDC_ARROW), .lpszClassName = class_name };
     if (w.RegisterClassExW(&wc) == 0) return 1;
-    app.hwnd = w.CreateWindowExW(w.WS_EX_TOOLWINDOW | w.WS_EX_TOPMOST, class_name, L("projpick [] 0"), w.WS_POPUP, 0, 0, 720, 480, null, null, inst, null);
+    createAnchor(inst);
+    app.hwnd = w.CreateWindowExW(w.WS_EX_TOOLWINDOW | w.WS_EX_TOPMOST, class_name, L("projpick [] 0"), w.WS_POPUP, 0, 0, 720, 480, app.anchor, null, inst, null);
     if (app.hwnd == null) return 1;
     applyDwm();
-    createAnchor(inst);
 
     // The persisted index makes the first summon instant; a rescan follows.
     const tsv = util.dataFile("projects.tsv");

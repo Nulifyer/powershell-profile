@@ -161,14 +161,13 @@ pub const WA_INACTIVE = 0;
 
 // Window styles
 pub const WS_POPUP: DWORD = 0x80000000;
-pub const WS_VISIBLE: DWORD = 0x10000000;
 pub const WS_CLIPCHILDREN: DWORD = 0x02000000;
 pub const WS_EX_TOPMOST: DWORD = 0x00000008;
 pub const WS_EX_TOOLWINDOW: DWORD = 0x00000080;
-pub const WS_EX_NOACTIVATE: DWORD = 0x08000000;
 pub const CS_DBLCLKS: UINT = 0x0008;
 
 pub const SW_HIDE = 0;
+pub const SW_SHOWNA = 8;
 pub const SW_SHOWNORMAL = 1;
 pub const SW_SHOW = 5;
 pub const SWP_NOSIZE: UINT = 0x0001;
@@ -261,6 +260,10 @@ pub const MB_SETFOREGROUND: UINT = 0x10000;
 pub const DWMWA_TRANSITIONS_FORCEDISABLED: DWORD = 3;
 pub const DWMWA_WINDOW_CORNER_PREFERENCE: DWORD = 33;
 pub const DWMWA_BORDER_COLOR: DWORD = 34;
+pub const DWMWA_CLOAKED: DWORD = 14;
+pub const GW_HWNDNEXT: UINT = 2;
+pub const GW_OWNER: UINT = 4;
+pub const GWL_EXSTYLE: i32 = -20;
 pub const DWMWCP_ROUND: DWORD = 2;
 
 // kernel32
@@ -322,6 +325,7 @@ pub extern "user32" fn ShowWindow(h: HWND, cmd: i32) callconv(.winapi) BOOL;
 pub extern "user32" fn IsWindowVisible(h: HWND) callconv(.winapi) BOOL;
 pub extern "user32" fn SetForegroundWindow(h: HWND) callconv(.winapi) BOOL;
 pub extern "user32" fn GetForegroundWindow() callconv(.winapi) HWND;
+pub extern "user32" fn GetShellWindow() callconv(.winapi) HWND;
 pub extern "user32" fn BringWindowToTop(h: HWND) callconv(.winapi) BOOL;
 pub extern "user32" fn SetFocus(h: HWND) callconv(.winapi) HWND;
 pub extern "user32" fn SetWindowPos(h: HWND, after: HWND, x: i32, y: i32, cx: i32, cy: i32, flags: UINT) callconv(.winapi) BOOL;
@@ -337,6 +341,9 @@ pub extern "user32" fn KillTimer(h: HWND, id: usize) callconv(.winapi) BOOL;
 pub extern "user32" fn FindWindowW(cls: ?[*:0]const u16, title: ?[*:0]const u16) callconv(.winapi) HWND;
 pub extern "user32" fn SetWindowTextW(h: HWND, t: [*:0]const u16) callconv(.winapi) BOOL;
 pub extern "user32" fn GetWindowThreadProcessId(h: HWND, pid: ?*DWORD) callconv(.winapi) DWORD;
+pub extern "user32" fn GetWindow(h: HWND, cmd: UINT) callconv(.winapi) HWND;
+pub extern "user32" fn GetWindowLongPtrW(h: HWND, index: i32) callconv(.winapi) isize;
+pub extern "user32" fn IsIconic(h: HWND) callconv(.winapi) BOOL;
 pub extern "user32" fn MonitorFromPoint(pt: POINT, flags: DWORD) callconv(.winapi) HMONITOR;
 pub extern "user32" fn MonitorFromWindow(h: HWND, flags: DWORD) callconv(.winapi) HMONITOR;
 pub extern "user32" fn GetMonitorInfoW(m: HMONITOR, mi: *MONITORINFO) callconv(.winapi) BOOL;
@@ -372,6 +379,7 @@ pub extern "gdi32" fn CreateSolidBrush(c: COLORREF) callconv(.winapi) HBRUSH;
 pub extern "imm32" fn ImmDisableIME(thread: DWORD) callconv(.winapi) BOOL;
 pub extern "shcore" fn GetDpiForMonitor(m: HMONITOR, kind: i32, x: *UINT, y: *UINT) callconv(.winapi) i32;
 pub extern "dwmapi" fn DwmSetWindowAttribute(h: HWND, attr: DWORD, val: *const anyopaque, size: DWORD) callconv(.winapi) i32;
+pub extern "dwmapi" fn DwmGetWindowAttribute(h: HWND, attr: DWORD, val: *anyopaque, size: DWORD) callconv(.winapi) i32;
 pub extern "shell32" fn ShellExecuteW(h: HWND, op: ?[*:0]const u16, file: [*:0]const u16, params: ?[*:0]const u16, dir: ?[*:0]const u16, show: i32) callconv(.winapi) HINSTANCE;
 pub extern "shell32" fn CommandLineToArgvW(cmd: [*:0]const u16, argc: *i32) callconv(.winapi) ?[*][*:0]u16;
 pub extern "advapi32" fn RegOpenKeyExW(key: HKEY, sub: [*:0]const u16, opts: DWORD, sam: DWORD, out: *HKEY) callconv(.winapi) i32;
