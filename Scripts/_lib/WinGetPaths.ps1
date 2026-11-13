@@ -37,7 +37,8 @@ function Get-WinGetToolDirs {
                     if ([IO.Directory]::EnumerateFiles($dir, '*.exe').GetEnumerator().MoveNext()) { $dirs.Add($dir) }
                     if ($depth -lt 2) {
                         foreach ($sub in [IO.Directory]::GetDirectories($dir)) {
-                            if (([IO.File]::GetAttributes($sub) -band [IO.FileAttributes]::ReparsePoint) -eq 0) { $queue.Enqueue(@($sub, $depth + 1)) }
+                            # (parentheses: a bare `$sub, $depth + 1` parses as ($sub, $depth) + 1)
+                            if (([IO.File]::GetAttributes($sub) -band [IO.FileAttributes]::ReparsePoint) -eq 0) { $queue.Enqueue(@($sub, ($depth + 1))) }
                         }
                     }
                 } catch {}
