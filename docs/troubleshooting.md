@@ -8,7 +8,7 @@ Your terminal font isn't a Nerd Font. Run `font --install`, then `font` to selec
 
 ### `Ctrl+Alt+P` does nothing
 
-See [If the hotkey doesn't work](project-picker.md#if-the-hotkey-doesnt-work).
+See [If Ctrl+Alt+P doesn't work](project-picker.md#if-ctrlaltp-doesnt-work).
 
 ### A tool installed with winget isn't found
 

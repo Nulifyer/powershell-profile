@@ -1,13 +1,13 @@
 //! projpick — a resident project picker for Windows.
 //!
-//! Why it is built this way (the failure modes of the previous picker):
-//!   - The hotkey is a RegisterHotKey registration, not a low-level keyboard
-//!     hook. The system matches it, so it cannot time out and be silently
-//!     unhooked, it still fires over elevated windows, and a conflicting
-//!     registration is reported instead of failing quietly.
+//! How it is built:
+//!   - It never watches the keyboard. PowerToys Keyboard Manager owns the
+//!     shortcut (profile-setup registers it) and hands the summon over; see
+//!     createAnchor. projpick has no global hotkey, keyboard hook or
+//!     synthesized input, which endpoint protection reads as keylogging.
 //!   - The window is created once at logon and only shown/hidden. A summon
 //!     spawns no process, starts no terminal, and runs no scan: the index is
-//!     in memory, and WM_HOTKEY grants this process the foreground.
+//!     in memory.
 //!   - Rescans run on a background thread and swap the index in when done.
 //!
 //! Usage:
@@ -24,15 +24,15 @@ const index = @import("index.zig");
 
 const gpa = util.gpa;
 const L = w.L;
-const version = "1.0.0";
+const version = "2.0.0";
 
 const class_name = L("ProjPickWindow");
+const anchor_class = L("ProjPickAnchor");
 const mutex_name = L("Local\\projpick-daemon");
 const WM_APP_SHOW = w.WM_APP + 1;
 const WM_APP_INDEX = w.WM_APP + 2;
 const WM_APP_QUIT = w.WM_APP + 3;
-const HOTKEY_ID = 1;
-const TIMER_HOTKEY_RETRY = 1;
+const WM_APP_ANCHOR = w.WM_APP + 4;
 const TIMER_PREWARM = 2;
 
 // -- configuration ---------------------------------------------------------------
@@ -48,9 +48,6 @@ const Theme = struct {
 };
 
 const Config = struct {
-    mods: u32 = w.MOD_CONTROL | w.MOD_ALT,
-    vk: u32 = 'P',
-    hotkey_text: []const u16 = L("Ctrl+Alt+P"),
     editor: []const u16 = L("code"),
     terminal: []const u16 = L("wt.exe -d \"{path}\""),
     projects_root: []const u16 = &.{},
@@ -65,10 +62,8 @@ const Config = struct {
 
 const config_template =
     \\# projpick configuration. Restart with `projpick --quit` then `projpick`
-    \\# (or log off and on) after changing the hotkey.
-    \\
-    \\# Global hotkey: Ctrl/Alt/Shift/Win + a letter, digit, F1-F24 or Space.
-    \\hotkey=Ctrl+Alt+P
+    \\# (or log off and on) after changing it. The shortcut that opens the
+    \\# picker is set in PowerToys Keyboard Manager.
     \\
     \\# Command for Enter. {path} is the project folder; appended if omitted.
     \\# Defaults to %Z_PROJECT_EDITOR% or `code`.
@@ -92,44 +87,13 @@ const config_template =
     \\#monitor=cursor
     \\# Warm the PowerShell runtime in the background after logon (1/0)
     \\#prewarm=1
-    \\# Process priority while waiting for the hotkey: high or normal
+    \\# Process priority while waiting for a summon: high or normal
     \\#priority=normal
     \\
 ;
 
 fn trimSpace(text: []const u8) []const u8 {
     return std.mem.trim(u8, text, " \t\r");
-}
-
-fn parseHotkey(text: []const u8, cfg: *Config) bool {
-    var mods: u32 = 0;
-    var vk: u32 = 0;
-    var it = std.mem.splitScalar(u8, text, '+');
-    while (it.next()) |raw| {
-        const t = trimSpace(raw);
-        if (std.ascii.eqlIgnoreCase(t, "ctrl") or std.ascii.eqlIgnoreCase(t, "control")) {
-            mods |= w.MOD_CONTROL;
-        } else if (std.ascii.eqlIgnoreCase(t, "alt")) {
-            mods |= w.MOD_ALT;
-        } else if (std.ascii.eqlIgnoreCase(t, "shift")) {
-            mods |= w.MOD_SHIFT;
-        } else if (std.ascii.eqlIgnoreCase(t, "win") or std.ascii.eqlIgnoreCase(t, "super")) {
-            mods |= w.MOD_WIN;
-        } else if (std.ascii.eqlIgnoreCase(t, "space")) {
-            vk = w.VK_SPACE;
-        } else if (t.len == 1 and std.ascii.isAlphanumeric(t[0])) {
-            vk = std.ascii.toUpper(t[0]);
-        } else if (t.len >= 2 and (t[0] == 'F' or t[0] == 'f')) {
-            const n = std.fmt.parseInt(u32, t[1..], 10) catch return false;
-            if (n < 1 or n > 24) return false;
-            vk = w.VK_F1 + n - 1;
-        } else return false;
-    }
-    if (vk == 0 or mods == 0) return false;
-    cfg.mods = mods;
-    cfg.vk = vk;
-    cfg.hotkey_text = util.toUtf16(gpa, text) catch cfg.hotkey_text;
-    return true;
 }
 
 fn parseHex(text: []const u8) ?u32 {
@@ -162,7 +126,7 @@ fn loadConfig() Config {
         const key = trimSpace(line[0..eq]);
         const val = trimSpace(line[eq + 1 ..]);
         if (std.ascii.eqlIgnoreCase(key, "hotkey")) {
-            if (!parseHotkey(val, &cfg)) util.log("config: invalid hotkey '{s}', using Ctrl+Alt+P", .{val});
+            util.log("config: hotkey= is no longer used; change the shortcut in PowerToys Keyboard Manager", .{});
         } else if (std.ascii.eqlIgnoreCase(key, "editor") and val.len > 0) {
             cfg.editor = util.toUtf16(gpa, val) catch cfg.editor;
         } else if (std.ascii.eqlIgnoreCase(key, "terminal") and val.len > 0) {
@@ -253,8 +217,7 @@ const App = struct {
     mem_w: i32 = 0,
     mem_h: i32 = 0,
     prev_fg: w.HWND = null,
-    hotkey_ok: bool = false,
-    hotkey_warned: bool = false,
+    anchor: w.HWND = null, // PowerToys build: activation target, see createAnchor
     last_scan_tick: u64 = 0,
     scanning: std.atomic.Value(bool) = .init(false), // shared with the scan thread
     autostart: bool = false,
@@ -660,22 +623,44 @@ fn targetMonitor() w.HMONITOR {
 
 fn focusSelf() void {
     if (w.SetForegroundWindow(app.hwnd) != 0 and w.GetForegroundWindow() == app.hwnd) return;
-    // Rare: the foreground lock refused us (e.g. summoned via CLI from a
-    // background process). Synthesizing an input event makes this process the
-    // last input source, which the lock accepts; VK 0xFF maps to no key.
-    const inputs = [_]w.INPUT{ .{ .ki = .{ .wVk = 0xFF } }, .{ .ki = .{ .wVk = 0xFF, .dwFlags = w.KEYEVENTF_KEYUP } } };
-    _ = w.SendInput(2, &inputs, @sizeOf(w.INPUT));
-    const ok = w.SetForegroundWindow(app.hwnd) != 0;
-    util.log("focus fallback used, ok={}", .{ok and w.GetForegroundWindow() == app.hwnd});
+    // Windows' foreground lock refused us. projpick never synthesizes input to
+    // get around it: the window stays shown and topmost, and a click focuses it.
+    util.log("focus refused", .{});
 }
 
 fn show() void {
-    const t0 = util.qpcMs();
     if (w.IsWindowVisible(app.hwnd) != 0) {
         if (w.GetForegroundWindow() == app.hwnd) return hide(true);
         return focusSelf();
     }
     app.prev_fg = w.GetForegroundWindow();
+    present();
+}
+
+/// Keyboard Manager's "Start App" shortcut, set to "If running: Show Window",
+/// activates the visible unowned window of the running projpick.exe, and only
+/// a visible one gets PowerToys' foreground handoff.
+/// The picker is hidden between summons, so a zero-size window stands in:
+/// nothing to see or click, not in Alt+Tab. When PowerToys activates it, this
+/// process holds the foreground and shows the picker.
+/// WS_EX_NOACTIVATE keeps Windows from activating it when the picker hides;
+/// an anchor left in the foreground would make PowerToys skip the next summon.
+fn createAnchor(inst: w.HINSTANCE) void {
+    const wc = w.WNDCLASSEXW{ .lpfnWndProc = wndProc, .hInstance = inst, .lpszClassName = anchor_class };
+    if (w.RegisterClassExW(&wc) == 0) return;
+    app.anchor = w.CreateWindowExW(w.WS_EX_TOOLWINDOW | w.WS_EX_NOACTIVATE, anchor_class, L("projpick"), w.WS_POPUP | w.WS_VISIBLE, 0, 0, 0, 0, null, null, inst, null);
+    if (app.anchor == null) util.log("anchor window not created; PowerToys summons won't take focus", .{});
+}
+
+/// The anchor was activated (prev: the window that lost activation).
+fn showFromAnchor(prev: w.HWND) void {
+    if (w.IsWindowVisible(app.hwnd) != 0) return focusSelf();
+    app.prev_fg = prev;
+    present();
+}
+
+fn present() void {
+    const t0 = util.qpcMs();
     const tm = util.mtime(app.theme_path);
     if (tm != app.theme_mtime) {
         app.theme_mtime = tm;
@@ -1027,36 +1012,6 @@ fn rowAt(lparam: w.LPARAM) ?usize {
 
 // -- window procedure ------------------------------------------------------------------
 
-fn registerHotkey() void {
-    if (app.hotkey_ok) return;
-    if (w.RegisterHotKey(app.hwnd, HOTKEY_ID, app.cfg.mods | w.MOD_NOREPEAT, app.cfg.vk) != 0) {
-        app.hotkey_ok = true;
-        _ = w.KillTimer(app.hwnd, TIMER_HOTKEY_RETRY);
-        util.log("hotkey {f} registered", .{std.unicode.fmtUtf16Le(app.cfg.hotkey_text)});
-        return;
-    }
-    const err = w.GetLastError();
-    util.log("hotkey {f} unavailable (error {d}); retrying every 10 s", .{ std.unicode.fmtUtf16Le(app.cfg.hotkey_text), err });
-    _ = w.SetTimer(app.hwnd, TIMER_HOTKEY_RETRY, 10_000, null);
-    if (!app.hotkey_warned) {
-        app.hotkey_warned = true;
-        _ = w.CreateThread(null, 0, warnThread, null, 0, null);
-    }
-}
-
-fn warnThread(_: ?*anyopaque) callconv(.winapi) w.DWORD {
-    var buf: [400]u16 = undefined;
-    var n: usize = 0;
-    for ([_][]const u16{ L("The hotkey "), app.cfg.hotkey_text, L(" is already taken by another program, so projpick can't use it yet (it keeps retrying).\n\nTo pick another, edit hotkey= in %APPDATA%\\projpick\\config.ini and run `projpick --quit`, then `projpick`.") }) |part| {
-        const m = @min(part.len, buf.len - 1 - n);
-        @memcpy(buf[n .. n + m], part[0..m]);
-        n += m;
-    }
-    buf[n] = 0;
-    _ = w.MessageBoxW(null, buf[0..n :0], L("projpick"), w.MB_OK | w.MB_ICONWARNING | w.MB_SETFOREGROUND);
-    return 0;
-}
-
 fn prewarm() void {
     // After logon the first PowerShell start pays for reading and scanning its
     // runtime. Do that once now, idle priority, so the first terminal doesn't.
@@ -1078,10 +1033,6 @@ fn prewarm() void {
 
 fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.winapi) w.LRESULT {
     switch (msg) {
-        w.WM_HOTKEY => {
-            if (wp == HOTKEY_ID) show();
-            return 0;
-        },
         WM_APP_SHOW => {
             show();
             return 0;
@@ -1093,6 +1044,10 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
             if (w.IsWindowVisible(hwnd) != 0) redraw();
             return 0;
         },
+        WM_APP_ANCHOR => {
+            showFromAnchor(@ptrFromInt(@as(usize, @bitCast(lp))));
+            return 0;
+        },
         WM_APP_QUIT, w.WM_CLOSE => {
             _ = w.DestroyWindow(hwnd);
             return 0;
@@ -1102,7 +1057,6 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
             return 0;
         },
         w.WM_TIMER => {
-            if (wp == TIMER_HOTKEY_RETRY) registerHotkey();
             if (wp == TIMER_PREWARM) {
                 _ = w.KillTimer(hwnd, TIMER_PREWARM);
                 prewarm();
@@ -1110,7 +1064,11 @@ fn wndProc(hwnd: w.HWND, msg: w.UINT, wp: w.WPARAM, lp: w.LPARAM) callconv(.wina
             return 0;
         },
         w.WM_ACTIVATE => {
-            if ((wp & 0xFFFF) == w.WA_INACTIVE and w.IsWindowVisible(hwnd) != 0) hide(false);
+            const active = (wp & 0xFFFF) != w.WA_INACTIVE;
+            if (hwnd == app.anchor) {
+                // Show after activation finishes; lp is the window that lost it.
+                if (active) _ = w.PostMessageW(app.hwnd, WM_APP_ANCHOR, 0, lp);
+            } else if (!active and w.IsWindowVisible(hwnd) != 0) hide(false);
             return 0;
         },
         w.WM_KEYDOWN, w.WM_SYSKEYDOWN => {
@@ -1197,7 +1155,7 @@ fn runDaemon(show_now: bool, autostart: bool) u8 {
     app.home = util.env(gpa, "USERPROFILE") orelse (util.dupZ(gpa, L("C:\\")) catch return 1);
     app.cfg = loadConfig();
     // Measured with 8 busy threads on 4 cores: summons stay under 5 ms p99 at
-    // normal priority (Windows boosts the thread that receives the hotkey),
+    // normal priority (Windows boosts the thread that receives the summon),
     // so high priority is opt-in only.
     if (app.cfg.high_priority) _ = w.SetPriorityClass(w.GetCurrentProcess(), w.HIGH_PRIORITY_CLASS);
     app.theme_path = util.dataFile("theme.ini");
@@ -1213,7 +1171,7 @@ fn runDaemon(show_now: bool, autostart: bool) u8 {
     app.hwnd = w.CreateWindowExW(w.WS_EX_TOOLWINDOW | w.WS_EX_TOPMOST, class_name, L("projpick [] 0"), w.WS_POPUP, 0, 0, 720, 480, null, null, inst, null);
     if (app.hwnd == null) return 1;
     applyDwm();
-    registerHotkey();
+    createAnchor(inst);
 
     // The persisted index makes the first summon instant; a rescan follows.
     const tsv = util.dataFile("projects.tsv");

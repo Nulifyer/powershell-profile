@@ -127,22 +127,6 @@ pub const PROCESS_INFORMATION = extern struct {
     dwThreadId: DWORD = 0,
 };
 
-pub const KEYBDINPUT = extern struct {
-    wVk: WORD = 0,
-    wScan: WORD = 0,
-    dwFlags: DWORD = 0,
-    time: DWORD = 0,
-    dwExtraInfo: usize = 0,
-};
-
-/// INPUT with the keyboard member; padded to the size of the union's largest
-/// member (MOUSEINPUT, 32 bytes on x64).
-pub const INPUT = extern struct {
-    type: DWORD = 1,
-    ki: KEYBDINPUT = .{},
-    _pad: [8]u8 = @splat(0),
-};
-
 pub const SYSTEMTIME = extern struct {
     wYear: WORD = 0,
     wMonth: WORD = 0,
@@ -171,16 +155,17 @@ pub const WM_MOUSEMOVE = 0x0200;
 pub const WM_LBUTTONDOWN = 0x0201;
 pub const WM_LBUTTONDBLCLK = 0x0203;
 pub const WM_MOUSEWHEEL = 0x020A;
-pub const WM_HOTKEY = 0x0312;
 pub const WM_DPICHANGED = 0x02E0;
 pub const WM_APP = 0x8000;
 pub const WA_INACTIVE = 0;
 
 // Window styles
 pub const WS_POPUP: DWORD = 0x80000000;
+pub const WS_VISIBLE: DWORD = 0x10000000;
 pub const WS_CLIPCHILDREN: DWORD = 0x02000000;
 pub const WS_EX_TOPMOST: DWORD = 0x00000008;
 pub const WS_EX_TOOLWINDOW: DWORD = 0x00000080;
+pub const WS_EX_NOACTIVATE: DWORD = 0x08000000;
 pub const CS_DBLCLKS: UINT = 0x0008;
 
 pub const SW_HIDE = 0;
@@ -192,12 +177,6 @@ pub const SWP_NOACTIVATE: UINT = 0x0010;
 pub const SWP_SHOWWINDOW: UINT = 0x0040;
 pub const HWND_TOPMOST: HWND = @ptrFromInt(~@as(usize, 0)); // (HWND)-1
 
-pub const MOD_ALT: UINT = 0x0001;
-pub const MOD_CONTROL: UINT = 0x0002;
-pub const MOD_SHIFT: UINT = 0x0004;
-pub const MOD_WIN: UINT = 0x0008;
-pub const MOD_NOREPEAT: UINT = 0x4000;
-
 pub const VK_BACK = 0x08;
 pub const VK_TAB = 0x09;
 pub const VK_RETURN = 0x0D;
@@ -205,15 +184,12 @@ pub const VK_SHIFT = 0x10;
 pub const VK_CONTROL = 0x11;
 pub const VK_MENU = 0x12;
 pub const VK_ESCAPE = 0x1B;
-pub const VK_SPACE = 0x20;
 pub const VK_PRIOR = 0x21;
 pub const VK_NEXT = 0x22;
 pub const VK_END = 0x23;
 pub const VK_HOME = 0x24;
 pub const VK_UP = 0x26;
 pub const VK_DOWN = 0x28;
-pub const VK_F1 = 0x70;
-pub const KEYEVENTF_KEYUP: DWORD = 0x0002;
 
 pub const MONITOR_DEFAULTTONEAREST: DWORD = 2;
 pub const MONITOR_DEFAULTTOPRIMARY: DWORD = 1;
@@ -356,8 +332,6 @@ pub extern "user32" fn EndPaint(h: HWND, ps: *const PAINTSTRUCT) callconv(.winap
 pub extern "user32" fn GetDC(h: HWND) callconv(.winapi) HDC;
 pub extern "user32" fn ReleaseDC(h: HWND, dc: HDC) callconv(.winapi) i32;
 pub extern "user32" fn FillRect(dc: HDC, r: *const RECT, b: HBRUSH) callconv(.winapi) i32;
-pub extern "user32" fn RegisterHotKey(h: HWND, id: i32, mods: UINT, vk: UINT) callconv(.winapi) BOOL;
-pub extern "user32" fn UnregisterHotKey(h: HWND, id: i32) callconv(.winapi) BOOL;
 pub extern "user32" fn SetTimer(h: HWND, id: usize, ms: UINT, f: ?*anyopaque) callconv(.winapi) usize;
 pub extern "user32" fn KillTimer(h: HWND, id: usize) callconv(.winapi) BOOL;
 pub extern "user32" fn FindWindowW(cls: ?[*:0]const u16, title: ?[*:0]const u16) callconv(.winapi) HWND;
@@ -377,7 +351,6 @@ pub extern "user32" fn EmptyClipboard() callconv(.winapi) BOOL;
 pub extern "user32" fn SetClipboardData(fmt: UINT, h: HANDLE) callconv(.winapi) HANDLE;
 pub extern "user32" fn GetClipboardData(fmt: UINT) callconv(.winapi) HANDLE;
 pub extern "user32" fn AllowSetForegroundWindow(pid: DWORD) callconv(.winapi) BOOL;
-pub extern "user32" fn SendInput(n: UINT, inputs: [*]const INPUT, size: i32) callconv(.winapi) UINT;
 pub extern "user32" fn SetCursor(c: HCURSOR) callconv(.winapi) HCURSOR;
 
 // gdi32

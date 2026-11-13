@@ -164,7 +164,7 @@ Details, methodology and tips: [Performance](docs/performance.md).
 1. On startup the profile reads a small cache of everything slow to discover: tool locations, theme colors, script aliases, the merged PATH. It rebuilds that cache only when something changes, such as a pull, a theme change or a tool install.
 2. It never runs a program, searches for a command, or loads an extra module while starting. Completions load on first <kbd>Tab</kbd>, and common modules load while you read the prompt.
 3. When the repo's commit changes, the first terminal runs `profile-setup` to build, install and clean up whatever the new version needs.
-4. The project picker is a small resident program. It registers its hotkey with Windows, keeps its window and project list ready in memory, and only shows and hides.
+4. The project picker is a small resident program. PowerToys Keyboard Manager owns its shortcut; the picker keeps its window and project list ready in memory, and only shows and hides.
 
 
 

@@ -22,10 +22,10 @@ About 385 ms of every start is PowerShell itself. The profile adds about 200 ms 
 
 | | Previous (Karchy) | Now |
 |---|---|---|
-| Hotkey → window visible and focused, idle | 516 – 707 ms | **3.3 ms** median, 4.5 ms p99, 0 misses in 100 |
-| Same, all CPU cores busy | | **2.6 ms** median, 3.7 ms p99, 0 misses in 60 |
-| With an administrator window focused | 10 of 10 missed | **20 of 20**, 2.7 ms median |
+| Shortcut → window visible and focused, idle | 516 – 707 ms | **52 ms** mean, focused in 28 of 30 |
 | Keystroke → filtered list | | **5.2 ms** median, 8.2 ms p99 |
+
+The shortcut goes through PowerToys Keyboard Manager (see [How the shortcut works](project-picker.md#how-the-shortcut-works)), measured in a VM without a GPU. An earlier version registered its own hotkey and opened in 3.3 ms, but endpoint protection flagged it as a keylogger.
 
 The harness that produced these numbers is in [`bench/`](../bench/README.md).
 

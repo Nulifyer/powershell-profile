@@ -31,7 +31,8 @@ The picker ([Project picker](project-picker.md)) is built from source on your ma
 
 - uses `zig` from your PATH if it's version 0.17.x;
 - otherwise downloads Zig 0.17.1 once (about 100 MB) into `%LOCALAPPDATA%\pwsh-profile\zig`, checks it against its published checksum, and uses it from there. It doesn't add Zig to your PATH;
-- builds `bin\projpick.exe` in the profile folder (git ignores that folder), registers it to start at sign-in, and starts it.
+- builds `bin\projpick.exe` in the profile folder (git ignores that folder), registers it to start at sign-in, and starts it;
+- sets up PowerToys Keyboard Manager to open it with <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> (see [How the shortcut works](project-picker.md#how-the-shortcut-works)).
 
 The first build takes about a minute. After that, setup only rebuilds when the picker's source changes, in about 10 seconds.
 

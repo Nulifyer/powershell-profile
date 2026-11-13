@@ -4,7 +4,7 @@ Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> in any app to open a list of e
 
 ![The project picker](images/project-picker.png)
 
-The picker opens in about 3 ms. It also works while an administrator window has focus, and when the computer is busy.
+The shortcut runs through [PowerToys](https://learn.microsoft.com/windows/powertoys/) Keyboard Manager, which `profile-setup` sets up for you (see [How the shortcut works](#how-the-shortcut-works)). The picker opens in about 50 ms.
 
 ## Opening projects
 
@@ -53,7 +53,6 @@ projpick --quit; projpick
 
 | Setting | Default | Meaning |
 |---------|---------|---------|
-| `hotkey` | `Ctrl+Alt+P` | Any of Ctrl, Alt, Shift, Win plus a letter, digit, F1–F24 or Space |
 | `editor` | `%Z_PROJECT_EDITOR%`, else `code` | Command for <kbd>Enter</kbd>. `{path}` is replaced with the project folder; if it's missing, the folder is added at the end. Example: `editor=nvim-qt "{path}"` |
 | `terminal` | `wt.exe -d "{path}"` | Command for <kbd>Ctrl</kbd>+<kbd>E</kbd> |
 | `projects` | `%Z_PROJECTS_ROOT%`, else `~\Projects` | Folder whose subfolders are all projects |
@@ -81,16 +80,34 @@ Colors follow your [theme](themes.md) automatically.
 
 To turn the picker off for good, untick **Project picker** in `profile-setup`.
 
-## If the hotkey doesn't work
+## How the shortcut works
 
-- **Another program already uses <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>.** The picker tells you once, with a message box, and keeps trying every 10 seconds in case the other program lets go. Pick another `hotkey=` in the settings file, then restart the picker.
+`projpick.exe` doesn't watch the keyboard: it has no global hotkey, no keyboard hook, and never simulates key presses. Endpoint protection such as CrowdStrike treats those as signs of a keylogger. PowerToys Keyboard Manager, which is signed by Microsoft, owns the shortcut instead.
+
+When you tick **Project picker**, `profile-setup`:
+
+1. installs PowerToys with winget if it's missing;
+2. turns on Keyboard Manager if it's off (PowerToys only reads that setting when it starts, so setup restarts it once);
+3. adds a Keyboard Manager shortcut: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd> → **Start App** `bin\projpick.exe`, **Args** `--show`, **If running** **Show Window**. Your other remaps are kept.
+
+To use different keys, change the shortcut's keys in PowerToys Settings > Keyboard Manager. Setup keeps the keys you choose. Unticking **Project picker** removes the shortcut.
+
+Limits that come from PowerToys:
+
+- The shortcut works only while PowerToys is running. Setup tells you if PowerToys isn't set to start at sign-in (PowerToys > General > **Run at startup**).
+- Over administrator windows it works only when PowerToys runs as administrator.
+- Now and then Windows refuses to hand focus over (2 of 30 presses in testing). The picker still opens on top; click it, or press the shortcut again.
+
+## If Ctrl+Alt+P doesn't work
+
+- **PowerToys isn't running.** Start it, and turn on **Run at startup** in PowerToys > General.
+- **Another remap already uses <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd>.** Setup says so and leaves it alone. Give the picker other keys in Keyboard Manager: **Start App**, **App** `bin\projpick.exe` in the profile folder, **Args** `--show`, **If running** **Show Window**.
 - **The picker isn't running.** Run `projpick`. If it doesn't stay running, check `%LOCALAPPDATA%\projpick\projpick.log`.
 - **It isn't installed.** Run `profile-setup` and tick **Project picker**.
 
-Hotkeys never work on the sign-in screen, the lock screen, or a UAC prompt; Windows doesn't allow it.
+Shortcuts never work on the sign-in screen, the lock screen, or a UAC prompt; Windows doesn't allow it.
 
-## Why it's fast and reliable
+## Why it's fast
 
-- The hotkey is registered with Windows itself (`RegisterHotKey`), not watched by a keyboard hook. Windows can't silently disconnect it, and it works over administrator windows.
 - The window is created once at sign-in and is only shown and hidden. Opening it doesn't start a program or a terminal, and the list is already in memory.
 - The background search runs at low CPU and disk priority, so it never competes with you.

@@ -79,4 +79,4 @@ Windows Terminal asks before pasting more than one line. Choosing *Paste anyway*
 | <kbd>Esc</kbd> | Close |
 | mouse wheel | Scroll |
 
-To use a different hotkey, see [Project picker](project-picker.md#settings).
+To use a different shortcut, see [How the shortcut works](project-picker.md#how-the-shortcut-works).

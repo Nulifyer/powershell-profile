@@ -17,6 +17,7 @@
 . "$PSScriptRoot\_lib\Tui.ps1"
 . "$PSScriptRoot\_lib\ToolCatalog.ps1"
 . "$PSScriptRoot\_lib\VSCodeKeys.ps1"
+. "$PSScriptRoot\_lib\PowerToys.ps1"
 
 $parsed = Parse-Args $args @{
     Auto    = @{ Aliases = @('auto') }
@@ -141,9 +142,18 @@ function Get-Zig {
 $ProjpickExe = [IO.Path]::Combine($Root, 'bin', 'projpick.exe')
 
 function Install-Projpick([hashtable]$State, [bool]$Force) {
+    # The shortcut belongs to PowerToys Keyboard Manager; projpick has no
+    # global hotkey of its own (see Scripts\_lib\PowerToys.ps1).
+    $pt = Find-PowerToys
+    if (-not $pt) {
+        Write-Step run 'Installing PowerToys (the picker shortcut runs through its Keyboard Manager)'
+        $pt = Install-PowerToys
+        if (-not $pt) { throw 'PowerToys is not installed and winget could not install it. Install PowerToys, then run profile-setup.' }
+        Write-Step ok 'Installed PowerToys'
+    }
+
     $hash = Get-SourceHash
-    $needBuild = $Force -or -not [IO.File]::Exists($ProjpickExe) -or $State.projpick.sourceHash -ne $hash
-    if ($needBuild) {
+    if ($Force -or -not [IO.File]::Exists($ProjpickExe) -or $State.projpick.sourceHash -ne $hash) {
         $zig = Get-Zig
         if ([IO.File]::Exists($ProjpickExe)) { & $ProjpickExe --quit | Out-Null }
         Write-Step run "Building project picker with Zig $($zig.Version)"
@@ -160,12 +170,29 @@ function Install-Projpick([hashtable]$State, [bool]$Force) {
     }
     # Registers bin\projpick.exe to start at logon and starts it if needed.
     $null = & $ProjpickExe --install
-    Write-Step ok 'Project picker ready (Ctrl+Alt+P)'
+
+    # The remap goes in first, so a PowerToys restart below loads it.
+    $shortcut = Set-PickerShortcut -Exe $ProjpickExe
+    $kbm = Enable-KeyboardManager -PowerToysExe $pt
+    switch ($kbm) {
+        'enabled' { Write-Step ok 'Turned on PowerToys Keyboard Manager' }
+        'enabled-restarted' { Write-Step ok 'Turned on PowerToys Keyboard Manager (PowerToys restarted)' }
+    }
+    if ($shortcut -eq 'conflict') {
+        Write-Step fail "$PickerKeysText already has another action in PowerToys Keyboard Manager"
+        Write-Step info "Add a Start App shortcut for $ProjpickExe there (Args: --show, If running: Show Window), then run profile-setup."
+    } else {
+        Write-Step ok "Project picker ready ($PickerKeysText, through PowerToys)"
+    }
+    if (-not (Test-PowerToysStartsAtLogon)) {
+        Write-Step info 'PowerToys does not start at sign-in, so the shortcut stops after a restart. Turn on "Run at startup" in PowerToys > General.'
+    }
 }
 
 function Uninstall-Projpick {
     if ([IO.File]::Exists($ProjpickExe)) {
         $null = & $ProjpickExe --uninstall
+        if ((Set-PickerShortcut -Exe $ProjpickExe -Remove) -eq 'removed') { Write-Step ok 'Removed the picker shortcut from PowerToys' }
         Remove-Item -LiteralPath $ProjpickExe -Force -ErrorAction SilentlyContinue
     }
     Write-Step ok 'Project picker removed from logon'
@@ -239,12 +266,19 @@ try {
     $haveWinget = [bool](Find-ToolExe 'winget.exe' $search)
     $items = [System.Collections.Generic.List[hashtable]]::new()
 
-    $pickKey = 'component:projpick'
+    # New key: the picker now goes through PowerToys (installs it, restarts it
+    # once), so earlier answers are asked again.
+    $pickKey = 'component:projpick-powertoys'
     $pickDecision = $state.decisions[$pickKey]
     $pickItems = @()
     if (-not $auto -or -not $pickDecision) {
-        $pickItems += @{ Key = $pickKey; Label = 'Project picker'; Checked = ($pickDecision -ne 'off')
-            Detail = "Ctrl+Alt+P from anywhere; builds bin\projpick.exe (downloads Zig $ZigVersion if needed)" }
+        $havePowerToys = [bool](Find-PowerToys)
+        $canPick = $havePowerToys -or $haveWinget
+        $pickDetail = "Ctrl+Alt+P from anywhere through PowerToys Keyboard Manager; builds bin\projpick.exe (downloads Zig $ZigVersion if needed)"
+        if (-not $havePowerToys) { $pickDetail += $(if ($haveWinget) { '; installs PowerToys with winget' } else { ' — needs PowerToys (install it, or App Installer for winget)' }) }
+        $pickDetail += $(if ($havePowerToys) { '; turns on Keyboard Manager, restarting PowerToys once if needed' } else { '' })
+        $pickItems += @{ Key = $pickKey; Label = 'Project picker'; Checked = ($pickDecision -ne 'off' -and $canPick); Disabled = -not $canPick
+            Detail = $pickDetail }
     }
 
     $pathKey = 'component:winget-path'
